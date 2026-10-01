@@ -7,6 +7,7 @@ export interface AuthUser extends RecordModel {
   name?: string
   avatar?: string
   role?: 'admin' | 'seller' | string
+  mustChangePassword?: boolean
 }
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
   token: string | null
   isLoading: boolean
   isAdmin: boolean
+  mustChangePassword: boolean
   signIn: (email: string, pass: string) => Promise<{ error: Error | null; user?: AuthUser }>
   signOut: () => void
   requestPasswordReset: (email: string) => Promise<{ error: Error | null }>
@@ -21,6 +23,16 @@ interface AuthContextType {
   requestEmailChange: (newEmail: string) => Promise<{ error: Error | null }>
   confirmEmailChange: (token: string, password: string) => Promise<{ error: Error | null }>
   updateProfile: (data: { name?: string }) => Promise<{ error: Error | null; record?: AuthUser }>
+  changePassword: (
+    oldPassword: string,
+    newPassword: string,
+    passwordConfirm: string,
+  ) => Promise<{ error: Error | null; record?: AuthUser }>
+  setFirstPassword: (
+    newPassword: string,
+    passwordConfirm: string,
+  ) => Promise<{ error: Error | null; record?: AuthUser }>
+  refreshAuth: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -104,6 +116,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  const refreshAuth = async () => {
+    try {
+      if (pb.authStore.isValid) {
+        const refreshed = await pb.collection('users').authRefresh()
+        const authUser = refreshed.record as unknown as AuthUser
+        setUser(authUser)
+        setToken(refreshed.token)
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar sessão:', err)
+    }
+  }
+
   const updateProfile = async (data: { name?: string }) => {
     if (!pb.authStore.record?.id) {
       return { error: new Error('Não autenticado') }
@@ -118,8 +143,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  // Alteração de senha quando o usuário já sabe a senha atual (menu Perfil)
+  const changePassword = async (
+    oldPassword: string,
+    newPassword: string,
+    passwordConfirm: string,
+  ) => {
+    if (!pb.authStore.record?.id) {
+      return { error: new Error('Não autenticado') }
+    }
+    try {
+      const updated = await pb.collection('users').update(pb.authStore.record.id, {
+        oldPassword,
+        password: newPassword,
+        passwordConfirm,
+        mustChangePassword: false,
+      })
+      const authUser = updated as unknown as AuthUser
+      setUser(authUser)
+      return { error: null, record: authUser }
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) }
+    }
+  }
+
+  // Definição de nova senha no primeiro acesso (quando mustChangePassword == true)
+  const setFirstPassword = async (newPassword: string, passwordConfirm: string) => {
+    if (!pb.authStore.record?.id) {
+      return { error: new Error('Não autenticado') }
+    }
+    try {
+      const updated = await pb.collection('users').update(pb.authStore.record.id, {
+        password: newPassword,
+        passwordConfirm,
+        mustChangePassword: false,
+      })
+      const authUser = updated as unknown as AuthUser
+      setUser(authUser)
+      return { error: null, record: authUser }
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) }
+    }
+  }
+
   const isAdmin = Boolean(
     user?.role === 'admin' || user?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com',
+  )
+
+  const mustChangePassword = Boolean(
+    user?.mustChangePassword && user?.email?.toLowerCase() !== 'leandro.bertanha@lbertanha.com',
   )
 
   return (
@@ -129,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         isAdmin,
+        mustChangePassword,
         signIn,
         signOut,
         requestPasswordReset,
@@ -136,6 +209,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requestEmailChange,
         confirmEmailChange,
         updateProfile,
+        changePassword,
+        setFirstPassword,
+        refreshAuth,
       }}
     >
       {children}

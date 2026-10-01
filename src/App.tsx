@@ -11,6 +11,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import VerifyEmail from './pages/VerifyEmail'
 import ConfirmEmailChange from './pages/ConfirmEmailChange'
+import SetPassword from './pages/SetPassword'
 
 import Dashboard from './pages/Dashboard'
 import Opportunities from './pages/Opportunities'
@@ -23,9 +24,10 @@ import UserManagement from './pages/UserManagement'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
 
-// Componente para proteger rotas exclusivas de administradores
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAdmin, isLoading } = useAuth()
+// Componente para a rota de primeiro acesso /definir-senha
+// Usuário precisa estar autenticado; se NÃO precisar trocar a senha, vai para /painel
+const FirstAccessRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, mustChangePassword, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -37,6 +39,33 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!mustChangePassword) {
+    return <Navigate to="/painel" replace />
+  }
+
+  return <>{children}</>
+}
+
+// Componente para proteger rotas exclusivas de administradores
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAdmin, mustChangePassword, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0B0E]">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (mustChangePassword) {
+    return <Navigate to="/definir-senha" replace />
   }
 
   if (!isAdmin) {
@@ -46,9 +75,9 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
-// Componente para proteger rotas autenticadas
+// Componente para proteger rotas autenticadas comuns
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth()
+  const { user, mustChangePassword, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -62,12 +91,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />
   }
 
+  // Se o usuário precisa definir nova senha no primeiro acesso, bloqueia navegação para o CRM
+  if (mustChangePassword) {
+    return <Navigate to="/definir-senha" replace />
+  }
+
   return <>{children}</>
 }
 
-// Componente para rotas públicas de auth (redireciona para /painel se já logado)
+// Componente para rotas públicas de auth (redireciona para /painel ou /definir-senha se já logado)
 const UnauthenticatedOnly = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth()
+  const { user, mustChangePassword, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -78,6 +112,9 @@ const UnauthenticatedOnly = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user) {
+    if (mustChangePassword) {
+      return <Navigate to="/definir-senha" replace />
+    }
     return <Navigate to="/painel" replace />
   }
 
@@ -93,6 +130,16 @@ const App = () => (
         <Routes>
           {/* Rota Raiz */}
           <Route path="/" element={<Index />} />
+
+          {/* Rota Protegida de Primeiro Acesso (Definir Nova Senha) */}
+          <Route
+            path="/definir-senha"
+            element={
+              <FirstAccessRoute>
+                <SetPassword />
+              </FirstAccessRoute>
+            }
+          />
 
           {/* Rotas de Autenticação Públicas */}
           <Route

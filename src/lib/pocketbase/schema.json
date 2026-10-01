@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T20:47:39.274Z",
+  "generatedAt": "2026-10-01T20:59:25.743Z",
   "collections": [
     {
       "name": "users",
@@ -44,6 +44,12 @@
           "required": false,
           "system": false,
           "selectValues": ["admin", "seller"]
+        },
+        {
+          "name": "mustChangePassword",
+          "type": "bool",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

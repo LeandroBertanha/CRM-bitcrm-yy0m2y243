@@ -47,6 +47,7 @@ interface UserRecord {
   created?: string
   updated?: string
   verified?: boolean
+  mustChangePassword?: boolean
 }
 
 export default function UserManagement() {
@@ -83,6 +84,7 @@ export default function UserManagement() {
   const [editEmail, setEditEmail] = useState('')
   const [editRole, setEditRole] = useState<'seller' | 'admin'>('seller')
   const [editPassword, setEditPassword] = useState('')
+  const [editMustChangePassword, setEditMustChangePassword] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -118,6 +120,7 @@ export default function UserManagement() {
     setEditEmail(user.email ?? '')
     setEditRole(user.role === 'admin' ? 'admin' : 'seller')
     setEditPassword('')
+    setEditMustChangePassword(Boolean(user.mustChangePassword))
     setEditError(null)
     setEditModalOpen(true)
   }
@@ -170,6 +173,7 @@ export default function UserManagement() {
           email: cleanEmail,
           role: editRole,
           password: cleanPassword || undefined,
+          mustChangePassword: editMustChangePassword,
         },
       })
 
@@ -486,10 +490,17 @@ export default function UserManagement() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Ativo
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Ativo
+                          </span>
+                          {u.mustChangePassword && !isMainAdmin && (
+                            <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                              1º acesso pendente
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 text-gray-400">
@@ -642,10 +653,21 @@ export default function UserManagement() {
                   type="password"
                   placeholder="Nova senha (mínimo 8 caracteres)"
                   value={editPassword}
-                  onChange={(e) => setEditPassword(e.target.value)}
+                  onChange={(e) => {
+                    setEditPassword(e.target.value)
+                    if (e.target.value) {
+                      setEditMustChangePassword(true)
+                    }
+                  }}
                   className="pl-10 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
                 />
               </div>
+              {editPassword && (
+                <p className="text-[11px] text-amber-400/90 pt-1">
+                  Ao definir uma nova senha provisória, o usuário será solicitado a alterá-la no
+                  próximo login.
+                </p>
+              )}
             </div>
 
             <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-end gap-2">

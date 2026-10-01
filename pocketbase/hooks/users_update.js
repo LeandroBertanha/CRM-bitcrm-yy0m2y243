@@ -92,6 +92,14 @@ routerAdd(
         return e.json(400, { error: 'A nova senha deve ter no mínimo 8 caracteres.' })
       }
       targetUser.setPassword(targetPassword)
+      // Se admin redefiniu a senha provisória de outro usuário, marcar para exigir troca
+      if (!isMainAdminTarget) {
+        const forceMustChange =
+          data.mustChangePassword !== undefined ? Boolean(data.mustChangePassword) : true
+        targetUser.set('mustChangePassword', forceMustChange)
+      }
+    } else if (data.mustChangePassword !== undefined && !isMainAdminTarget) {
+      targetUser.set('mustChangePassword', Boolean(data.mustChangePassword))
     }
 
     // Garantir que emailVisibility permaneça sempre verdadeiro
@@ -112,6 +120,7 @@ routerAdd(
         email: targetUser.getString('email'),
         name: targetUser.getString('name'),
         role: targetUser.getString('role'),
+        mustChangePassword: targetUser.getBool('mustChangePassword'),
         updated: targetUser.getString('updated'),
       },
       passwordUpdated: Boolean(targetPassword),

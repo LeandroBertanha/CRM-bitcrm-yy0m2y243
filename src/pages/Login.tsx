@@ -23,9 +23,14 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const { error } = await signIn(email.trim(), password)
+      const { error, user: loggedUser } = await signIn(email.trim(), password)
       if (error) {
         setErrorMessage('Credenciais inválidas. Verifique seu e-mail e senha de convite.')
+      } else if (
+        loggedUser?.mustChangePassword &&
+        loggedUser?.email?.toLowerCase() !== 'leandro.bertanha@lbertanha.com'
+      ) {
+        navigate('/definir-senha', { replace: true })
       } else {
         navigate('/painel')
       }

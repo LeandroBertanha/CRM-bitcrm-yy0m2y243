@@ -43,6 +43,7 @@ routerAdd(
     newUser.set('emailVisibility', true)
     newUser.set('name', name || email.split('@')[0])
     newUser.set('role', role)
+    newUser.set('mustChangePassword', true)
     $app.save(newUser)
 
     // Tenta enviar e-mail transacional de convite

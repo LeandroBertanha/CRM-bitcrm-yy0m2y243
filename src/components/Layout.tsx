@@ -183,6 +183,13 @@ export default function Layout() {
                     Meu Perfil
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    onClick={() => navigate('/perfil#alterar-senha')}
+                    className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-gray-300 hover:text-white"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Alterar Senha
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     onClick={() => navigate('/formulario')}
                     className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-gray-300 hover:text-white"
                   >
