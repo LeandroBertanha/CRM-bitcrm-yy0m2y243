@@ -378,6 +378,11 @@ export function ImportOpportunitiesModal({
         }
 
         // Checar duplicatas contra o banco e contra o lote
+        // REGRA SEGURA:
+        // 1. Se tiver telefone válido (>= 8 dígitos), deduplica se o mesmo telefone já existir no banco/lote.
+        // 2. Se tiver empresa E telefone, deduplica pelo par.
+        // 3. Se NÃO tiver telefone, deduplica apenas se o nome da empresa for suficientemente longo e idêntico.
+        // NUNCA descartar empresas diferentes que apenas compartilham termos comuns.
         const cKey = normalizeCompanyKey(company)
         const pKey = normalizePhoneKey(contact_phone)
         let isDuplicate = false
@@ -386,6 +391,7 @@ export function ImportOpportunitiesModal({
         if (
           cKey &&
           pKey &&
+          pKey.length >= 8 &&
           (existingKeys.has(`cp:${cKey}_${pKey}`) || seenInBatch.has(`cp:${cKey}_${pKey}`))
         ) {
           isDuplicate = true
@@ -398,18 +404,19 @@ export function ImportOpportunitiesModal({
           isDuplicate = true
           duplicateReason = 'Telefone já cadastrado'
         } else if (
+          !pKey &&
           cKey &&
-          cKey.length >= 4 &&
+          cKey.length >= 5 &&
           (existingKeys.has(`c:${cKey}`) || seenInBatch.has(`c:${cKey}`))
         ) {
           isDuplicate = true
-          duplicateReason = 'Empresa com nome idêntico'
+          duplicateReason = 'Empresa com mesmo nome (sem telefone)'
         }
 
         // Marcar no lote
         if (cKey) seenInBatch.add(`c:${cKey}`)
-        if (pKey) seenInBatch.add(`p:${pKey}`)
-        if (cKey && pKey) seenInBatch.add(`cp:${cKey}_${pKey}`)
+        if (pKey && pKey.length >= 8) seenInBatch.add(`p:${pKey}`)
+        if (cKey && pKey && pKey.length >= 8) seenInBatch.add(`cp:${cKey}_${pKey}`)
 
         result.push({
           company,
@@ -522,64 +529,18 @@ export function ImportOpportunitiesModal({
       }
     }
 
-    // Se pb.createBatch estiver disponível, enviamos em sub-lotes (chunks)
-    // Se não estiver ou se falhar, executamos em paralelo controlado (concorrência)
-    const hasBatchApi =
-      typeof (pb as unknown as { createBatch?: () => unknown }).createBatch === 'function'
+    // Criamos as oportunidades uma a uma em paralelo controlado (pool concorrente de 5 requisições).
+    // Isto evita abortar dezenas de leads caso um registro individual falhe (como ocorreria com createBatch transacional)
+    // e garante que TODOS os registros válidos entrem com relatório preciso.
+    const CONCURRENCY = 5
+    let processedSoFar = 0
 
-    if (hasBatchApi) {
-      const BATCH_SIZE = 40 // Chunks equilibrados para PocketBase batch transaction
-      let processedSoFar = 0
-
-      for (let i = 0; i < total; i += BATCH_SIZE) {
-        const chunk = leadsToImport.slice(i, i + BATCH_SIZE)
-        const batch = (
-          pb as unknown as {
-            createBatch: () => {
-              collection: (name: string) => { create: (data: unknown) => void }
-              send: () => Promise<unknown>
-            }
-          }
-        ).createBatch()
-
-        for (const lead of chunk) {
-          batch.collection('opportunities').create(buildPayload(lead))
-        }
-
-        try {
-          await batch.send()
-          successCount += chunk.length
-          processedSoFar += chunk.length
-          setCurrentImportIndex(Math.min(total, processedSoFar))
-          setImportProgress(Math.round((processedSoFar / total) * 100))
-        } catch (batchErr) {
-          console.warn(
-            'Batch transacional falhou, tentando salvar chunk individualmente em paralelo:',
-            batchErr,
-          )
-          // Fallback para o chunk: executa paralelo controlado de 6 requisições
-          const CONCURRENCY = 6
-          for (let cIdx = 0; cIdx < chunk.length; cIdx += CONCURRENCY) {
-            const subChunk = chunk.slice(cIdx, cIdx + CONCURRENCY)
-            await Promise.all(subChunk.map((l) => createSingleLead(l)))
-            processedSoFar += subChunk.length
-            setCurrentImportIndex(Math.min(total, processedSoFar))
-            setImportProgress(Math.round((processedSoFar / total) * 100))
-          }
-        }
-      }
-    } else {
-      // Fallback concorrente direto: lotes paralelos de 6 requisições
-      const CONCURRENCY = 6
-      let processedSoFar = 0
-
-      for (let i = 0; i < total; i += CONCURRENCY) {
-        const chunk = leadsToImport.slice(i, i + CONCURRENCY)
-        await Promise.all(chunk.map((l) => createSingleLead(l)))
-        processedSoFar += chunk.length
-        setCurrentImportIndex(Math.min(total, processedSoFar))
-        setImportProgress(Math.round((processedSoFar / total) * 100))
-      }
+    for (let i = 0; i < total; i += CONCURRENCY) {
+      const chunk = leadsToImport.slice(i, i + CONCURRENCY)
+      await Promise.all(chunk.map((l) => createSingleLead(l)))
+      processedSoFar += chunk.length
+      setCurrentImportIndex(Math.min(total, processedSoFar))
+      setImportProgress(Math.round((processedSoFar / total) * 100))
     }
 
     setIsImporting(false)
@@ -961,11 +922,11 @@ export function ImportOpportunitiesModal({
                 </div>
               </div>
 
-              {/* Amostra rápida dos primeiros registros importados */}
+              {/* Resumo detalhado por arquivo e amostra dos registros mapeados */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-400 block">
-                    Amostra dos registros mapeados automaticamente:
+                    Amostra dos registros mapeados ({processedLeads.length} no total):
                   </span>
                   <button
                     type="button"
@@ -978,10 +939,11 @@ export function ImportOpportunitiesModal({
                   </button>
                 </div>
 
-                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[160px] overflow-y-auto custom-scrollbar">
-                  {processedLeads.slice(0, 5).map((lead, idx) => (
+                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[180px] overflow-y-auto custom-scrollbar">
+                  {processedLeads.map((lead, idx) => (
                     <div key={idx} className="p-2.5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 truncate">
+                        <span className="text-[10px] text-gray-500 font-mono w-6">#{idx + 1}</span>
                         <span className="font-bold text-white truncate">{lead.company}</span>
                         {lead.contact_phone && (
                           <span className="text-[10px] text-indigo-300 font-mono bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">

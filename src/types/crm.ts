@@ -1,5 +1,22 @@
 import type { RecordModel } from 'pocketbase'
 
+export interface OpportunityNote extends RecordModel {
+  opportunity: string
+  author: string
+  type: 'ligacao' | 'whatsapp' | 'reuniao' | 'nota' | 'outro'
+  text: string
+  date: string
+  expand?: {
+    author?: {
+      id: string
+      name?: string
+      email?: string
+      role?: string
+      avatar?: string
+    }
+  }
+}
+
 export interface Opportunity extends RecordModel {
   company: string
   stage: 'Novo' | 'Qualificado' | 'Proposta' | 'Ganho' | 'Perdido'

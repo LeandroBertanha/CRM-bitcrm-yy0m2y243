@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Opportunity, STAGES, SOURCES, STAGE_CONFIG, formatBRL, formatDateBR } from '@/types/crm'
+import { OpportunityTimeline } from '@/components/OpportunityTimeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -68,6 +69,10 @@ export default function Opportunities() {
   const [isPageDragging, setIsPageDragging] = useState(false)
 
   // Formulário Estado
+  // Drag and drop de cards de oportunidades
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<Opportunity['stage'] | null>(null)
+
   const [formData, setFormData] = useState<{
     company: string
     stage: Opportunity['stage']
@@ -131,22 +136,29 @@ export default function Opportunities() {
   }, [fetchOpportunities, fetchSellers])
 
   // Prevenir comportamento padrão do navegador de abrir/salvar arquivo ao soltar na tela
+  // IMPORTANTE: apenas ativar isPageDragging se for realmente arquivo do sistema (Files)
+  // e NUNCA quando for arrasto de card interno (application/bitcrm-card-id)
   useEffect(() => {
     const handleWindowDragOver = (e: DragEvent) => {
-      e.preventDefault()
+      if (e.dataTransfer?.types.includes('application/bitcrm-card-id')) {
+        return
+      }
       if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+        e.preventDefault()
         setIsPageDragging(true)
       }
     }
 
     const handleWindowDragLeave = (e: DragEvent) => {
-      e.preventDefault()
       if (e.relatedTarget === null || e.clientY <= 0 || e.clientX <= 0) {
         setIsPageDragging(false)
       }
     }
 
     const handleWindowDrop = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('application/bitcrm-card-id')) {
+        return
+      }
       e.preventDefault()
       setIsPageDragging(false)
 
@@ -228,22 +240,184 @@ export default function Opportunities() {
     setDetailModalOpen(true)
   }
 
-  // Alterar estágio direto pelo dropdown do card
+  // Alterar estágio (com atualização otimista + rollback em erro)
   const handleStageChange = async (oppId: string, newStage: Opportunity['stage']) => {
+    const previousOpps = [...opportunities]
+    const targetOpp = opportunities.find((o) => o.id === oppId)
+    if (!targetOpp || targetOpp.stage === newStage) return
+
+    // 1. Atualização otimista imediata no estado local
+    setOpportunities((prev) => prev.map((o) => (o.id === oppId ? { ...o, stage: newStage } : o)))
+
+    // 2. Persistência no PocketBase
     try {
       await pb.collection('opportunities').update(oppId, { stage: newStage })
       toast({
-        title: 'Estágio atualizado',
-        description: `Oportunidade movida para ${newStage}.`,
+        title: 'Estágio atualizado!',
+        description: `"${targetOpp.company}" movida para ${newStage}.`,
       })
-      fetchOpportunities()
     } catch (err) {
+      // 3. Rollback em caso de erro
+      setOpportunities(previousOpps)
+      console.error('Erro ao atualizar estágio:', err)
       toast({
-        title: 'Erro ao alterar estágio',
-        description: 'Não foi possível salvar a alteração.',
+        title: 'Erro ao mover oportunidade',
+        description: 'Não foi possível salvar a alteração. O card retornou ao estágio anterior.',
         variant: 'destructive',
       })
     }
+  }
+
+  // Drag and drop de cards de oportunidades (desktop HTML5 drag & drop)
+  const handleCardDragStart = (e: React.DragEvent, oppId: string) => {
+    e.stopPropagation()
+    // Definir formato exclusivo para card de oportunidade
+    e.dataTransfer.setData('application/bitcrm-card-id', oppId)
+    e.dataTransfer.setData('text/plain', oppId)
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingCardId(oppId)
+  }
+
+  const handleCardDragEnd = () => {
+    setDraggingCardId(null)
+    setDragOverStage(null)
+  }
+
+  // Suporte a Touch Drag & Drop para dispositivos móveis
+  const touchStateRef = React.useRef<{
+    cardId: string | null
+    startX: number
+    startY: number
+    cloneEl: HTMLElement | null
+    isDragging: boolean
+  }>({
+    cardId: null,
+    startX: 0,
+    startY: 0,
+    cloneEl: null,
+    isDragging: false,
+  })
+
+  const handleCardTouchStart = (e: React.TouchEvent, oppId: string) => {
+    const touch = e.touches[0]
+    if (!touch) return
+    touchStateRef.current = {
+      cardId: oppId,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      cloneEl: null,
+      isDragging: false,
+    }
+  }
+
+  const handleCardTouchMove = (e: React.TouchEvent) => {
+    const state = touchStateRef.current
+    if (!state.cardId) return
+    const touch = e.touches[0]
+    if (!touch) return
+
+    const deltaX = Math.abs(touch.clientX - state.startX)
+    const deltaY = Math.abs(touch.clientY - state.startY)
+
+    // Se moveu mais de 10px, iniciar drag de card touch
+    if (!state.isDragging && (deltaX > 10 || deltaY > 10)) {
+      state.isDragging = true
+      setDraggingCardId(state.cardId)
+
+      // Criar elemento visual flutuante (preview)
+      const targetCard = document.querySelector(`[data-opp-id="${state.cardId}"]`) as HTMLElement
+      if (targetCard) {
+        const clone = targetCard.cloneNode(true) as HTMLElement
+        clone.style.position = 'fixed'
+        clone.style.pointerEvents = 'none'
+        clone.style.zIndex = '9999'
+        clone.style.opacity = '0.85'
+        clone.style.width = `${targetCard.offsetWidth}px`
+        clone.style.transform = 'scale(0.95)'
+        clone.style.boxShadow = '0 10px 25px -5px rgba(99, 102, 241, 0.4)'
+        clone.style.left = `${touch.clientX - targetCard.offsetWidth / 2}px`
+        clone.style.top = `${touch.clientY - 20}px`
+        document.body.appendChild(clone)
+        state.cloneEl = clone
+      }
+    }
+
+    if (state.isDragging) {
+      e.preventDefault()
+      if (state.cloneEl) {
+        state.cloneEl.style.left = `${touch.clientX - state.cloneEl.offsetWidth / 2}px`
+        state.cloneEl.style.top = `${touch.clientY - 20}px`
+      }
+
+      // Identificar coluna sob o ponto de toque
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY)
+      const col = elem?.closest('[data-stage]') as HTMLElement | null
+      const hoveredStage = col?.getAttribute('data-stage') as Opportunity['stage'] | null
+      setDragOverStage(hoveredStage || null)
+    }
+  }
+
+  const handleCardTouchEnd = async (e: React.TouchEvent) => {
+    const state = touchStateRef.current
+    if (state.cloneEl) {
+      state.cloneEl.remove()
+      state.cloneEl = null
+    }
+
+    if (state.isDragging && state.cardId) {
+      const touch = e.changedTouches[0]
+      if (touch) {
+        const elem = document.elementFromPoint(touch.clientX, touch.clientY)
+        const col = elem?.closest('[data-stage]') as HTMLElement | null
+        const targetStage = col?.getAttribute('data-stage') as Opportunity['stage'] | null
+        if (targetStage) {
+          await handleStageChange(state.cardId, targetStage)
+        }
+      }
+    }
+
+    touchStateRef.current = {
+      cardId: null,
+      startX: 0,
+      startY: 0,
+      cloneEl: null,
+      isDragging: false,
+    }
+    setDraggingCardId(null)
+    setDragOverStage(null)
+  }
+
+  const handleColumnDragOver = (e: React.DragEvent, stage: Opportunity['stage']) => {
+    // Só aceita se for drag de card (e não arquivo solto do sistema operacional)
+    if (e.dataTransfer.types.includes('application/bitcrm-card-id')) {
+      e.preventDefault()
+      e.stopPropagation()
+      e.dataTransfer.dropEffect = 'move'
+      if (dragOverStage !== stage) {
+        setDragOverStage(stage)
+      }
+    }
+  }
+
+  const handleColumnDragLeave = (e: React.DragEvent, stage: Opportunity['stage']) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    if (dragOverStage === stage) {
+      setDragOverStage(null)
+    }
+  }
+
+  const handleColumnDrop = async (e: React.DragEvent, targetStage: Opportunity['stage']) => {
+    const cardId = e.dataTransfer.getData('application/bitcrm-card-id')
+    setDragOverStage(null)
+    setDraggingCardId(null)
+
+    if (!cardId) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    await handleStageChange(cardId, targetStage)
   }
 
   // Salvar Criação
@@ -527,7 +701,15 @@ export default function Opportunities() {
             return (
               <div
                 key={stage}
-                className="flex-1 min-w-[210px] bg-[#0E1017] border border-[#262A33] rounded-2xl flex flex-col max-h-[calc(100vh-250px)]"
+                data-stage={stage}
+                onDragOver={(e) => handleColumnDragOver(e, stage)}
+                onDragLeave={(e) => handleColumnDragLeave(e, stage)}
+                onDrop={(e) => handleColumnDrop(e, stage)}
+                className={`flex-1 min-w-[210px] bg-[#0E1017] border rounded-2xl flex flex-col max-h-[calc(100vh-250px)] transition-all duration-200 ${
+                  dragOverStage === stage
+                    ? 'border-indigo-500 bg-[#121424] shadow-xl shadow-indigo-500/10 ring-2 ring-indigo-500/30'
+                    : 'border-[#262A33]'
+                }`}
               >
                 {/* Cabeçalho da Coluna */}
                 <div
@@ -552,14 +734,33 @@ export default function Opportunities() {
                 {/* Lista de Cards da Coluna */}
                 <div className="p-2.5 space-y-2.5 overflow-y-auto flex-1 custom-scrollbar">
                   {stageOpps.length === 0 ? (
-                    <div className="py-8 text-center border border-dashed border-[#262A33]/70 rounded-xl my-2">
-                      <span className="text-[11px] text-gray-500">Nenhum negócio aqui</span>
+                    <div
+                      className={`py-8 text-center border border-dashed rounded-xl my-2 transition-colors ${
+                        dragOverStage === stage
+                          ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300'
+                          : 'border-[#262A33]/70 text-gray-500'
+                      }`}
+                    >
+                      <span className="text-[11px]">
+                        {dragOverStage === stage ? 'Solte aqui para mover' : 'Nenhum negócio aqui'}
+                      </span>
                     </div>
                   ) : (
                     stageOpps.map((opp) => (
                       <div
                         key={opp.id}
-                        className="p-3.5 rounded-xl bg-[#12141A] border border-[#262A33] hover:border-indigo-500/60 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-150 space-y-2.5 group relative"
+                        data-opp-id={opp.id}
+                        draggable
+                        onDragStart={(e) => handleCardDragStart(e, opp.id)}
+                        onDragEnd={handleCardDragEnd}
+                        onTouchStart={(e) => handleCardTouchStart(e, opp.id)}
+                        onTouchMove={handleCardTouchMove}
+                        onTouchEnd={handleCardTouchEnd}
+                        className={`p-3.5 rounded-xl bg-[#12141A] border transition-all duration-150 space-y-2.5 group relative cursor-grab active:cursor-grabbing touch-manipulation ${
+                          draggingCardId === opp.id
+                            ? 'opacity-40 scale-95 border-indigo-500 shadow-md'
+                            : 'border-[#262A33] hover:border-indigo-500/60 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/5'
+                        }`}
                       >
                         {/* Topo do Card: Empresa e Ações */}
                         <div className="flex items-start justify-between gap-2">
@@ -885,7 +1086,7 @@ export default function Opportunities() {
 
       {/* Modal: Editar Oportunidade */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-lg rounded-2xl shadow-2xl">
+        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-white flex items-center justify-between">
               <span className="flex items-center gap-2">
@@ -1083,6 +1284,18 @@ export default function Opportunities() {
               />
             </div>
 
+            {/* Timeline de Conversas / Interações na Edição */}
+            {selectedOpp && (
+              <div className="border-t border-[#262A33] pt-4">
+                <OpportunityTimeline
+                  opportunityId={selectedOpp.id}
+                  currentUserId={user?.id}
+                  currentUserRole={user?.role}
+                  currentUserEmail={user?.email}
+                />
+              </div>
+            )}
+
             <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -1137,7 +1350,7 @@ export default function Opportunities() {
 
       {/* Modal: Detalhes da Oportunidade */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-lg rounded-2xl shadow-2xl">
+        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
           {selectedOpp && (
             <>
               <DialogHeader>
@@ -1227,9 +1440,19 @@ export default function Opportunities() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-[11px] text-gray-500 pt-2">
+                <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
                   <span>Criado em: {formatDateBR(selectedOpp.created)}</span>
                   <span>Última alteração: {formatDateBR(selectedOpp.updated)}</span>
+                </div>
+
+                {/* Timeline de Conversas / Interações no Detalhe */}
+                <div className="border-t border-[#262A33] pt-3">
+                  <OpportunityTimeline
+                    opportunityId={selectedOpp.id}
+                    currentUserId={user?.id}
+                    currentUserRole={user?.role}
+                    currentUserEmail={user?.email}
+                  />
                 </div>
               </div>
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T19:12:43.461Z",
+  "generatedAt": "2026-10-01T19:29:58.688Z",
   "collections": [
     {
       "name": "users",
@@ -165,6 +165,71 @@
         "CREATE INDEX idx_opportunities_stage ON opportunities (stage)",
         "CREATE INDEX idx_opportunities_seller ON opportunities (seller)",
         "CREATE INDEX idx_opportunities_created ON opportunities (created)"
+      ]
+    },
+    {
+      "name": "opportunity_notes",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (author = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com'))",
+        "delete": "@request.auth.id != '' && (author = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com'))"
+      },
+      "fields": [
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "author",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ligacao", "whatsapp", "reuniao", "nota", "outro"]
+        },
+        {
+          "name": "text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_opportunity_notes_opp ON opportunity_notes (opportunity)",
+        "CREATE INDEX idx_opportunity_notes_date ON opportunity_notes (date DESC)",
+        "CREATE INDEX idx_opportunity_notes_author ON opportunity_notes (author)"
       ]
     }
   ]

@@ -96,6 +96,7 @@ export default function AdminMetrics() {
   // KPIs Globais
   const totalOppsCount = activeOpps.length
 
+  // Estágios abertos (pipeline ativo, não concluído nem descartado): Novo, Qualificado e Proposta
   const inProgressOpps = useMemo(() => {
     return activeOpps.filter(
       (opp) => opp.stage === 'Novo' || opp.stage === 'Qualificado' || opp.stage === 'Proposta',
@@ -110,16 +111,27 @@ export default function AdminMetrics() {
     return activeOpps.filter((opp) => opp.stage === 'Perdido')
   }, [activeOpps])
 
+  // Pipe Aberto: soma o valor das oportunidades em estágios abertos (não ganhas nem perdidas)
+  // Valores nulos ou vazios são tratados como 0 com precisão numérica
   const totalPipelineValue = useMemo(() => {
-    return inProgressOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+    return inProgressOpps.reduce((acc, curr) => {
+      const v = typeof curr.value === 'number' ? curr.value : parseFloat(String(curr.value || 0))
+      return acc + (isNaN(v) ? 0 : v)
+    }, 0)
   }, [inProgressOpps])
 
   const totalWonValue = useMemo(() => {
-    return wonOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+    return wonOpps.reduce((acc, curr) => {
+      const v = typeof curr.value === 'number' ? curr.value : parseFloat(String(curr.value || 0))
+      return acc + (isNaN(v) ? 0 : v)
+    }, 0)
   }, [wonOpps])
 
   const totalAllValue = useMemo(() => {
-    return activeOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+    return activeOpps.reduce((acc, curr) => {
+      const v = typeof curr.value === 'number' ? curr.value : parseFloat(String(curr.value || 0))
+      return acc + (isNaN(v) ? 0 : v)
+    }, 0)
   }, [activeOpps])
 
   const winRate = useMemo(() => {
@@ -218,7 +230,8 @@ export default function AdminMetrics() {
       }
 
       stat.totalOpps += 1
-      const val = Number(opp.value) || 0
+      const rawVal = typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value || 0))
+      const val = isNaN(rawVal) ? 0 : rawVal
 
       if (opp.stage === 'Ganho') {
         stat.wonCount += 1
@@ -261,7 +274,7 @@ export default function AdminMetrics() {
     {
       title: 'Em Andamento',
       value: inProgressOpps.length.toString(),
-      description: 'Novo, Qualificado e Proposta',
+      description: 'Estágios abertos (Novo, Qualificado, Proposta)',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
@@ -286,9 +299,9 @@ export default function AdminMetrics() {
       iconColor: 'text-rose-400',
     },
     {
-      title: 'Pipeline Aberto',
+      title: 'Pipe Aberto',
       value: formatBRL(totalPipelineValue),
-      description: 'Valor total em negociação',
+      description: 'Soma dos estágios abertos no Kanban',
       icon: Layers,
       color: 'from-indigo-500/20 to-purple-500/10',
       borderColor: 'border-indigo-500/30',
