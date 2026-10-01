@@ -170,19 +170,31 @@ export function OpportunityTimeline({
 
     setIsSubmitting(true)
     try {
-      // Converte data local para formato padrão PocketBase RFC3339 com espaço (ex: 2026-10-01 15:04:05.000Z)
-      const selectedDate = dateStr ? new Date(dateStr) : new Date()
-      const isoDate = isNaN(selectedDate.getTime())
-        ? new Date().toISOString().replace('T', ' ')
-        : selectedDate.toISOString().replace('T', ' ')
+      // Formata a data garantindo o formato RFC3339 com espaço aceito pelo PocketBase
+      let formattedDate: string
+      try {
+        const d = dateStr ? new Date(dateStr) : new Date()
+        if (isNaN(d.getTime())) {
+          formattedDate = new Date().toISOString().replace('T', ' ')
+        } else {
+          formattedDate = d.toISOString().replace('T', ' ')
+        }
+      } catch {
+        formattedDate = new Date().toISOString().replace('T', ' ')
+      }
 
-      const createdRecord = await pb.collection('opportunity_notes').create({
+      const payload = {
         opportunity: opportunityId,
         author: effectiveUserId,
         type,
         text: text.trim(),
-        date: isoDate,
-      })
+        date: formattedDate,
+      }
+
+      // Expande author imediatamente na criação para renderizar com autor já preenchido
+      const createdRecord = await pb
+        .collection('opportunity_notes')
+        .create<OpportunityNote>(payload, { expand: 'author' })
 
       toast({
         title: 'Interação registrada',
@@ -196,22 +208,24 @@ export function OpportunityTimeline({
       const tzOffset = now.getTimezoneOffset() * 60000
       setDateStr(new Date(now.getTime() - tzOffset).toISOString().slice(0, 16))
 
-      // Atualização otimista imediata caso fetchNotes demore
+      // Atualização imediata do estado local
       if (createdRecord) {
         setNotes((prev) => {
           const exists = prev.some((n) => n.id === createdRecord.id)
           if (exists) return prev
-          return [createdRecord as OpportunityNote, ...prev]
+          return [createdRecord, ...prev]
         })
       }
 
       await fetchNotes()
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Erro ao criar registro na timeline:', err)
       const errorMsg = getErrorMessage(err)
       toast({
         title: 'Erro ao registrar interação',
-        description: errorMsg || 'Não foi possível salvar o registro na timeline.',
+        description:
+          errorMsg ||
+          'Não foi possível salvar o registro na timeline. Verifique sua conexão e tente novamente.',
         variant: 'destructive',
       })
     } finally {
@@ -269,7 +283,11 @@ export function OpportunityTimeline({
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => setShowForm(!showForm)}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setShowForm(!showForm)
+          }}
           className="h-7 text-xs border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-600/20 rounded-lg px-2.5"
         >
           <Plus className="w-3.5 h-3.5 mr-1" />
@@ -331,7 +349,9 @@ export function OpportunityTimeline({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
                 setShowForm(false)
                 setText('')
               }}
@@ -343,7 +363,7 @@ export function OpportunityTimeline({
               type="submit"
               size="sm"
               disabled={isSubmitting || !text.trim()}
-              className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 rounded-lg"
+              className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 rounded-lg shadow-sm"
             >
               {isSubmitting ? (
                 <>

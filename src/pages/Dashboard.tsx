@@ -72,11 +72,22 @@ export default function Dashboard() {
 
   const totalOppsCount = myOpps.length
 
-  const inNegotiationCount = useMemo(() => {
+  // Estágios em negociação (funil aberto antes do desfecho Ganho/Perdido: Novo, Qualificado, Agendado, Proposta)
+  const inNegotiationOpps = useMemo(() => {
     return myOpps.filter(
-      (opp) => opp.stage === 'Proposta' || opp.stage === 'Agendado' || opp.stage === 'Qualificado',
-    ).length
+      (opp) =>
+        opp.stage === 'Novo' ||
+        opp.stage === 'Qualificado' ||
+        opp.stage === 'Agendado' ||
+        opp.stage === 'Proposta',
+    )
   }, [myOpps])
+
+  const inNegotiationCount = inNegotiationOpps.length
+
+  const inNegotiationValue = useMemo(() => {
+    return inNegotiationOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+  }, [inNegotiationOpps])
 
   const wonOpps = useMemo(() => {
     return myOpps.filter((opp) => opp.stage === 'Ganho')
@@ -111,11 +122,20 @@ export default function Dashboard() {
     {
       title: 'Em Negociação',
       value: inNegotiationCount.toString(),
-      description: 'Qualificado + Agendado + Proposta',
+      description: 'Novo, Qualif., Agend. e Prop.',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
       iconColor: 'text-amber-400',
+    },
+    {
+      title: 'Valor em Negociação',
+      value: formatBRL(inNegotiationValue),
+      description: 'Volume aberto no pipeline',
+      icon: DollarSign,
+      color: 'from-indigo-500/20 to-cyan-500/10',
+      borderColor: 'border-indigo-500/30',
+      iconColor: 'text-indigo-400',
     },
     {
       title: 'Ganhas',
@@ -131,9 +151,9 @@ export default function Dashboard() {
       value: formatBRL(totalWonValue),
       description: 'Faturamento acumulado',
       icon: DollarSign,
-      color: 'from-indigo-500/20 to-violet-500/10',
-      borderColor: 'border-indigo-500/30',
-      iconColor: 'text-indigo-400',
+      color: 'from-violet-500/20 to-purple-500/10',
+      borderColor: 'border-violet-500/30',
+      iconColor: 'text-violet-400',
     },
   ]
 
@@ -187,8 +207,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Grid de 4 Cartões de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Grid de Cartões de Resumo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {cardsData.map((card, idx) => {
           const Icon = card.icon
           return (
