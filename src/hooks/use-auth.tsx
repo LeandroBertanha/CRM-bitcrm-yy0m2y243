@@ -178,9 +178,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newPassword: string,
     passwordConfirm: string,
   ) => {
-    if (!pb.authStore.record?.id) {
-      return { error: new Error('Não autenticado') }
+    const activeUserId = pb.authStore.record?.id || user?.id
+    const activeEmail = (pb.authStore.record as unknown as AuthUser)?.email || user?.email
+
+    if (!activeUserId) {
+      return { error: new Error('Sessão expirada. Faça login novamente.') }
     }
+
     // 1. Tentar primeiro via hook customizado
     try {
       const res = await pb.send<{
@@ -190,13 +194,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }>('/backend/v1/auth/set-first-password', {
         method: 'POST',
         body: {
+          userId: activeUserId,
+          email: activeEmail,
           password: newPassword,
           passwordConfirm,
           oldPassword,
         },
       })
       if (res && res.success) {
-        await refreshAuth()
+        try {
+          await refreshAuth()
+        } catch {
+          /* intentionally ignored */
+        }
         return { error: null, record: (pb.authStore.record as unknown as AuthUser) || undefined }
       }
     } catch (hookErr: unknown) {
@@ -207,7 +217,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (
         hookMsg.includes('incorreta') ||
         hookMsg.includes('caracteres') ||
-        hookMsg.includes('coincidem')
+        hookMsg.includes('coincidem') ||
+        hookMsg.includes('diferente')
       ) {
         return { error: new Error(hookMsg) }
       }
@@ -215,7 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 2. Fallback via SDK padrão do PocketBase
     try {
-      const updated = await pb.collection('users').update(pb.authStore.record.id, {
+      const updated = await pb.collection('users').update(activeUserId, {
         oldPassword,
         password: newPassword,
         passwordConfirm,
@@ -225,7 +236,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(authUser)
       return { error: null, record: authUser }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg =
+        err && typeof err === 'object' && 'data' in err
+          ? String((err as { data?: { message?: string } }).data?.message || '')
+          : err instanceof Error
+            ? err.message
+            : String(err)
       return { error: new Error(msg || 'Erro ao alterar a senha.') }
     }
   }
@@ -236,8 +252,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     passwordConfirm: string,
     oldPassword?: string,
   ) => {
-    if (!pb.authStore.record?.id) {
-      return { error: new Error('Não autenticado') }
+    const activeUserId = pb.authStore.record?.id || user?.id
+    const activeEmail = (pb.authStore.record as unknown as AuthUser)?.email || user?.email
+
+    if (!activeUserId) {
+      return {
+        error: new Error('Sessão expirada. Por favor, faça login novamente para continuar.'),
+      }
     }
 
     const effectiveOldPassword = oldPassword || tempLoginPassword || undefined
@@ -251,6 +272,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }>('/backend/v1/auth/set-first-password', {
         method: 'POST',
         body: {
+          userId: activeUserId,
+          email: activeEmail,
           password: newPassword,
           passwordConfirm,
           oldPassword: effectiveOldPassword,
@@ -260,11 +283,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res && res.success) {
         // Atualiza a sessão local
         updateTempLoginPassword(null)
-        await refreshAuth()
+        try {
+          await refreshAuth()
+        } catch {
+          /* intentionally ignored */
+        }
+
+        // Se o record em authStore ainda tiver mustChangePassword=true, força atualização local
+        if (pb.authStore.record) {
+          try {
+            const currentRec = pb.authStore.record
+            currentRec.mustChangePassword = false
+            setUser({ ...(currentRec as unknown as AuthUser), mustChangePassword: false })
+          } catch {
+            /* intentionally ignored */
+          }
+        }
+
         return { error: null, record: (pb.authStore.record as unknown as AuthUser) || undefined }
       }
     } catch (hookErr: unknown) {
-      // Se o erro do hook for uma validação explícita de senha incorreta, repassa imediatamente
+      // Se o erro do hook for uma validação explícita de senha incorreta ou formato, repassa imediatamente
       const hookMsg =
         hookErr && typeof hookErr === 'object' && 'data' in hookErr
           ? String((hookErr as { data?: { error?: string } }).data?.error || '')
@@ -272,7 +311,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (
         hookMsg.includes('incorreta') ||
         hookMsg.includes('caracteres') ||
-        hookMsg.includes('coincidem')
+        hookMsg.includes('coincidem') ||
+        hookMsg.includes('diferente')
       ) {
         return { error: new Error(hookMsg) }
       }
@@ -289,13 +329,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         payload.oldPassword = effectiveOldPassword
       }
 
-      const updated = await pb.collection('users').update(pb.authStore.record.id, payload)
+      const updated = await pb.collection('users').update(activeUserId, payload)
       const authUser = updated as unknown as AuthUser
       setUser(authUser)
       updateTempLoginPassword(null)
       return { error: null, record: authUser }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const dataObj =
+        err && typeof err === 'object' && 'data' in err
+          ? (err as { data?: Record<string, unknown> }).data
+          : null
+      const dataMsg = dataObj?.message ? String(dataObj.message) : ''
+      const msg = dataMsg || (err instanceof Error ? err.message : String(err))
+
+      if (msg.includes("wasn't found") || msg.includes('404')) {
+        return {
+          error: new Error(
+            'Não foi possível atualizar o usuário. Sua sessão pode ter sido alterada. Por favor, saia e entre novamente com seu e-mail.',
+          ),
+        }
+      }
+
       return { error: new Error(msg || 'Erro ao definir nova senha.') }
     }
   }

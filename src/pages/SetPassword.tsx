@@ -78,16 +78,16 @@ export default function SetPassword() {
     setLoading(true)
     try {
       const { error } = await setFirstPassword(
-        password,
-        confirmPassword,
-        currentPassword || undefined,
+        password.trim(),
+        confirmPassword.trim(),
+        currentPassword.trim() || undefined,
       )
       if (error) {
         setErrorMessage(error.message || 'Erro ao definir nova senha. Tente novamente.')
       } else {
         toast({
           title: 'Senha definida com sucesso!',
-          description: 'Seu primeiro acesso foi concluído. Bem-vindo ao bitCRM!',
+          description: 'Seu primeiro acesso foi concluído com sucesso. Bem-vindo ao bitCRM!',
         })
         navigate('/painel', { replace: true })
       }
