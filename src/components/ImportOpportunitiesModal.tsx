@@ -278,7 +278,8 @@ export function ImportOpportunitiesModal({
 
     // Criar mapa de oportunidades já existentes no banco
     const existingKeys = new Set<string>()
-    for (const opp of existingOpportunities) {
+    for (let i = 0; i < existingOpportunities.length; i++) {
+      const opp = existingOpportunities[i]
       const cKey = normalizeCompanyKey(opp.company || '')
       const pKey = normalizePhoneKey(opp.contact_phone || '')
       if (cKey) existingKeys.add(`c:${cKey}`)
@@ -442,7 +443,7 @@ export function ImportOpportunitiesModal({
     return processedLeads.length
   }, [processedLeads, skipDuplicates])
 
-  // Iniciar Importação em Lote via API do PocketBase
+  // Iniciar Importação em Lote via API do PocketBase otimizada (pb.createBatch + fallback concorrente)
   const handleStartImport = async () => {
     setStep(3)
     setIsImporting(true)
@@ -467,25 +468,43 @@ export function ImportOpportunitiesModal({
 
     const total = leadsToImport.length
 
-    for (let i = 0; i < total; i++) {
-      setCurrentImportIndex(i + 1)
-      const lead = leadsToImport[i]
+    if (total === 0) {
+      setIsImporting(false)
+      setImportStats({
+        total: processedLeads.length,
+        successCount: 0,
+        skippedDuplicatesCount: skipDuplicates ? skippedDuplicatesCount : 0,
+        errorCount: 0,
+        errors: [],
+      })
+      toast({
+        title: 'Nenhum lead a importar',
+        description: 'Todos os registros foram pulados por serem duplicados.',
+      })
+      onSuccess()
+      return
+    }
 
+    // Preparar payload de cada oportunidade: respeita a opção de estágio escolhida na Etapa 2 do modal
+    const buildPayload = (lead: ProcessedLeadItem) => ({
+      company: lead.company,
+      stage: defaultStage, // A escolha da Etapa 2 define o estágio para todo o lote importado (padrão "Novo")
+      source: lead.source || defaultSource,
+      value: lead.value !== undefined ? lead.value : fallbackNumericValue,
+      seller: finalSellerId || null,
+      contact_name: lead.contact_name || '',
+      contact_email: lead.contact_email || '',
+      contact_phone: lead.contact_phone || '',
+      city: lead.city || '',
+      message: lead.fullMessage || '',
+      payment_type: null,
+      payment_installments: null,
+    })
+
+    // Função de criação individual para ser usada diretamente ou como fallback granular
+    const createSingleLead = async (lead: ProcessedLeadItem) => {
       try {
-        await pb.collection('opportunities').create({
-          company: lead.company,
-          stage: lead.stage || defaultStage,
-          source: lead.source || defaultSource,
-          value: lead.value !== undefined ? lead.value : fallbackNumericValue,
-          seller: finalSellerId || null,
-          contact_name: lead.contact_name || '',
-          contact_email: lead.contact_email || '',
-          contact_phone: lead.contact_phone || '',
-          city: lead.city || '',
-          message: lead.fullMessage || '',
-          payment_type: null,
-          payment_installments: null,
-        })
+        await pb.collection('opportunities').create(buildPayload(lead))
         successCount++
       } catch (err: unknown) {
         errorCount++
@@ -501,8 +520,66 @@ export function ImportOpportunitiesModal({
           error: errorMsg,
         })
       }
+    }
 
-      setImportProgress(Math.round(((i + 1) / total) * 100))
+    // Se pb.createBatch estiver disponível, enviamos em sub-lotes (chunks)
+    // Se não estiver ou se falhar, executamos em paralelo controlado (concorrência)
+    const hasBatchApi =
+      typeof (pb as unknown as { createBatch?: () => unknown }).createBatch === 'function'
+
+    if (hasBatchApi) {
+      const BATCH_SIZE = 40 // Chunks equilibrados para PocketBase batch transaction
+      let processedSoFar = 0
+
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        const chunk = leadsToImport.slice(i, i + BATCH_SIZE)
+        const batch = (
+          pb as unknown as {
+            createBatch: () => {
+              collection: (name: string) => { create: (data: unknown) => void }
+              send: () => Promise<unknown>
+            }
+          }
+        ).createBatch()
+
+        for (const lead of chunk) {
+          batch.collection('opportunities').create(buildPayload(lead))
+        }
+
+        try {
+          await batch.send()
+          successCount += chunk.length
+          processedSoFar += chunk.length
+          setCurrentImportIndex(Math.min(total, processedSoFar))
+          setImportProgress(Math.round((processedSoFar / total) * 100))
+        } catch (batchErr) {
+          console.warn(
+            'Batch transacional falhou, tentando salvar chunk individualmente em paralelo:',
+            batchErr,
+          )
+          // Fallback para o chunk: executa paralelo controlado de 6 requisições
+          const CONCURRENCY = 6
+          for (let cIdx = 0; cIdx < chunk.length; cIdx += CONCURRENCY) {
+            const subChunk = chunk.slice(cIdx, cIdx + CONCURRENCY)
+            await Promise.all(subChunk.map((l) => createSingleLead(l)))
+            processedSoFar += subChunk.length
+            setCurrentImportIndex(Math.min(total, processedSoFar))
+            setImportProgress(Math.round((processedSoFar / total) * 100))
+          }
+        }
+      }
+    } else {
+      // Fallback concorrente direto: lotes paralelos de 6 requisições
+      const CONCURRENCY = 6
+      let processedSoFar = 0
+
+      for (let i = 0; i < total; i += CONCURRENCY) {
+        const chunk = leadsToImport.slice(i, i + CONCURRENCY)
+        await Promise.all(chunk.map((l) => createSingleLead(l)))
+        processedSoFar += chunk.length
+        setCurrentImportIndex(Math.min(total, processedSoFar))
+        setImportProgress(Math.round((processedSoFar / total) * 100))
+      }
     }
 
     setIsImporting(false)

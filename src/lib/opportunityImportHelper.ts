@@ -162,18 +162,24 @@ export function normalizeStageValue(stageStr: string): Opportunity['stage'] | nu
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 
+  // Se explicitamente não contatado, sem contato, novo lead -> Novo
   if (
+    norm.includes('nao contat') ||
+    norm.includes('não contat') ||
+    norm.includes('sem contato') ||
     norm.includes('novo') ||
     norm.includes('new') ||
     norm.includes('lead') ||
     norm.includes('aberto') ||
-    norm.includes('sem contato')
+    norm.includes('a contatar') ||
+    norm.includes('pendente')
   ) {
     return 'Novo'
   }
+  // Qualificado: contatado, atendido, qualificado, quente, morno
   if (
     norm.includes('qualific') ||
-    norm.includes('contat') ||
+    norm.includes('contatad') ||
     norm.includes('atend') ||
     norm.includes('quente') ||
     norm.includes('morno')
@@ -549,9 +555,19 @@ export function matchHeaderByKeyword(header: string): OppTargetField | null {
     return 'message'
   }
 
-  // Status / Etapa
+  // Status / Etapa (colunas como "Status da Ligação" ou status operacional de call devem virar anotação/observação e não sobrescrever o estágio comercial do CRM)
   if (
     norm.includes('status da ligacao') ||
+    norm.includes('status ligacao') ||
+    norm.includes('status lig') ||
+    norm.includes('resultado ligacao') ||
+    norm.includes('tentativa')
+  ) {
+    return 'message'
+  }
+
+  // Status / Etapa do funil
+  if (
     norm.includes('status do lead') ||
     norm.includes('status') ||
     norm.includes('situacao') ||
