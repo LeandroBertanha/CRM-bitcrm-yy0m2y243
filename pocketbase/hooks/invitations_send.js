@@ -40,6 +40,7 @@ routerAdd(
     newUser.setEmail(email)
     newUser.setPassword(tempPassword)
     newUser.setVerified(true)
+    newUser.set('emailVisibility', true)
     newUser.set('name', name || email.split('@')[0])
     newUser.set('role', role)
     $app.save(newUser)

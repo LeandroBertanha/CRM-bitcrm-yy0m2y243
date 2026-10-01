@@ -94,6 +94,9 @@ routerAdd(
       targetUser.setPassword(targetPassword)
     }
 
+    // Garantir que emailVisibility permaneça sempre verdadeiro
+    targetUser.set('emailVisibility', true)
+
     // 8. Salvar usuário
     try {
       $app.save(targetUser)
