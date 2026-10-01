@@ -85,7 +85,7 @@ export default function Layout() {
           {/* Logo & Marca */}
           <div className="flex items-center gap-6">
             <NavLink to="/painel" className="focus:outline-none flex items-center">
-              <BrandLogo variant="compact" size="md" showCrmBadge={true} />
+              <BrandLogo variant="compact" size="md" showCrmBadge={false} />
             </NavLink>
           </div>
 
