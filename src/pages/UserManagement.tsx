@@ -35,6 +35,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
+  Pencil,
+  KeyRound,
 } from 'lucide-react'
 
 interface UserRecord {
@@ -74,6 +76,16 @@ export default function UserManagement() {
     message?: string
   } | null>(null)
 
+  // Modal de Edição de Usuário
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editRole, setEditRole] = useState<'seller' | 'admin'>('seller')
+  const [editPassword, setEditPassword] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
   // Exclusão / Desativação
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -99,6 +111,88 @@ export default function UserManagement() {
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  const handleOpenEdit = (user: UserRecord) => {
+    setEditingUser(user)
+    setEditName(user.name ?? '')
+    setEditEmail(user.email ?? '')
+    setEditRole(user.role === 'admin' ? 'admin' : 'seller')
+    setEditPassword('')
+    setEditError(null)
+    setEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingUser) return
+    setEditError(null)
+
+    const cleanEmail = editEmail.trim().toLowerCase()
+    const cleanName = editName.trim()
+    const cleanPassword = editPassword.trim()
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setEditError('Por favor informe um e-mail válido.')
+      return
+    }
+
+    if (cleanPassword && cleanPassword.length < 8) {
+      setEditError('A nova senha deve ter no mínimo 8 caracteres.')
+      return
+    }
+
+    // Regra: se o usuário sendo editado for o admin principal, impedir rebaixar
+    const isTargetMainAdmin =
+      (editingUser.email ?? '').toLowerCase() === 'leandro.bertanha@lbertanha.com'
+    if (isTargetMainAdmin && editRole !== 'admin') {
+      setEditError('O Administrador Principal não pode ser rebaixado para Vendedor.')
+      return
+    }
+
+    // Regra: se for o usuário atual (auto-edição), impedir rebaixamento próprio
+    if (editingUser.id === currentUser?.id && editRole !== 'admin') {
+      setEditError('Você não pode alterar o seu próprio papel para Vendedor.')
+      return
+    }
+
+    setSavingEdit(true)
+    try {
+      const res = await pb.send<{
+        success: boolean
+        user?: { id: string; email: string; name: string; role: string }
+        passwordUpdated?: boolean
+        message?: string
+      }>('/backend/v1/users/update', {
+        method: 'POST',
+        body: {
+          userId: editingUser.id,
+          name: cleanName,
+          email: cleanEmail,
+          role: editRole,
+          password: cleanPassword || undefined,
+        },
+      })
+
+      toast({
+        title: 'Usuário atualizado com sucesso!',
+        description: `Os dados de ${cleanEmail} foram salvos.${
+          res.passwordUpdated ? ' A senha foi redefinida.' : ''
+        }`,
+      })
+
+      setEditModalOpen(false)
+      setEditingUser(null)
+      fetchUsers()
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'data' in err
+          ? String((err as { data: { error?: string } }).data?.error || '')
+          : ''
+      setEditError(msg || 'Erro ao atualizar usuário. Verifique se o e-mail já está em uso.')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   const handleOpenCreate = () => {
     setNewName('')
@@ -403,27 +497,40 @@ export default function UserManagement() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        {!isMainAdmin && !isCurrent ? (
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleDeleteUser(u.id, userEmail)}
-                            disabled={deletingId === u.id}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-950/40 h-8 px-2.5 rounded-lg text-xs"
-                            title="Excluir usuário da equipe"
+                            onClick={() => handleOpenEdit(u)}
+                            className="text-gray-300 hover:text-white hover:bg-indigo-600/20 hover:border-indigo-500/30 border border-transparent h-8 px-2.5 rounded-lg text-xs transition-colors"
+                            title="Editar conta do usuário"
                           >
-                            {deletingId === u.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                                Excluir
-                              </>
-                            )}
+                            <Pencil className="w-3.5 h-3.5 mr-1 text-indigo-400" />
+                            Editar
                           </Button>
-                        ) : (
-                          <span className="text-[11px] text-gray-600 italic">Protegido</span>
-                        )}
+
+                          {!isMainAdmin && !isCurrent ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteUser(u.id, userEmail)}
+                              disabled={deletingId === u.id}
+                              className="text-red-400 hover:text-red-300 hover:bg-red-950/40 h-8 px-2.5 rounded-lg text-xs transition-colors"
+                              title="Excluir usuário da equipe"
+                            >
+                              {deletingId === u.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                  Excluir
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-gray-600 italic px-2">Protegido</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -433,6 +540,145 @@ export default function UserManagement() {
           </table>
         </div>
       </div>
+
+      {/* Modal: Editar Usuário */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-md rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-indigo-400" />
+              Editar Conta de Usuário
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-400">
+              Altere o nome, e-mail, perfil de acesso ou redefina a senha do colaborador.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEdit} className="space-y-4 py-2">
+            {editError && (
+              <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-300">Nome Completo</Label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  placeholder="Nome do colaborador"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="pl-10 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-300">E-mail Corporativo *</Label>
+                {editingUser?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' && (
+                  <span className="text-[10px] text-amber-400/90 font-medium">
+                    (E-mail do Administrador Principal fixo)
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  type="email"
+                  required
+                  disabled={editingUser?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com'}
+                  placeholder="email@empresa.com"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="pl-10 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10 disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-300">Papel / Função *</Label>
+                {(editingUser?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ||
+                  editingUser?.id === currentUser?.id) && (
+                  <span className="text-[10px] text-indigo-400/90 font-medium">
+                    (Administrador obrigatório)
+                  </span>
+                )}
+              </div>
+              <Select
+                value={editRole}
+                disabled={
+                  editingUser?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ||
+                  editingUser?.id === currentUser?.id
+                }
+                onValueChange={(val) => setEditRole(val as 'seller' | 'admin')}
+              >
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                  <SelectItem value="seller">Vendedor (Acessa suas oportunidades)</SelectItem>
+                  <SelectItem value="admin">Administrador (Acesso total)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-gray-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+                  Redefinir Senha
+                </Label>
+                <span className="text-[10px] text-gray-500">
+                  Deixe em branco para manter a atual
+                </span>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  type="password"
+                  placeholder="Nova senha (mínimo 8 caracteres)"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="pl-10 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={savingEdit}
+                onClick={() => {
+                  setEditModalOpen(false)
+                  setEditingUser(null)
+                }}
+                className="border-[#262A33] text-gray-300 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingEdit}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
+              >
+                {savingEdit ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar Alterações'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Cadastrar Usuário */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
