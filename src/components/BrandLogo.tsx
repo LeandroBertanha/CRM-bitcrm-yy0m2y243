@@ -29,21 +29,40 @@ export const BrandLogo: React.FC<BitLogoProps> = ({
 }) => {
   // Mapeamento de alturas padronizadas (a largura se ajusta automaticamente com w-auto para nunca distorcer)
   // Aumentado generosamente conforme solicitação ("Aumente o Logo") mantendo proporção original do webp
+  // Mapeamento de alturas padronizadas e responsivas:
+  // - No mobile: inicia em tamanhos proporcionais (ex: h-8 a h-11 no compact, h-10 a h-14 no full)
+  // - No desktop: escala progressivamente mantendo o logo GRANDE (h-14, h-16, h-20/h-28)
+  // - max-w-full e max-w-[min(...)] evitam estouro e sobreposição
   const heights = {
-    sm: variant === 'compact' ? 'h-9 sm:h-11' : 'h-12 sm:h-14',
-    md: variant === 'compact' ? 'h-11 sm:h-13' : 'h-14 sm:h-18',
-    lg: variant === 'compact' ? 'h-13 sm:h-16' : 'h-18 sm:h-24',
-    xl: variant === 'compact' ? 'h-16 sm:h-20' : 'h-24 sm:h-32',
+    sm: variant === 'compact' ? 'h-8 sm:h-10 md:h-11' : 'h-10 sm:h-12 md:h-14',
+    md: variant === 'compact' ? 'h-9 sm:h-11 md:h-13' : 'h-12 sm:h-14 md:h-18',
+    lg: variant === 'compact' ? 'h-9 sm:h-12 md:h-15 lg:h-16' : 'h-14 sm:h-18 md:h-22 lg:h-24',
+    xl: variant === 'compact' ? 'h-10 sm:h-14 md:h-18 lg:h-20' : 'h-14 sm:h-20 md:h-24 lg:h-32',
+  }
+
+  // Largura máxima protetiva para nunca estourar containers em mobile
+  const maxWidths = {
+    sm: variant === 'compact' ? 'max-w-[120px] sm:max-w-[160px]' : 'max-w-[150px] sm:max-w-[200px]',
+    md: variant === 'compact' ? 'max-w-[150px] sm:max-w-[200px]' : 'max-w-[180px] sm:max-w-[240px]',
+    lg:
+      variant === 'compact'
+        ? 'max-w-[160px] sm:max-w-[230px] md:max-w-none'
+        : 'max-w-[min(220px,65vw)] sm:max-w-[320px] md:max-w-none',
+    xl:
+      variant === 'compact'
+        ? 'max-w-[180px] sm:max-w-[260px] md:max-w-none'
+        : 'max-w-[min(240px,70vw)] sm:max-w-[340px] md:max-w-none',
   }
 
   const heightClass = heights[size] || heights.md
+  const maxWidthClass = maxWidths[size] || maxWidths.md
 
   return (
-    <div className={`inline-flex items-center gap-3 select-none ${className}`}>
+    <div className={`inline-flex items-center gap-2 sm:gap-3 select-none max-w-full ${className}`}>
       <img
         src={bitLogoUrl}
         alt="bit Consulting"
-        className={`${heightClass} w-auto object-contain shrink-0`}
+        className={`${heightClass} ${maxWidthClass} w-auto object-contain shrink-0`}
         loading="eager"
         decoding="async"
       />
