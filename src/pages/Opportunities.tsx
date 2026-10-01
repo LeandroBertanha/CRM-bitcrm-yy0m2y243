@@ -41,7 +41,7 @@ import {
 } from 'lucide-react'
 
 export default function Opportunities() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { toast } = useToast()
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
@@ -53,6 +53,7 @@ export default function Opportunities() {
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<string>('all')
+  const [sellerFilter, setSellerFilter] = useState<string>('all')
 
   // Modais
   const [createModalOpen, setCreateModalOpen] = useState(false)
@@ -295,6 +296,18 @@ export default function Opportunities() {
   // Filtragem dos cards
   const filteredOpps = useMemo(() => {
     return opportunities.filter((opp) => {
+      // Regra de perfil:
+      // Se for admin: vê tudo de todos, com filtro opcional por vendedor
+      // Se não for admin: vê somente suas oportunidades
+      if (!isAdmin) {
+        const isMyOpp =
+          !opp.seller || opp.seller === user?.id || opp.expand?.seller?.id === user?.id
+        if (!isMyOpp) return false
+      } else if (sellerFilter !== 'all') {
+        const matchesSeller = opp.seller === sellerFilter || opp.expand?.seller?.id === sellerFilter
+        if (!matchesSeller) return false
+      }
+
       // Busca por texto
       const matchesSearch =
         searchQuery === '' ||
@@ -310,7 +323,7 @@ export default function Opportunities() {
 
       return matchesSearch && matchesStage && matchesSource
     })
-  }, [opportunities, searchQuery, stageFilter, sourceFilter])
+  }, [opportunities, searchQuery, stageFilter, sourceFilter, sellerFilter, isAdmin, user?.id])
 
   return (
     <div className="space-y-6 animate-fadeInUp">
@@ -363,7 +376,7 @@ export default function Opportunities() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="w-36">
             <Select value={stageFilter} onValueChange={setStageFilter}>
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-9 rounded-xl">
@@ -380,7 +393,7 @@ export default function Opportunities() {
             </Select>
           </div>
 
-          <div className="w-40">
+          <div className="w-36">
             <Select value={sourceFilter} onValueChange={setSourceFilter}>
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-9 rounded-xl">
                 <SelectValue placeholder="Origem" />
@@ -395,6 +408,24 @@ export default function Opportunities() {
               </SelectContent>
             </Select>
           </div>
+
+          {isAdmin && sellersList.length > 0 && (
+            <div className="w-44">
+              <Select value={sellerFilter} onValueChange={setSellerFilter}>
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-9 rounded-xl">
+                  <SelectValue placeholder="Vendedor" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                  <SelectItem value="all">Toda a Equipe</SelectItem>
+                  {sellersList.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name || s.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

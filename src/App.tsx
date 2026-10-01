@@ -18,8 +18,32 @@ import FormManager from './pages/FormManager'
 import PublicForm from './pages/PublicForm'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
+import AdminMetrics from './pages/AdminMetrics'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
+
+// Componente para proteger rotas exclusivas de administradores
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAdmin, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0B0E]">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/painel" replace />
+  }
+
+  return <>{children}</>
+}
 
 // Componente para proteger rotas autenticadas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -105,6 +129,14 @@ const App = () => (
             <Route path="/painel" element={<Dashboard />} />
             <Route path="/oportunidades" element={<Opportunities />} />
             <Route path="/formulario" element={<FormManager />} />
+            <Route
+              path="/metricas"
+              element={
+                <AdminRoute>
+                  <AdminMetrics />
+                </AdminRoute>
+              }
+            />
             <Route path="/perfil" element={<Profile />} />
           </Route>
 

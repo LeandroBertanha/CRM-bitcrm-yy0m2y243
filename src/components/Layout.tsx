@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   KanbanSquare,
   QrCode,
+  BarChart3,
   User,
   LogOut,
   Menu,
@@ -24,7 +25,7 @@ import {
 import { Button } from '@/components/ui/button'
 
 export default function Layout() {
-  const { user, signOut, isLoading } = useAuth()
+  const { user, isAdmin, signOut, isLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
@@ -66,6 +67,7 @@ export default function Layout() {
   const navItems = [
     { label: 'Painel', to: '/painel', icon: LayoutDashboard },
     { label: 'Oportunidades', to: '/oportunidades', icon: KanbanSquare },
+    ...(isAdmin ? [{ label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 }] : []),
     { label: 'Formulário', to: '/formulario', icon: QrCode },
   ]
 
@@ -122,7 +124,9 @@ export default function Layout() {
                       <span className="text-xs font-medium text-gray-200 line-clamp-1 max-w-[110px]">
                         {user.name || user.email.split('@')[0]}
                       </span>
-                      <span className="text-[10px] text-gray-500 line-clamp-1">Vendedor</span>
+                      <span className="text-[10px] text-gray-500 line-clamp-1">
+                        {isAdmin ? 'Administrador' : 'Vendedor'}
+                      </span>
                     </div>
                     <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300 transition-colors" />
                   </button>
@@ -134,14 +138,28 @@ export default function Layout() {
                   <DropdownMenuLabel className="font-normal px-2 py-1.5">
                     <div className="flex flex-col space-y-1">
                       <p className="text-xs font-semibold text-white leading-none">
-                        {user.name || 'Vendedor bitCRM'}
+                        {user.name || 'Usuário bitCRM'}
                       </p>
                       <p className="text-[11px] text-gray-400 leading-none truncate">
                         {user.email}
                       </p>
+                      {isAdmin && (
+                        <span className="text-[10px] text-indigo-400 font-semibold mt-1">
+                          Perfil: Administrador
+                        </span>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-[#262A33]" />
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => navigate('/metricas')}
+                      className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-indigo-300 hover:text-white"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
+                      Métricas da Equipe
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => navigate('/perfil')}
                     className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-gray-300 hover:text-white"

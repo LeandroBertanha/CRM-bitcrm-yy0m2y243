@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -59,7 +59,12 @@ export default function Dashboard() {
   // Filtragem e Métricas
   const myOpps = useMemo(() => {
     if (!user) return []
-    // O usuário seed pode ver tudo se for admin ou filtra por seller
+    // Se o usuário for admin, no dashboard comercial geral pode ver o agregado ou suas próprias oportunidades.
+    // Mas conforme o requisito:
+    // "Painel do vendedor (existente) continua filtrado apenas pelas oportunidades dele; o do admin agrega tudo."
+    // Para vendedores comuns: filtra rigorosamente por opp.seller === user.id
+    // Se for admin vendo o /painel, mostra as oportunidades atribuídas a ele (ou não atribuídas);
+    // Para ver tudo de todos, ele tem a aba exclusiva "Métricas de Equipe" (/metricas).
     return opportunities.filter(
       (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
     )
@@ -143,10 +148,15 @@ export default function Dashboard() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Tempo Real
             </span>
+            {isAdmin && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                Administrador
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-400 mt-1">
             Olá, <span className="text-white font-medium">{user?.name || user?.email}</span>.
-            Acompanhe seus números e novos leads capturados.
+            Acompanhe seus números e novos leads capturados da sua carteira comercial.
           </p>
         </div>
 

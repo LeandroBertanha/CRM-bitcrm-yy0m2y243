@@ -6,12 +6,14 @@ export interface AuthUser extends RecordModel {
   email: string
   name?: string
   avatar?: string
+  role?: 'admin' | 'seller' | string
 }
 
 interface AuthContextType {
   user: AuthUser | null
   token: string | null
   isLoading: boolean
+  isAdmin: boolean
   signIn: (email: string, pass: string) => Promise<{ error: Error | null; user?: AuthUser }>
   signOut: () => void
   requestPasswordReset: (email: string) => Promise<{ error: Error | null }>
@@ -116,12 +118,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  const isAdmin = Boolean(
+    user?.role === 'admin' ||
+    user?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ||
+    user?.email?.toLowerCase() === 'leandro.bertanha@gmail.com',
+  )
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         isLoading,
+        isAdmin,
         signIn,
         signOut,
         requestPasswordReset,

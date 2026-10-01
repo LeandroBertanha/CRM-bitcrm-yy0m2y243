@@ -140,11 +140,11 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Rodapé sutil com dados do seed para facilidade de testes */}
+        {/* Rodapé sutil com dados de acesso do administrador */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-600">
-            Acesso demo inicial:{' '}
-            <span className="text-gray-400 font-mono">leandro.bertanha@gmail.com</span> /{' '}
+            Acesso administrador:{' '}
+            <span className="text-gray-400 font-mono">leandro.bertanha@lbertanha.com</span> /{' '}
             <span className="text-gray-400 font-mono">Skip@Pass</span>
           </p>
         </div>

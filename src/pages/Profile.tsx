@@ -183,7 +183,9 @@ export default function Profile() {
               {user?.name || user?.email.split('@')[0]}
             </h2>
             <span className="text-[11px] font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 rounded-full w-fit mx-auto sm:mx-0">
-              Vendedor Comercial
+              {user?.role === 'admin' || user?.email?.includes('lbertanha.com')
+                ? 'Administrador'
+                : 'Vendedor Comercial'}
             </span>
           </div>
           <p className="text-xs text-gray-400 font-mono">{user?.email}</p>

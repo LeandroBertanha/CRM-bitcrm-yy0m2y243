@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-01T16:47:31.177Z",
+  "generatedAt": "2026-10-01T17:03:12.930Z",
   "collections": [
     {
       "name": "users",
       "type": "auth",
       "apiRules": {
-        "list": "id = @request.auth.id",
-        "view": "id = @request.auth.id",
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
         "create": "",
         "update": "id = @request.auth.id",
         "delete": "id = @request.auth.id"
@@ -37,6 +37,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["admin", "seller"]
         }
       ],
       "indexes": [
@@ -48,11 +55,11 @@
       "name": "opportunities",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
-        "view": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
         "create": "",
-        "update": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
-        "delete": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')"
+        "update": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
       },
       "fields": [
         {
