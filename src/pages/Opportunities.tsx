@@ -1182,25 +1182,16 @@ export default function Opportunities() {
       {/* Modal: Editar Oportunidade */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
-          <DialogHeader>
+          <DialogHeader className="pr-10">
             <DialogTitle className="text-lg font-bold text-white flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-400" />
                 Editar Oportunidade
               </span>
-              {selectedOpp && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(selectedOpp.id)}
-                  className="text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs h-8 px-2"
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Excluir
-                </Button>
-              )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Formulário para editar informações da oportunidade comercial
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
@@ -1379,22 +1370,38 @@ export default function Opportunities() {
               />
             </div>
 
-            <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditModalOpen(false)}
-                className="border-[#262A33] text-gray-300 text-xs"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
-              >
-                {submitting ? 'Salvando...' : 'Salvar Alterações'}
-              </Button>
+            <DialogFooter className="pt-3 border-t border-[#262A33] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                {selectedOpp && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(selectedOpp.id)}
+                    className="border-red-500/30 bg-red-950/20 text-red-400 hover:text-red-300 hover:bg-red-950/40 hover:border-red-500/50 text-xs h-9 px-3 w-full sm:w-auto"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Excluir Oportunidade
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditModalOpen(false)}
+                  className="border-[#262A33] text-gray-300 text-xs h-9"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold h-9"
+                >
+                  {submitting ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
 
@@ -1430,7 +1437,7 @@ export default function Opportunities() {
         <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
           {selectedOpp && (
             <>
-              <DialogHeader>
+              <DialogHeader className="pr-10">
                 <div className="flex items-center justify-between pb-2 border-b border-[#262A33]">
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400">
@@ -1449,6 +1456,9 @@ export default function Opportunities() {
                     {selectedOpp.stage}
                   </span>
                 </div>
+                <DialogDescription className="sr-only">
+                  Detalhes completos da oportunidade comercial
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 py-2 text-xs">
@@ -1533,23 +1543,35 @@ export default function Opportunities() {
                 </div>
               </div>
 
-              <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDetailModalOpen(false)}
-                  className="border-[#262A33] text-gray-300 text-xs"
-                >
-                  Fechar
-                </Button>
-                <div className="flex items-center gap-2">
+              <DialogFooter className="pt-3 border-t border-[#262A33] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(selectedOpp.id)}
+                    className="border-red-500/30 bg-red-950/20 text-red-400 hover:text-red-300 hover:bg-red-950/40 hover:border-red-500/50 text-xs h-9 px-3 w-full sm:w-auto"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Excluir Oportunidade
+                  </Button>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDetailModalOpen(false)}
+                    className="border-[#262A33] text-gray-300 text-xs h-9"
+                  >
+                    Fechar
+                  </Button>
                   <Button
                     size="sm"
                     onClick={() => {
                       setDetailModalOpen(false)
                       handleOpenEdit(selectedOpp)
                     }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs h-9"
                   >
                     <Edit2 className="w-3.5 h-3.5 mr-1.5" />
                     Editar
