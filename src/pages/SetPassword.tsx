@@ -19,12 +19,14 @@ import {
 } from 'lucide-react'
 
 export default function SetPassword() {
-  const { user, setFirstPassword, signOut } = useAuth()
+  const { user, setFirstPassword, signOut, tempLoginPassword } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
+  const [currentPassword, setCurrentPassword] = useState(tempLoginPassword || '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -68,9 +70,18 @@ export default function SetPassword() {
       return
     }
 
+    if (currentPassword && currentPassword === password) {
+      setErrorMessage('A nova senha deve ser diferente da senha temporária atual.')
+      return
+    }
+
     setLoading(true)
     try {
-      const { error } = await setFirstPassword(password, confirmPassword)
+      const { error } = await setFirstPassword(
+        password,
+        confirmPassword,
+        currentPassword || undefined,
+      )
       if (error) {
         setErrorMessage(error.message || 'Erro ao definir nova senha. Tente novamente.')
       } else {
@@ -142,6 +153,44 @@ export default function SetPassword() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Senha Atual / Temporária */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium text-gray-300">
+                  Senha Atual / Temporária
+                </Label>
+                {tempLoginPassword && (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Capturada do login
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  placeholder="Senha usada para entrar"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="pl-10 pr-10 bg-[#0E1017] border-[#262A33] text-white placeholder:text-gray-600 focus-visible:ring-indigo-500 rounded-xl h-11 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 focus:outline-none"
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                A senha provisória que você recebeu por e-mail ou convite.
+              </p>
+            </div>
+
             {/* Nova Senha */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-gray-300">Nova Senha *</Label>
