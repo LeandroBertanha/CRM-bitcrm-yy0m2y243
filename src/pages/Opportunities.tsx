@@ -512,8 +512,48 @@ export default function Opportunities() {
     }
   }
 
-  // Filtragem dos cards
+  // Mapeamento de vendedores para lookup rápido por ID no filtro de busca
+  const sellersMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of sellersList) {
+      if (s.id) {
+        map.set(s.id, [s.name, s.email].filter(Boolean).join(' '))
+      }
+    }
+    return map
+  }, [sellersList])
+
+  // Filtragem dos cards (busca global substring case-insensitive sem acento + normalização de telefone)
   const filteredOpps = useMemo(() => {
+    const rawQuery = searchQuery.trim()
+
+    // Normalização padrão para busca textual: minúsculas e sem acentos diacríticos
+    const normalizeText = (val: string | null | undefined): string => {
+      if (!val) return ''
+      return val
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+    }
+
+    // Normalização de telefone: remove qualquer caractere que não seja dígito
+    // e retira o prefixo internacional '55' caso seja DDI Brasil (12 ou 13 dígitos)
+    const normalizePhoneDigits = (val: string | null | undefined): string => {
+      if (!val) return ''
+      let digits = val.toString().replace(/\D/g, '')
+      digits = digits.replace(/^0+/, '')
+      if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+        digits = digits.slice(2)
+      }
+      return digits
+    }
+
+    const queryNorm = normalizeText(rawQuery)
+    const queryDigits = rawQuery.replace(/\D/g, '')
+    // Se a busca tiver dígitos com prefixo 55 internacional, também normaliza
+    const queryPhoneDigits = normalizePhoneDigits(rawQuery)
+
     return opportunities.filter((opp) => {
       // Regra de perfil:
       // Se for admin: vê tudo de todos, com filtro opcional por vendedor
@@ -527,22 +567,104 @@ export default function Opportunities() {
         if (!matchesSeller) return false
       }
 
-      // Busca por texto
-      const matchesSearch =
-        searchQuery === '' ||
-        opp.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (opp.contact_name && opp.contact_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (opp.contact_email && opp.contact_email.toLowerCase().includes(searchQuery.toLowerCase()))
-
       // Filtro de estágio
-      const matchesStage = stageFilter === 'all' || opp.stage === stageFilter
+      if (stageFilter !== 'all' && opp.stage !== stageFilter) {
+        return false
+      }
 
       // Filtro de origem
-      const matchesSource = sourceFilter === 'all' || opp.source === sourceFilter
+      if (sourceFilter !== 'all' && opp.source !== sourceFilter) {
+        return false
+      }
 
-      return matchesSearch && matchesStage && matchesSource
+      // Se não houver texto digitado na busca, aceita
+      if (!queryNorm) {
+        return true
+      }
+
+      // 1. Verificação por Telefone / WhatsApp:
+      // Permite buscar por partes do telefone (ex: "4567", "9912", "11991234567", "(11) 99123-4567")
+      if (opp.contact_phone) {
+        const rawPhone = opp.contact_phone
+        // Busca textual direta no telefone com sua formatação original
+        if (normalizeText(rawPhone).includes(queryNorm)) {
+          return true
+        }
+
+        // Busca numérica desformatada (apenas dígitos)
+        const digitsOnly = rawPhone.replace(/\D/g, '')
+        const normalizedDigits = normalizePhoneDigits(rawPhone)
+
+        if (queryDigits && digitsOnly.includes(queryDigits)) {
+          return true
+        }
+        if (queryPhoneDigits && normalizedDigits.includes(queryPhoneDigits)) {
+          return true
+        }
+        if (queryDigits && normalizedDigits.includes(queryDigits)) {
+          return true
+        }
+      }
+
+      // 2. Busca Global em todos os demais campos da oportunidade:
+      // - Empresa / título
+      // - Nome do contato
+      // - E-mail
+      // - Cidade
+      // - Estágio
+      // - Origem
+      // - Forma de pagamento e parcelamento
+      // - Mensagem, observações, escopo e links/fontes
+      // - Vendedor responsável (nome e e-mail)
+      // - Valores (numérico bruto, formato moeda BRL "R$ 500,00", centavos etc.)
+      const sellerInfo =
+        opp.expand?.seller?.name ||
+        opp.expand?.seller?.email ||
+        (opp.seller ? sellersMap.get(opp.seller) : '') ||
+        ''
+
+      const numericVal = opp.value !== undefined && opp.value !== null ? String(opp.value) : ''
+      const brlFormatted = formatBRL(opp.value)
+
+      const installmentsText =
+        opp.payment_installments !== null && opp.payment_installments !== undefined
+          ? `${opp.payment_installments}x ${opp.payment_installments} parcelas`
+          : ''
+
+      // Campos textuais para verificação
+      const searchableFields = [
+        opp.company,
+        opp.contact_name,
+        opp.contact_email,
+        opp.city,
+        opp.stage,
+        opp.source,
+        opp.payment_type,
+        installmentsText,
+        opp.message,
+        sellerInfo,
+        numericVal,
+        brlFormatted,
+      ]
+
+      for (const field of searchableFields) {
+        if (field && normalizeText(field).includes(queryNorm)) {
+          return true
+        }
+      }
+
+      return false
     })
-  }, [opportunities, searchQuery, stageFilter, sourceFilter, sellerFilter, isAdmin, user?.id])
+  }, [
+    opportunities,
+    searchQuery,
+    stageFilter,
+    sourceFilter,
+    sellerFilter,
+    isAdmin,
+    user?.id,
+    sellersMap,
+  ])
 
   return (
     <div className="space-y-6 animate-fadeInUp">
