@@ -26,7 +26,9 @@ import {
   ArrowRight,
   ShieldCheck,
   RotateCcw,
+  DollarSign,
 } from 'lucide-react'
+import { formatBRL } from '@/types/crm'
 
 export default function PublicForm() {
   const [searchParams] = useSearchParams()
@@ -42,6 +44,11 @@ export default function PublicForm() {
   const [phone, setPhone] = useState('')
   const [company, setCompany] = useState('')
   const [interest, setInterest] = useState<'Site' | 'Landing Page'>('Site')
+  const [serviceValuePreset, setServiceValuePreset] = useState<'500' | '1000' | '2500' | 'outro'>(
+    '500',
+  )
+  const [customValueInput, setCustomValueInput] = useState('')
+  const [submittedValue, setSubmittedValue] = useState<number>(500)
   const [paymentType, setPaymentType] = useState<'Débito' | 'PIX' | 'Parcelado'>('PIX')
   const [paymentInstallments, setPaymentInstallments] = useState<number>(1)
   const [message, setMessage] = useState('')
@@ -74,6 +81,18 @@ export default function PublicForm() {
       return
     }
 
+    let finalValue = 0
+    if (serviceValuePreset === 'outro') {
+      const parsedCustom = parseCustomValue(customValueInput)
+      if (parsedCustom === null || parsedCustom <= 0) {
+        setErrorMessage('Por favor, informe um valor de serviço válido e maior que zero.')
+        return
+      }
+      finalValue = parsedCustom
+    } else {
+      finalValue = Number(serviceValuePreset)
+    }
+
     setSubmitting(true)
 
     try {
@@ -82,19 +101,20 @@ export default function PublicForm() {
         company: company.trim(),
         stage: 'Novo',
         source: 'Formulário Público',
-        value: interest === 'Site' ? 4500 : 2500,
+        value: finalValue,
         seller: sellerId || null,
         contact_name: name.trim(),
         contact_email: email.trim(),
         contact_phone: phone.trim(),
         payment_type: paymentType,
         payment_installments: paymentType === 'Parcelado' ? Number(paymentInstallments) : null,
-        message: `[Interesse: ${interest}] [Pagamento: ${paymentType}${
+        message: `[Interesse: ${interest}] [Valor: ${formatBRL(finalValue)}] [Pagamento: ${paymentType}${
           paymentType === 'Parcelado' ? ` em ${paymentInstallments}x` : ''
         }] ${message.trim()}`,
       }
 
       await pb.collection('opportunities').create(opportunityData)
+      setSubmittedValue(finalValue)
       setSubmitted(true)
     } catch (err) {
       console.error('Erro ao enviar formulário público:', err)
@@ -106,12 +126,39 @@ export default function PublicForm() {
     }
   }
 
+  // Converte string BRL (ex: "1.250,50") para número float
+  const parseCustomValue = (raw: string): number | null => {
+    if (!raw) return null
+    const cleaned = raw.replace(/[^\d]/g, '')
+    if (!cleaned) return null
+    const cents = parseInt(cleaned, 10)
+    return isNaN(cents) ? null : cents / 100
+  }
+
+  // Máscara monetária BRL ao digitar
+  const handleCustomValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawDigits = e.target.value.replace(/\D/g, '')
+    if (!rawDigits) {
+      setCustomValueInput('')
+      return
+    }
+    const cents = parseInt(rawDigits, 10)
+    const formatted = (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    setCustomValueInput(formatted)
+  }
+
   const handleResetForm = () => {
     setName('')
     setEmail('')
     setPhone('')
     setCompany('')
     setInterest('Site')
+    setServiceValuePreset('500')
+    setCustomValueInput('')
+    setSubmittedValue(500)
     setPaymentType('PIX')
     setPaymentInstallments(1)
     setMessage('')
@@ -171,6 +218,10 @@ export default function PublicForm() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Interesse:</span>
                   <span className="text-indigo-400 font-semibold">{interest}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Valor do Serviço:</span>
+                  <span className="text-indigo-400 font-semibold">{formatBRL(submittedValue)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Forma de Pagamento:</span>
@@ -308,6 +359,60 @@ export default function PublicForm() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Campo Valor do Serviço */}
+                <div className="space-y-2 p-3.5 rounded-2xl bg-[#0E1017] border border-[#262A33]">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="service-value" className="text-xs font-medium text-gray-300">
+                      Valor do Serviço *
+                    </Label>
+                    <Select
+                      value={serviceValuePreset}
+                      onValueChange={(val) => {
+                        setServiceValuePreset(val as '500' | '1000' | '2500' | 'outro')
+                      }}
+                    >
+                      <SelectTrigger
+                        id="service-value"
+                        className="bg-[#12141A] border-[#262A33] text-white text-xs h-11 rounded-xl"
+                      >
+                        <SelectValue placeholder="Selecione o valor do serviço" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        <SelectItem value="500">R$ 500,00</SelectItem>
+                        <SelectItem value="1000">R$ 1.000,00</SelectItem>
+                        <SelectItem value="2500">R$ 2.500,00</SelectItem>
+                        <SelectItem value="outro">Outro valor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {serviceValuePreset === 'outro' && (
+                    <div className="space-y-1.5 pt-1 animate-fadeInUp">
+                      <Label htmlFor="custom-value" className="text-xs font-medium text-indigo-300">
+                        Digite o valor desejado (R$) *
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 select-none">
+                          R$
+                        </span>
+                        <Input
+                          id="custom-value"
+                          type="text"
+                          inputMode="numeric"
+                          required={serviceValuePreset === 'outro'}
+                          placeholder="0,00"
+                          value={customValueInput}
+                          onChange={handleCustomValueChange}
+                          className="pl-10 bg-[#12141A] border-indigo-500/40 text-white text-xs placeholder:text-gray-600 focus-visible:ring-indigo-500 rounded-xl h-11"
+                        />
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Informe o valor estimado para o seu projeto ou consultoria.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tipo de Pagamento e Parcelas (limite até 10x) */}
