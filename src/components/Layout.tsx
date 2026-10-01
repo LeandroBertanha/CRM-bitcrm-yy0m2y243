@@ -14,6 +14,7 @@ import {
   X,
   ChevronDown,
   Sparkles,
+  Coins,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -68,6 +69,7 @@ export default function Layout() {
   const navItems = [
     { label: 'Painel', to: '/painel', icon: LayoutDashboard },
     { label: 'Oportunidades', to: '/oportunidades', icon: KanbanSquare },
+    { label: 'Comissionamento', to: '/comissionamento', icon: Coins },
     ...(isAdmin
       ? [
           { label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 },
@@ -175,6 +177,13 @@ export default function Layout() {
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuItem
+                    onClick={() => navigate('/comissionamento')}
+                    className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-gray-300 hover:text-white"
+                  >
+                    <Coins className="w-3.5 h-3.5 text-indigo-400" />
+                    Comissionamento
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => navigate('/perfil')}
                     className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-gray-300 hover:text-white"

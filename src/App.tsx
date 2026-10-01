@@ -21,6 +21,7 @@ import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import AdminMetrics from './pages/AdminMetrics'
 import UserManagement from './pages/UserManagement'
+import Commission from './pages/Commission'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
 
@@ -176,6 +177,7 @@ const App = () => (
           >
             <Route path="/painel" element={<Dashboard />} />
             <Route path="/oportunidades" element={<Opportunities />} />
+            <Route path="/comissionamento" element={<Commission />} />
             <Route path="/formulario" element={<FormManager />} />
             <Route
               path="/metricas"

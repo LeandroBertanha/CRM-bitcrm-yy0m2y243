@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T22:16:23.054Z",
+  "generatedAt": "2026-10-01T22:29:29.466Z",
   "collections": [
     {
       "name": "users",
@@ -236,6 +236,149 @@
         "CREATE INDEX idx_opportunity_notes_opp ON opportunity_notes (opportunity)",
         "CREATE INDEX idx_opportunity_notes_date ON opportunity_notes (date DESC)",
         "CREATE INDEX idx_opportunity_notes_author ON opportunity_notes (author)"
+      ]
+    },
+    {
+      "name": "commission_settings",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "product_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "base_sale_value",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "monthly_hosting_value",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "hosting_note",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "essential_rules",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "detailed_rules",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"]
+    },
+    {
+      "name": "commission_tiers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_sales",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "max_sales",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "percentage",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "commission_per_sale",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_commission_tiers_order ON commission_tiers (display_order)",
+        "CREATE INDEX idx_commission_tiers_active ON commission_tiers (is_active)"
       ]
     }
   ]
