@@ -30,10 +30,10 @@ export const BrandLogo: React.FC<BitLogoProps> = ({
   // Mapeamento de alturas padronizadas (a largura se ajusta automaticamente com w-auto para nunca distorcer)
   // Aumentado generosamente conforme solicitação ("Aumente o Logo") mantendo proporção original do webp
   const heights = {
-    sm: variant === 'compact' ? 'h-8 sm:h-9' : 'h-10 sm:h-12',
-    md: variant === 'compact' ? 'h-9 sm:h-11' : 'h-12 sm:h-14',
-    lg: variant === 'compact' ? 'h-11 sm:h-13' : 'h-14 sm:h-16',
-    xl: variant === 'compact' ? 'h-13 sm:h-16' : 'h-16 sm:h-20',
+    sm: variant === 'compact' ? 'h-9 sm:h-11' : 'h-12 sm:h-14',
+    md: variant === 'compact' ? 'h-11 sm:h-13' : 'h-14 sm:h-18',
+    lg: variant === 'compact' ? 'h-13 sm:h-16' : 'h-18 sm:h-24',
+    xl: variant === 'compact' ? 'h-16 sm:h-20' : 'h-24 sm:h-32',
   }
 
   const heightClass = heights[size] || heights.md

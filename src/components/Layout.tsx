@@ -87,9 +87,9 @@ export default function Layout() {
             : 'bg-[#0A0B0E]/40 backdrop-blur-sm border-transparent'
         }`}
       >
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+        <div className="max-w-[1240px] mx-auto px-3 sm:px-6 h-20 sm:h-22 flex items-center justify-between">
           {/* Logo & Marca com destaque elegante */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
             <NavLink to="/painel" className="focus:outline-none flex items-center py-1">
               <BrandLogo variant="compact" size="lg" showCrmBadge={false} />
             </NavLink>
@@ -271,7 +271,7 @@ export default function Layout() {
       </header>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1240px] w-full mx-auto">
+      <main className="flex-1 pt-24 sm:pt-28 pb-16 px-4 sm:px-6 max-w-[1240px] w-full mx-auto">
         <Outlet />
       </main>
 

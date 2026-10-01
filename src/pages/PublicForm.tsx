@@ -173,10 +173,10 @@ export default function PublicForm() {
       <div className="absolute bottom-0 right-0 w-[500px] h-[300px] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Cabeçalho Público */}
-      <header className="max-w-xl w-full mx-auto flex items-center justify-between pb-6 relative z-10">
-        <BrandLogo variant="full" size="lg" showCrmBadge={false} />
+      <header className="max-w-xl w-full mx-auto flex items-center justify-between gap-4 pb-6 relative z-10">
+        <BrandLogo variant="full" size="xl" showCrmBadge={false} />
         {sellerName && (
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <span className="text-[11px] text-gray-500 block">Atendimento com</span>
             <span className="text-xs font-semibold text-indigo-400">{sellerName}</span>
           </div>
