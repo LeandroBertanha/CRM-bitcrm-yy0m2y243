@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T18:13:51.808Z",
+  "generatedAt": "2026-10-01T18:17:34.563Z",
   "collections": [
     {
       "name": "users",
@@ -29,21 +29,29 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["admin", "seller"]
+          "selectValues": [
+            "admin",
+            "seller"
+          ]
         }
       ],
       "indexes": [
@@ -73,14 +81,27 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Novo", "Qualificado", "Proposta", "Ganho", "Perdido"]
+          "selectValues": [
+            "Novo",
+            "Qualificado",
+            "Proposta",
+            "Ganho",
+            "Perdido"
+          ]
         },
         {
           "name": "source",
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Formulário Público", "Indicação", "Site", "WhatsApp", "Evento", "Outro"]
+          "selectValues": [
+            "Formulário Público",
+            "Indicação",
+            "Site",
+            "WhatsApp",
+            "Evento",
+            "Outro"
+          ]
         },
         {
           "name": "value",
@@ -124,21 +145,30 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "payment_type",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["Débito", "PIX", "Parcelado"]
+          "selectValues": [
+            "Débito",
+            "PIX",
+            "Parcelado"
+          ]
         },
         {
           "name": "payment_installments",
