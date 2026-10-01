@@ -19,6 +19,7 @@ import PublicForm from './pages/PublicForm'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import AdminMetrics from './pages/AdminMetrics'
+import UserManagement from './pages/UserManagement'
 import Layout from './components/Layout'
 import { Loader2 } from 'lucide-react'
 
@@ -134,6 +135,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <AdminMetrics />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/usuarios"
+              element={
+                <AdminRoute>
+                  <UserManagement />
                 </AdminRoute>
               }
             />

@@ -28,11 +28,12 @@ export const BrandLogo: React.FC<BitLogoProps> = ({
   showCrmBadge = false,
 }) => {
   // Mapeamento de alturas padronizadas (a largura se ajusta automaticamente com w-auto para nunca distorcer)
+  // Aumentado generosamente conforme solicitação ("Aumente o Logo") mantendo proporção original do webp
   const heights = {
-    sm: variant === 'compact' ? 'h-6 sm:h-7' : 'h-8',
-    md: variant === 'compact' ? 'h-7 sm:h-8' : 'h-10 sm:h-11',
-    lg: variant === 'compact' ? 'h-9 sm:h-10' : 'h-12 sm:h-14',
-    xl: variant === 'compact' ? 'h-11 sm:h-12' : 'h-14 sm:h-16',
+    sm: variant === 'compact' ? 'h-8 sm:h-9' : 'h-10 sm:h-12',
+    md: variant === 'compact' ? 'h-9 sm:h-11' : 'h-12 sm:h-14',
+    lg: variant === 'compact' ? 'h-11 sm:h-13' : 'h-14 sm:h-16',
+    xl: variant === 'compact' ? 'h-13 sm:h-16' : 'h-16 sm:h-20',
   }
 
   const heightClass = heights[size] || heights.md

@@ -21,14 +21,27 @@ routerAdd(
       return e.json(400, { error: 'Já existe um usuário cadastrado com este e-mail.' })
     }
 
+    // Apenas administrador pode disparar este convite/criação
+    const authRecord = e.auth
+    const isAdmin =
+      authRecord &&
+      (authRecord.getString('role') === 'admin' ||
+        authRecord.getString('email').toLowerCase() === 'leandro.bertanha@lbertanha.com')
+    if (!isAdmin) {
+      return e.json(403, { error: 'Apenas administradores podem cadastrar novos usuários.' })
+    }
+
+    const role = data.role === 'admin' ? 'admin' : 'seller'
+
     // Gera senha temporária de 10 caracteres
-    const tempPassword = 'Bit@' + $security.randomString(8)
+    const tempPassword = (data.password || '').trim() || 'Bit@' + $security.randomString(8)
 
     const newUser = new Record(usersCollection)
     newUser.setEmail(email)
     newUser.setPassword(tempPassword)
     newUser.setVerified(true)
     newUser.set('name', name || email.split('@')[0])
+    newUser.set('role', role)
     $app.save(newUser)
 
     // Tenta enviar e-mail transacional de convite
@@ -65,7 +78,7 @@ routerAdd(
       return e.json(200, {
         success: true,
         emailSent: false,
-        user: { id: newUser.id, email: email, name: newUser.get('name') },
+        user: { id: newUser.id, email: email, name: newUser.get('name'), role: role },
         tempPassword: tempPassword,
         message: 'Usuário criado com sucesso. (Não foi possível enviar o e-mail automaticamente).',
       })
@@ -74,7 +87,7 @@ routerAdd(
     return e.json(200, {
       success: true,
       emailSent: true,
-      user: { id: newUser.id, email: email, name: newUser.get('name') },
+      user: { id: newUser.id, email: email, name: newUser.get('name'), role: role },
       tempPassword: tempPassword,
       message: 'Convite enviado com sucesso por e-mail.',
     })

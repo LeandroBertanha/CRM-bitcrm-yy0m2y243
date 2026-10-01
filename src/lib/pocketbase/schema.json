@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T17:47:25.871Z",
+  "generatedAt": "2026-10-01T18:05:55.577Z",
   "collections": [
     {
       "name": "users",
@@ -7,9 +7,9 @@
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "",
-        "update": "id = @request.auth.id",
-        "delete": "id = @request.auth.id"
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "id = @request.auth.id || (@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com'))",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
       },
       "fields": [
         {
@@ -132,6 +132,19 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "payment_type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["Débito", "PIX", "Parcelado"]
+        },
+        {
+          "name": "payment_installments",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

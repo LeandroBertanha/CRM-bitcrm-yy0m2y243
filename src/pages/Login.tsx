@@ -139,14 +139,6 @@ export default function Login() {
             </p>
           </div>
         </div>
-
-        {/* Rodapé sutil com dados de acesso do administrador */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-600">
-            Acesso administrador:{' '}
-            <span className="text-gray-400 font-mono">leandro.bertanha@lbertanha.com</span>
-          </p>
-        </div>
       </div>
     </div>
   )

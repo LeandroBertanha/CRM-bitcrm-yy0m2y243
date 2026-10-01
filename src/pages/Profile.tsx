@@ -170,7 +170,6 @@ export default function Profile() {
           Gerencie seus dados de acesso comercial e convide novos membros para o bitCRM.
         </p>
       </div>
-
       {/* Cartão de Identificação do Usuário */}
       <div className="p-6 rounded-2xl bg-[#12141A] border border-[#262A33] shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-5">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-600/30 shrink-0">
@@ -195,7 +194,6 @@ export default function Profile() {
           </p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Formulário: Alterar Nome */}
         <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-6 shadow-xl space-y-5">
@@ -309,107 +307,108 @@ export default function Profile() {
           )}
         </div>
       </div>
-
-      {/* Seção de Convite de Vendedores (Gestão de Equipe) */}
-      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#262A33] gap-2">
-          <div className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-base font-bold text-white">Convidar Vendedor para a Equipe</h3>
-          </div>
-          <span className="text-[11px] text-gray-400 bg-[#0E1017] px-2.5 py-1 rounded-full border border-[#262A33]">
-            Acesso Restrito por Convite
-          </span>
-        </div>
-
-        <p className="text-xs text-gray-400">
-          Adicione novos vendedores à sua equipe comercial. Uma senha temporária segura será gerada
-          e enviada por e-mail ou disponibilizada imediatamente para compartilhamento.
-        </p>
-
-        {inviteResult && (
-          <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-700/60 space-y-3">
-            <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Vendedor cadastrado com sucesso!</span>
+      {/* Seção de Convite de Vendedores (Gestão de Equipe — disponível para admin) */}
+      {user?.role === 'admin' || user?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ? (
+        <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#262A33] gap-2">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-base font-bold text-white">Convidar Vendedor para a Equipe</h3>
             </div>
-            <p className="text-xs text-gray-300">
-              Conta criada para <strong>{inviteResult.email}</strong>.
-            </p>
-            {inviteResult.tempPassword && (
-              <div className="p-3 bg-[#0A0B0E] border border-emerald-900 rounded-lg flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-gray-400 block">
-                    Senha temporária de acesso:
-                  </span>
-                  <code className="text-sm font-bold text-emerald-400 font-mono">
-                    {inviteResult.tempPassword}
-                  </code>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => copyTempPassword(inviteResult.tempPassword!)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
-                >
-                  <Copy className="w-3.5 h-3.5 mr-1" />
-                  Copiar Senha
-                </Button>
+            <span className="text-[11px] text-gray-400 bg-[#0E1017] px-2.5 py-1 rounded-full border border-[#262A33]">
+              Acesso Restrito por Convite
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-400">
+            Adicione novos vendedores à sua equipe comercial. Uma senha temporária segura será
+            gerada e enviada por e-mail ou disponibilizada imediatamente para compartilhamento.
+          </p>
+
+          {inviteResult && (
+            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-700/60 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Vendedor cadastrado com sucesso!</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {inviteError && (
-          <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span>{inviteError}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSendInvite} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-300">Nome do Vendedor</Label>
-            <Input
-              value={inviteName}
-              onChange={(e) => setInviteName(e.target.value)}
-              placeholder="Ex: Carlos Oliveira"
-              className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs text-gray-300">E-mail Comercial *</Label>
-            <Input
-              type="email"
-              required
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="carlos@empresa.com"
-              className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl"
-            />
-          </div>
-
-          <div className="flex items-end">
-            <Button
-              type="submit"
-              disabled={inviting}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl h-10 font-semibold"
-            >
-              {inviting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Gerando convite...
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5 mr-2" />
-                  Enviar Convite
-                </>
+              <p className="text-xs text-gray-300">
+                Conta criada para <strong>{inviteResult.email}</strong>.
+              </p>
+              {inviteResult.tempPassword && (
+                <div className="p-3 bg-[#0A0B0E] border border-emerald-900 rounded-lg flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] text-gray-400 block">
+                      Senha temporária de acesso:
+                    </span>
+                    <code className="text-sm font-bold text-emerald-400 font-mono">
+                      {inviteResult.tempPassword}
+                    </code>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => copyTempPassword(inviteResult.tempPassword!)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    Copiar Senha
+                  </Button>
+                </div>
               )}
-            </Button>
-          </div>
-        </form>
-      </div>
+            </div>
+          )}
+
+          {inviteError && (
+            <div className="p-3 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <span>{inviteError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSendInvite} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-300">Nome do Vendedor</Label>
+              <Input
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Ex: Carlos Oliveira"
+                className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-300">E-mail Comercial *</Label>
+              <Input
+                type="email"
+                required
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="carlos@empresa.com"
+                className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                type="submit"
+                disabled={inviting}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl h-10 font-semibold"
+              >
+                {inviting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    Gerando convite...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5 mr-2" />
+                    Enviar Convite
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}{' '}
     </div>
   )
 }

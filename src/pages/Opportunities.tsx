@@ -71,6 +71,8 @@ export default function Opportunities() {
     contact_name: string
     contact_email: string
     contact_phone: string
+    payment_type: string
+    payment_installments: string
     message: string
   }>({
     company: '',
@@ -81,6 +83,8 @@ export default function Opportunities() {
     contact_name: '',
     contact_email: '',
     contact_phone: '',
+    payment_type: '',
+    payment_installments: '1',
     message: '',
   })
 
@@ -136,6 +140,8 @@ export default function Opportunities() {
       contact_name: '',
       contact_email: '',
       contact_phone: '',
+      payment_type: '',
+      payment_installments: '1',
       message: '',
     })
     setFormErrors({})
@@ -154,6 +160,8 @@ export default function Opportunities() {
       contact_name: opp.contact_name || '',
       contact_email: opp.contact_email || '',
       contact_phone: opp.contact_phone || '',
+      payment_type: opp.payment_type || '',
+      payment_installments: opp.payment_installments ? String(opp.payment_installments) : '1',
       message: opp.message || '',
     })
     setFormErrors({})
@@ -206,6 +214,11 @@ export default function Opportunities() {
         contact_name: formData.contact_name.trim(),
         contact_email: formData.contact_email.trim(),
         contact_phone: formData.contact_phone.trim(),
+        payment_type: formData.payment_type || null,
+        payment_installments:
+          formData.payment_type === 'Parcelado' && formData.payment_installments
+            ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
+            : null,
         message: formData.message.trim(),
       })
 
@@ -250,6 +263,11 @@ export default function Opportunities() {
         contact_name: formData.contact_name.trim(),
         contact_email: formData.contact_email.trim(),
         contact_phone: formData.contact_phone.trim(),
+        payment_type: formData.payment_type || null,
+        payment_installments:
+          formData.payment_type === 'Parcelado' && formData.payment_installments
+            ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
+            : null,
         message: formData.message.trim(),
       })
 
@@ -521,11 +539,21 @@ export default function Opportunities() {
                           </div>
                         )}
 
-                        {/* Valor e Badge de Origem */}
+                        {/* Valor, Pagamento e Badge de Origem */}
                         <div className="flex items-center justify-between pt-1 border-t border-[#262A33]/80">
-                          <span className="text-xs font-bold text-indigo-400 tabular-nums">
-                            {formatBRL(opp.value)}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-indigo-400 tabular-nums">
+                              {formatBRL(opp.value)}
+                            </span>
+                            {opp.payment_type && (
+                              <span className="text-[10px] text-emerald-400 font-medium">
+                                {opp.payment_type}
+                                {opp.payment_type === 'Parcelado' && opp.payment_installments
+                                  ? ` (${opp.payment_installments}x)`
+                                  : ''}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-gray-400 bg-[#171A24] px-1.5 py-0.5 rounded border border-[#262A33]">
                             {opp.source}
                           </span>
@@ -704,6 +732,54 @@ export default function Opportunities() {
               </div>
             </div>
 
+            {/* Pagamento e Parcelas */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Tipo de Pagamento</Label>
+                <Select
+                  value={formData.payment_type || 'none'}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, payment_type: val === 'none' ? '' : val })
+                  }
+                >
+                  <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    <SelectItem value="none">Não definido</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Débito">Débito</SelectItem>
+                    <SelectItem value="Parcelado">Parcelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.payment_type === 'Parcelado' ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-indigo-300">Parcelas (até 10x)</Label>
+                  <Select
+                    value={formData.payment_installments || '1'}
+                    onValueChange={(val) => setFormData({ ...formData, payment_installments: val })}
+                  >
+                    <SelectTrigger className="bg-[#12141A] border-indigo-500/40 text-white text-xs h-10 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}x {n === 1 ? '(à vista)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="flex items-center text-xs text-gray-500 pt-6">
+                  {formData.payment_type ? 'Pagamento à vista' : 'Opcional'}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs text-gray-300">Mensagem / Observações</Label>
               <Textarea
@@ -878,6 +954,54 @@ export default function Opportunities() {
               </div>
             </div>
 
+            {/* Pagamento e Parcelas no Edit */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Tipo de Pagamento</Label>
+                <Select
+                  value={formData.payment_type || 'none'}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, payment_type: val === 'none' ? '' : val })
+                  }
+                >
+                  <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    <SelectItem value="none">Não definido</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="Débito">Débito</SelectItem>
+                    <SelectItem value="Parcelado">Parcelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.payment_type === 'Parcelado' ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-indigo-300">Parcelas (até 10x)</Label>
+                  <Select
+                    value={formData.payment_installments || '1'}
+                    onValueChange={(val) => setFormData({ ...formData, payment_installments: val })}
+                  >
+                    <SelectTrigger className="bg-[#12141A] border-indigo-500/40 text-white text-xs h-10 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}x {n === 1 ? '(à vista)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="flex items-center text-xs text-gray-500 pt-6">
+                  {formData.payment_type ? 'Pagamento à vista' : 'Opcional'}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs text-gray-300">Mensagem / Observações</Label>
               <Textarea
@@ -935,8 +1059,8 @@ export default function Opportunities() {
               </DialogHeader>
 
               <div className="space-y-4 py-2 text-xs">
-                {/* Valor & Origem */}
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
+                {/* Valor, Origem e Condições de Pagamento */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
                   <div>
                     <span className="text-gray-500 block text-[11px]">Valor Previsto</span>
                     <span className="text-lg font-bold text-white tabular-nums">
@@ -947,6 +1071,22 @@ export default function Opportunities() {
                     <span className="text-gray-500 block text-[11px]">Canal de Origem</span>
                     <span className="text-sm font-semibold text-gray-200">
                       {selectedOpp.source}
+                    </span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <span className="text-gray-500 block text-[11px]">Forma de Pagamento</span>
+                    <span className="text-sm font-semibold text-emerald-400">
+                      {selectedOpp.payment_type ? (
+                        <>
+                          {selectedOpp.payment_type}
+                          {selectedOpp.payment_type === 'Parcelado' &&
+                          selectedOpp.payment_installments
+                            ? ` (${selectedOpp.payment_installments}x)`
+                            : ''}
+                        </>
+                      ) : (
+                        <span className="text-gray-500 font-normal">A combinar</span>
+                      )}
                     </span>
                   </div>
                 </div>

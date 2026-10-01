@@ -7,6 +7,7 @@ import {
   KanbanSquare,
   QrCode,
   BarChart3,
+  Users,
   User,
   LogOut,
   Menu,
@@ -67,7 +68,12 @@ export default function Layout() {
   const navItems = [
     { label: 'Painel', to: '/painel', icon: LayoutDashboard },
     { label: 'Oportunidades', to: '/oportunidades', icon: KanbanSquare },
-    ...(isAdmin ? [{ label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 }] : []),
+    ...(isAdmin
+      ? [
+          { label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 },
+          { label: 'Usuários', to: '/usuarios', icon: Users },
+        ]
+      : []),
     { label: 'Formulário', to: '/formulario', icon: QrCode },
   ]
 
@@ -81,11 +87,11 @@ export default function Layout() {
             : 'bg-[#0A0B0E]/40 backdrop-blur-sm border-transparent'
         }`}
       >
-        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          {/* Logo & Marca */}
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+          {/* Logo & Marca com destaque elegante */}
           <div className="flex items-center gap-6">
-            <NavLink to="/painel" className="focus:outline-none flex items-center">
-              <BrandLogo variant="compact" size="md" showCrmBadge={false} />
+            <NavLink to="/painel" className="focus:outline-none flex items-center py-1">
+              <BrandLogo variant="compact" size="lg" showCrmBadge={false} />
             </NavLink>
           </div>
 
@@ -152,13 +158,22 @@ export default function Layout() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-[#262A33]" />
                   {isAdmin && (
-                    <DropdownMenuItem
-                      onClick={() => navigate('/metricas')}
-                      className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-indigo-300 hover:text-white"
-                    >
-                      <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
-                      Métricas da Equipe
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => navigate('/metricas')}
+                        className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-indigo-300 hover:text-white"
+                      >
+                        <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
+                        Métricas da Equipe
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => navigate('/usuarios')}
+                        className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#1A1D27] focus:bg-[#1A1D27] text-indigo-300 hover:text-white"
+                      >
+                        <Users className="w-3.5 h-3.5 text-indigo-400" />
+                        Gestão de Usuários
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuItem
                     onClick={() => navigate('/perfil')}
@@ -249,7 +264,7 @@ export default function Layout() {
       </header>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 pt-20 pb-16 px-4 sm:px-6 max-w-[1240px] w-full mx-auto">
+      <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 max-w-[1240px] w-full mx-auto">
         <Outlet />
       </main>
 

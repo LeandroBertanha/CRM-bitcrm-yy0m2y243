@@ -9,6 +9,8 @@ export interface Opportunity extends RecordModel {
   contact_name?: string
   contact_email?: string
   contact_phone?: string
+  payment_type?: 'Débito' | 'PIX' | 'Parcelado' | string
+  payment_installments?: number | null
   message?: string
   expand?: {
     seller?: {

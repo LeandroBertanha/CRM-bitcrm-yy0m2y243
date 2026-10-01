@@ -41,7 +41,9 @@ export default function PublicForm() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [company, setCompany] = useState('')
-  const [interest, setInterest] = useState<string>('Consultoria')
+  const [interest, setInterest] = useState<'Site' | 'Landing Page'>('Site')
+  const [paymentType, setPaymentType] = useState<'Débito' | 'PIX' | 'Parcelado'>('PIX')
+  const [paymentInstallments, setPaymentInstallments] = useState<number>(1)
   const [message, setMessage] = useState('')
 
   // Estados de envio
@@ -80,12 +82,16 @@ export default function PublicForm() {
         company: company.trim(),
         stage: 'Novo',
         source: 'Formulário Público',
-        value: interest === 'Consultoria' ? 25000 : interest === 'Desenvolvimento' ? 35000 : 15000,
+        value: interest === 'Site' ? 4500 : 2500,
         seller: sellerId || null,
         contact_name: name.trim(),
         contact_email: email.trim(),
         contact_phone: phone.trim(),
-        message: `[Interesse: ${interest}] ${message.trim()}`,
+        payment_type: paymentType,
+        payment_installments: paymentType === 'Parcelado' ? Number(paymentInstallments) : null,
+        message: `[Interesse: ${interest}] [Pagamento: ${paymentType}${
+          paymentType === 'Parcelado' ? ` em ${paymentInstallments}x` : ''
+        }] ${message.trim()}`,
       }
 
       await pb.collection('opportunities').create(opportunityData)
@@ -105,7 +111,9 @@ export default function PublicForm() {
     setEmail('')
     setPhone('')
     setCompany('')
-    setInterest('Consultoria')
+    setInterest('Site')
+    setPaymentType('PIX')
+    setPaymentInstallments(1)
     setMessage('')
     setSubmitted(false)
     setErrorMessage(null)
@@ -119,7 +127,7 @@ export default function PublicForm() {
 
       {/* Cabeçalho Público */}
       <header className="max-w-xl w-full mx-auto flex items-center justify-between pb-6 relative z-10">
-        <BrandLogo variant="full" size="md" showCrmBadge={false} />
+        <BrandLogo variant="full" size="lg" showCrmBadge={false} />
         {sellerName && (
           <div className="text-right">
             <span className="text-[11px] text-gray-500 block">Atendimento com</span>
@@ -163,6 +171,13 @@ export default function PublicForm() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">Interesse:</span>
                   <span className="text-indigo-400 font-semibold">{interest}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Forma de Pagamento:</span>
+                  <span className="text-emerald-400 font-semibold">
+                    {paymentType}
+                    {paymentType === 'Parcelado' ? ` (${paymentInstallments}x)` : ''}
+                  </span>
                 </div>
               </div>
 
@@ -278,25 +293,78 @@ export default function PublicForm() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="interest" className="text-xs font-medium text-gray-300">
-                      Principal Interesse
+                      Principal Interesse *
                     </Label>
-                    <Select value={interest} onValueChange={setInterest}>
+                    <Select
+                      value={interest}
+                      onValueChange={(val) => setInterest(val as 'Site' | 'Landing Page')}
+                    >
                       <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                        <SelectItem value="Consultoria">Consultoria Estratégica</SelectItem>
-                        <SelectItem value="Desenvolvimento">Desenvolvimento de Software</SelectItem>
-                        <SelectItem value="Design">UI/UX & Design de Produto</SelectItem>
-                        <SelectItem value="Outro">Outro Desafio Operacional</SelectItem>
+                        <SelectItem value="Site">Site</SelectItem>
+                        <SelectItem value="Landing Page">Landing Page</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
+                {/* Tipo de Pagamento e Parcelas (limite até 10x) */}
+                <div className="p-3.5 rounded-2xl bg-[#0E1017] border border-[#262A33] space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-gray-300">Tipo de Pagamento *</Label>
+                    <Select
+                      value={paymentType}
+                      onValueChange={(val) => setPaymentType(val as 'Débito' | 'PIX' | 'Parcelado')}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-11 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        <SelectItem value="PIX">PIX</SelectItem>
+                        <SelectItem value="Débito">Débito</SelectItem>
+                        <SelectItem value="Parcelado">Parcelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {paymentType === 'Parcelado' && (
+                    <div className="space-y-1.5 pt-1 animate-fadeInUp">
+                      <div className="flex items-center justify-between">
+                        <Label
+                          htmlFor="installments"
+                          className="text-xs font-medium text-indigo-300"
+                        >
+                          Número de Parcelas (limite até 10x) *
+                        </Label>
+                        <span className="text-[11px] text-gray-400">Até 10 vezes</span>
+                      </div>
+                      <Select
+                        value={String(paymentInstallments)}
+                        onValueChange={(val) => setPaymentInstallments(Number(val))}
+                      >
+                        <SelectTrigger
+                          id="installments"
+                          className="bg-[#12141A] border-indigo-500/40 text-white text-xs h-11 rounded-xl"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? '1x (à vista no crédito)' : `${n}x`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="message" className="text-xs font-medium text-gray-300">
-                    Mensagem / Desafio (opcional)
+                    Mensagem / Observações (opcional)
                   </Label>
                   <Textarea
                     id="message"
