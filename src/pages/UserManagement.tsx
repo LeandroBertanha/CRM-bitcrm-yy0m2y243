@@ -40,11 +40,11 @@ import {
 interface UserRecord {
   id: string
   name?: string
-  email: string
+  email?: string
   role?: 'admin' | 'seller'
-  created: string
-  updated: string
-  verified: boolean
+  created?: string
+  updated?: string
+  verified?: boolean
 }
 
 export default function UserManagement() {
@@ -202,14 +202,15 @@ export default function UserManagement() {
     })
   }
 
-  const filteredUsers = usersList.filter((u) => {
+  const filteredUsers = (usersList ?? []).filter((u) => {
+    if (!u) return false
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
-    return (
-      u.email.toLowerCase().includes(q) ||
-      (u.name && u.name.toLowerCase().includes(q)) ||
-      (u.role && u.role.toLowerCase().includes(q))
-    )
+    const emailStr = (u.email ?? '').toLowerCase()
+    const nameStr = (u.name ?? '').toLowerCase()
+    const roleStr = (u.role ?? '').toLowerCase()
+
+    return emailStr.includes(q) || nameStr.includes(q) || roleStr.includes(q)
   })
 
   // Se não for admin, exibe tela de bloqueio elegante
@@ -283,15 +284,19 @@ export default function UserManagement() {
 
         <div className="p-3 bg-[#12141A] border border-[#262A33] rounded-xl flex items-center justify-between">
           <span className="text-xs text-gray-400">Total de Usuários</span>
-          <span className="text-lg font-bold text-white tabular-nums">{usersList.length}</span>
+          <span className="text-lg font-bold text-white tabular-nums">
+            {usersList?.length ?? 0}
+          </span>
         </div>
 
         <div className="p-3 bg-[#12141A] border border-[#262A33] rounded-xl flex items-center justify-between">
           <span className="text-xs text-gray-400">Administradores</span>
           <span className="text-lg font-bold text-indigo-400 tabular-nums">
             {
-              usersList.filter((u) => u.role === 'admin' || u.email.includes('lbertanha.com'))
-                .length
+              (usersList ?? []).filter(
+                (u) =>
+                  u?.role === 'admin' || (u?.email ?? '').toLowerCase().includes('lbertanha.com'),
+              ).length
             }
           </span>
         </div>
@@ -327,7 +332,9 @@ export default function UserManagement() {
                 </tr>
               ) : (
                 filteredUsers.map((u) => {
-                  const isMainAdmin = u.email.toLowerCase() === 'leandro.bertanha@lbertanha.com'
+                  const userEmail = u.email ?? ''
+                  const userName = u.name ?? ''
+                  const isMainAdmin = userEmail.toLowerCase() === 'leandro.bertanha@lbertanha.com'
                   const isCurrent = u.id === currentUser?.id
                   const isRowAdmin = u.role === 'admin' || isMainAdmin
 
@@ -335,18 +342,21 @@ export default function UserManagement() {
                     <tr key={u.id} className="hover:bg-[#161922] transition-colors group">
                       <td className="py-3.5 px-4 font-medium text-white flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-inner">
-                          {u.name
-                            ? u.name
+                          {userName
+                            ? userName
                                 .split(' ')
+                                .filter(Boolean)
                                 .map((n) => n[0])
                                 .slice(0, 2)
                                 .join('')
                                 .toUpperCase()
-                            : u.email.slice(0, 2).toUpperCase()}
+                            : (userEmail.slice(0, 2) || 'US').toUpperCase()}
                         </div>
                         <div>
                           <div className="font-semibold text-white flex items-center gap-1.5">
-                            {u.name || u.email.split('@')[0]}
+                            {userName ||
+                              (userEmail.includes('@') ? userEmail.split('@')[0] : userEmail) ||
+                              'Sem nome'}
                             {isCurrent && (
                               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 rounded">
                                 Você
@@ -357,7 +367,7 @@ export default function UserManagement() {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono text-gray-300">{u.email}</td>
+                      <td className="py-3.5 px-4 font-mono text-gray-300">{userEmail || '—'}</td>
 
                       <td className="py-3.5 px-4">
                         <span
@@ -397,7 +407,7 @@ export default function UserManagement() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            onClick={() => handleDeleteUser(u.id, userEmail)}
                             disabled={deletingId === u.id}
                             className="text-red-400 hover:text-red-300 hover:bg-red-950/40 h-8 px-2.5 rounded-lg text-xs"
                             title="Excluir usuário da equipe"
