@@ -25,17 +25,29 @@ export default function Login() {
     try {
       const { error, user: loggedUser } = await signIn(email.trim(), password)
       if (error) {
-        setErrorMessage('Credenciais inválidas. Verifique seu e-mail e senha de convite.')
+        const errorText = error.message || ''
+        if (
+          errorText.toLowerCase().includes('autenticar') ||
+          errorText.toLowerCase().includes('failed to authenticate')
+        ) {
+          setErrorMessage('Credenciais inválidas. Verifique seu e-mail e senha de convite.')
+        } else {
+          setErrorMessage(
+            errorText || 'Credenciais inválidas. Verifique seu e-mail e senha de convite.',
+          )
+        }
       } else if (
         loggedUser?.mustChangePassword &&
         loggedUser?.email?.toLowerCase() !== 'leandro.bertanha@lbertanha.com'
       ) {
         navigate('/definir-senha', { replace: true })
       } else {
-        navigate('/painel')
+        navigate('/painel', { replace: true })
       }
-    } catch {
-      setErrorMessage('Erro ao tentar conectar ao servidor. Tente novamente.')
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Erro ao tentar conectar ao servidor. Tente novamente.'
+      setErrorMessage(msg)
     } finally {
       setLoading(false)
     }

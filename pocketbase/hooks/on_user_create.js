@@ -1,4 +1,6 @@
 onRecordCreate((e) => {
-  e.record.set('emailVisibility', true)
+  try {
+    e.record.set('emailVisibility', true)
+  } catch (_) {}
   e.next()
 }, 'users')
