@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0A0B0E] text-white text-center">
       <div className="w-full max-w-md space-y-6 animate-fadeInUp">
-        <BrandLogo size="lg" className="mx-auto mb-2" />
+        <BrandLogo variant="full" size="lg" className="mx-auto mb-2" />
         <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
           <AlertCircle className="w-8 h-8" />
         </div>

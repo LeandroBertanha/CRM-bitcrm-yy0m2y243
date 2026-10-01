@@ -84,8 +84,8 @@ export default function Layout() {
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Logo & Marca */}
           <div className="flex items-center gap-6">
-            <NavLink to="/painel" className="focus:outline-none">
-              <BrandLogo size="md" />
+            <NavLink to="/painel" className="focus:outline-none flex items-center">
+              <BrandLogo variant="compact" size="md" showCrmBadge={true} />
             </NavLink>
           </div>
 

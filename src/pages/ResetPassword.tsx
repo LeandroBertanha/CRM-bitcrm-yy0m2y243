@@ -65,7 +65,7 @@ export default function ResetPassword() {
 
       <div className="w-full max-w-md relative z-10 animate-fadeInUp">
         <div className="flex flex-col items-center text-center mb-8">
-          <BrandLogo size="lg" className="mb-4" />
+          <BrandLogo variant="full" size="xl" showCrmBadge={false} className="mb-3" />
           <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Nova Senha</h1>
           <p className="text-sm text-gray-400 mt-1 max-w-xs">
             Defina sua nova senha de acesso ao CRM

@@ -119,9 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const isAdmin = Boolean(
-    user?.role === 'admin' ||
-    user?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ||
-    user?.email?.toLowerCase() === 'leandro.bertanha@gmail.com',
+    user?.role === 'admin' || user?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com',
   )
 
   return (

@@ -119,7 +119,7 @@ export default function PublicForm() {
 
       {/* Cabeçalho Público */}
       <header className="max-w-xl w-full mx-auto flex items-center justify-between pb-6 relative z-10">
-        <BrandLogo size="md" />
+        <BrandLogo variant="full" size="md" showCrmBadge={false} />
         {sellerName && (
           <div className="text-right">
             <span className="text-[11px] text-gray-500 block">Atendimento com</span>

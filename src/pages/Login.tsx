@@ -43,9 +43,9 @@ export default function Login() {
       <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10 animate-fadeInUp">
-        {/* Cabeçalho do Card */}
+        {/* Cabeçalho do Card com Logo Oficial Completo */}
         <div className="flex flex-col items-center text-center mb-8">
-          <BrandLogo size="lg" className="mb-4" />
+          <BrandLogo variant="full" size="xl" showCrmBadge={false} className="mb-3" />
           <h1 className="text-2xl font-bold tracking-tight text-white mt-2">Acessar o CRM</h1>
           <p className="text-sm text-gray-400 mt-1 max-w-xs">
             Entre com as credenciais da sua conta comercial ou convite de acesso
@@ -144,8 +144,7 @@ export default function Login() {
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-600">
             Acesso administrador:{' '}
-            <span className="text-gray-400 font-mono">leandro.bertanha@lbertanha.com</span> /{' '}
-            <span className="text-gray-400 font-mono">Skip@Pass</span>
+            <span className="text-gray-400 font-mono">leandro.bertanha@lbertanha.com</span>
           </p>
         </div>
       </div>
