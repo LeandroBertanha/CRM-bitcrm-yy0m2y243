@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import pb from '@/lib/pocketbase/client'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { useRealtime } from '@/hooks/use-realtime'
 import { OpportunityNote, formatDateBR } from '@/types/crm'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -112,14 +114,28 @@ export function OpportunityTimeline({
       setNotes(records)
     } catch (err) {
       console.error('Erro ao buscar timeline da oportunidade:', err)
+      const errorMsg = getErrorMessage(err)
+      toast({
+        title: 'Erro ao carregar timeline',
+        description: errorMsg || 'Não foi possível carregar as interações da oportunidade.',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
-  }, [opportunityId])
+  }, [opportunityId, toast])
 
   useEffect(() => {
     fetchNotes()
   }, [fetchNotes])
+
+  // Inscrição em tempo real para sincronizar adições e exclusões
+  useRealtime<OpportunityNote>('opportunity_notes', (data) => {
+    const oppId = data.record?.opportunity
+    if (oppId === opportunityId) {
+      fetchNotes()
+    }
+  })
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,7 +148,9 @@ export function OpportunityTimeline({
       return
     }
 
-    if (!currentUserId) {
+    // Obter o ID do autor ativo com fallback direto no pb.authStore.record
+    const effectiveUserId = currentUserId || pb.authStore.record?.id
+    if (!effectiveUserId) {
       toast({
         title: 'Usuário não autenticado',
         description: 'Faça login para registrar uma interação.',
@@ -141,17 +159,26 @@ export function OpportunityTimeline({
       return
     }
 
+    if (!opportunityId) {
+      toast({
+        title: 'Oportunidade inválida',
+        description: 'Não foi possível identificar a oportunidade vinculada.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      // Converte data local para ISO standard para salvar no PocketBase
+      // Converte data local para formato padrão PocketBase RFC3339 com espaço (ex: 2026-10-01 15:04:05.000Z)
       const selectedDate = dateStr ? new Date(dateStr) : new Date()
       const isoDate = isNaN(selectedDate.getTime())
-        ? new Date().toISOString()
-        : selectedDate.toISOString()
+        ? new Date().toISOString().replace('T', ' ')
+        : selectedDate.toISOString().replace('T', ' ')
 
-      await pb.collection('opportunity_notes').create({
+      const createdRecord = await pb.collection('opportunity_notes').create({
         opportunity: opportunityId,
-        author: currentUserId,
+        author: effectiveUserId,
         type,
         text: text.trim(),
         date: isoDate,
@@ -169,12 +196,22 @@ export function OpportunityTimeline({
       const tzOffset = now.getTimezoneOffset() * 60000
       setDateStr(new Date(now.getTime() - tzOffset).toISOString().slice(0, 16))
 
-      fetchNotes()
+      // Atualização otimista imediata caso fetchNotes demore
+      if (createdRecord) {
+        setNotes((prev) => {
+          const exists = prev.some((n) => n.id === createdRecord.id)
+          if (exists) return prev
+          return [createdRecord as OpportunityNote, ...prev]
+        })
+      }
+
+      await fetchNotes()
     } catch (err) {
       console.error('Erro ao criar registro na timeline:', err)
+      const errorMsg = getErrorMessage(err)
       toast({
-        title: 'Erro ao registrar',
-        description: 'Não foi possível salvar o registro.',
+        title: 'Erro ao registrar interação',
+        description: errorMsg || 'Não foi possível salvar o registro na timeline.',
         variant: 'destructive',
       })
     } finally {
@@ -183,7 +220,8 @@ export function OpportunityTimeline({
   }
 
   const handleDeleteNote = async (noteId: string, authorId: string) => {
-    const canDelete = isAdmin || (currentUserId && authorId === currentUserId)
+    const effectiveUserId = currentUserId || pb.authStore.record?.id
+    const canDelete = isAdmin || (effectiveUserId && authorId === effectiveUserId)
     if (!canDelete) {
       toast({
         title: 'Ação não permitida',
@@ -201,12 +239,14 @@ export function OpportunityTimeline({
         title: 'Registro excluído',
         description: 'A entrada foi removida da timeline.',
       })
+      setNotes((prev) => prev.filter((n) => n.id !== noteId))
       fetchNotes()
     } catch (err) {
       console.error('Erro ao excluir nota da timeline:', err)
+      const errorMsg = getErrorMessage(err)
       toast({
         title: 'Erro ao excluir',
-        description: 'Não foi possível remover este registro.',
+        description: errorMsg || 'Não foi possível remover este registro.',
         variant: 'destructive',
       })
     }
@@ -338,7 +378,8 @@ export function OpportunityTimeline({
           {notes.map((item) => {
             const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.outro
             const Icon = config.icon
-            const canDelete = isAdmin || (currentUserId && item.author === currentUserId)
+            const effectiveUserId = currentUserId || pb.authStore.record?.id
+            const canDelete = isAdmin || (effectiveUserId && item.author === effectiveUserId)
             const authorName = item.expand?.author?.name || item.expand?.author?.email || 'Usuário'
 
             return (
