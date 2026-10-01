@@ -38,7 +38,10 @@ import {
   Sparkles,
   RefreshCw,
   ExternalLink,
+  UploadCloud,
+  MapPin,
 } from 'lucide-react'
+import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 
 export default function Opportunities() {
   const { user, isAdmin } = useAuth()
@@ -59,6 +62,7 @@ export default function Opportunities() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
   // Formulário Estado
@@ -371,6 +375,18 @@ export default function Opportunities() {
             Atualizar
           </Button>
 
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportModalOpen(true)}
+              className="border-indigo-500/40 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 hover:text-white rounded-xl h-9"
+            >
+              <UploadCloud className="w-4 h-4 mr-1.5 text-indigo-400" />
+              Importar
+            </Button>
+          )}
+
           <Button
             onClick={handleOpenCreate}
             size="sm"
@@ -522,7 +538,7 @@ export default function Opportunities() {
                         </div>
 
                         {/* Contato & Detalhes */}
-                        {(opp.contact_name || opp.contact_phone) && (
+                        {(opp.contact_name || opp.contact_phone || opp.city) && (
                           <div className="text-xs text-gray-400 space-y-1">
                             {opp.contact_name && (
                               <div className="flex items-center gap-1.5 truncate">
@@ -534,6 +550,12 @@ export default function Opportunities() {
                               <div className="flex items-center gap-1.5">
                                 <Phone className="w-3 h-3 text-gray-500 shrink-0" />
                                 <span className="font-mono text-[11px]">{opp.contact_phone}</span>
+                              </div>
+                            )}
+                            {opp.city && (
+                              <div className="flex items-center gap-1.5 text-gray-500">
+                                <MapPin className="w-3 h-3 text-gray-500 shrink-0" />
+                                <span className="text-[11px] truncate">{opp.city}</span>
                               </div>
                             )}
                           </div>
@@ -1031,6 +1053,19 @@ export default function Opportunities() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Importação de Oportunidades */}
+      <ImportOpportunitiesModal
+        open={importModalOpen}
+        onOpenChange={setImportModalOpen}
+        onSuccess={() => {
+          fetchOpportunities()
+        }}
+        currentUserEmail={user?.email}
+        currentUserId={user?.id}
+        existingOpportunities={opportunities}
+        sellersList={sellersList}
+      />
 
       {/* Modal: Detalhes da Oportunidade */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>

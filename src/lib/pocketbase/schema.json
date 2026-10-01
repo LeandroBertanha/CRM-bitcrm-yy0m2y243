@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T18:21:25.047Z",
+  "generatedAt": "2026-10-01T18:30:12.331Z",
   "collections": [
     {
       "name": "users",
@@ -80,7 +80,15 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Formulário Público", "Indicação", "Site", "WhatsApp", "Evento", "Outro"]
+          "selectValues": [
+            "Formulário Público",
+            "Indicação",
+            "Site",
+            "WhatsApp",
+            "Evento",
+            "Prospecção",
+            "Outro"
+          ]
         },
         {
           "name": "value",
@@ -143,6 +151,12 @@
         {
           "name": "payment_installments",
           "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "city",
+          "type": "text",
           "required": false,
           "system": false
         }

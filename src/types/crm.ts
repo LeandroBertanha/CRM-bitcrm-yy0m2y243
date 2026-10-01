@@ -3,12 +3,20 @@ import type { RecordModel } from 'pocketbase'
 export interface Opportunity extends RecordModel {
   company: string
   stage: 'Novo' | 'Qualificado' | 'Proposta' | 'Ganho' | 'Perdido'
-  source: 'Formulário Público' | 'Indicação' | 'Site' | 'WhatsApp' | 'Evento' | 'Outro'
+  source:
+    | 'Formulário Público'
+    | 'Indicação'
+    | 'Site'
+    | 'WhatsApp'
+    | 'Evento'
+    | 'Prospecção'
+    | 'Outro'
   value: number
   seller?: string
   contact_name?: string
   contact_email?: string
   contact_phone?: string
+  city?: string
   payment_type?: 'Débito' | 'PIX' | 'Parcelado' | string
   payment_installments?: number | null
   message?: string
@@ -76,9 +84,9 @@ export const SOURCES: Opportunity['source'][] = [
   'Site',
   'WhatsApp',
   'Evento',
+  'Prospecção',
   'Outro',
 ]
-
 export const formatBRL = (val: number | null | undefined): string => {
   if (val === undefined || val === null || isNaN(val)) return 'R$ 0,00'
   return new Intl.NumberFormat('pt-BR', {
