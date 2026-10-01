@@ -14,8 +14,8 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "preview": "vite preview",
-    "test": "echo \"there are no tests for this project\" && exit 0",
-    "test:watch": "echo \"there are no tests for this project\" && exit 0"
+    "test": "vitest run src/__tests__/qrcode.test.ts",
+    "test:watch": "vitest src/__tests__/qrcode.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

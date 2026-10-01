@@ -1,32 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { QRCodeSVG } from '@/components/QRCodeSVG'
+import { generateQRCode } from '@/lib/qrcode'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import {
   Copy,
   Check,
-  Share2,
   ExternalLink,
   MessageCircle,
   Sparkles,
   ShieldCheck,
   Download,
   Info,
+  CheckCircle2,
 } from 'lucide-react'
 
 export default function FormManager() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const qrContainerRef = useRef<HTMLDivElement>(null)
 
   // URL pública do formulário vinculada ao ID do vendedor
   const sellerId = user?.id || ''
-  const origin = window.location.origin
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const publicFormUrl = `${origin}/formulario/publico?vendedor=${sellerId}`
 
   const handleCopyLink = () => {
+    if (!navigator.clipboard) {
+      toast({
+        title: 'Atenção',
+        description: 'Não foi possível acessar a área de transferência.',
+        variant: 'destructive',
+      })
+      return
+    }
     navigator.clipboard.writeText(publicFormUrl)
     setCopied(true)
     toast({
@@ -44,6 +55,108 @@ export default function FormManager() {
       `Olá! Por favor, preencha seus dados neste formulário rápido para avaliarmos sua demanda de consultoria/tecnologia e agendarmos um contato: ${publicFormUrl}`,
     )
     window.open(`https://wa.me/?text=${text}`, '_blank')
+  }
+
+  // Baixa o QR Code gerado em formato PNG de alta resolução (600x600)
+  const handleDownloadPNG = () => {
+    try {
+      setDownloading(true)
+      const qr = generateQRCode(publicFormUrl, 'M')
+      const margin = 2
+      const matrixSize = qr.size
+      const totalSize = matrixSize + margin * 2
+      const scale = 16 // Resolução ~600x600 ou maior
+      const canvasSize = totalSize * scale
+
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasSize
+      canvas.height = canvasSize
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Não foi possível inicializar canvas 2D')
+
+      // Fundo branco
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, canvasSize, canvasSize)
+
+      // Módulos pretos
+      ctx.fillStyle = '#0A0B0E'
+      for (let r = 0; r < matrixSize; r++) {
+        for (let c = 0; c < matrixSize; c++) {
+          if (qr.isDark(r, c)) {
+            ctx.fillRect((c + margin) * scale, (r + margin) * scale, scale, scale)
+          }
+        }
+      }
+
+      const pngData = canvas.toDataURL('image/png')
+      const downloadLink = document.createElement('a')
+      downloadLink.href = pngData
+      downloadLink.download = `bitcrm-qrcode-${user?.name ? user.name.toLowerCase().replace(/\s+/g, '-') : 'vendedor'}.png`
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+
+      toast({
+        title: 'QR Code baixado!',
+        description: 'Arquivo PNG de alta resolução salvo com sucesso.',
+      })
+    } catch (err) {
+      console.error('Erro ao baixar PNG do QR Code:', err)
+      toast({
+        title: 'Erro ao gerar imagem',
+        description: 'Houve uma falha ao preparar o arquivo PNG.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // Baixa o QR Code em formato SVG vetorial puro
+  const handleDownloadSVG = () => {
+    try {
+      const qr = generateQRCode(publicFormUrl, 'M')
+      const margin = 2
+      const matrixSize = qr.size
+      const totalSize = matrixSize + margin * 2
+
+      let path = ''
+      for (let r = 0; r < matrixSize; r++) {
+        for (let c = 0; c < matrixSize; c++) {
+          if (qr.isDark(r, c)) {
+            path += `M${c + margin},${r + margin}h1v1h-1z `
+          }
+        }
+      }
+
+      const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalSize} ${totalSize}" shape-rendering="crispEdges">
+  <rect width="${totalSize}" height="${totalSize}" fill="#FFFFFF"/>
+  <path d="${path}" fill="#0A0B0E"/>
+</svg>`
+
+      const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const downloadLink = document.createElement('a')
+      downloadLink.href = url
+      downloadLink.download = `bitcrm-qrcode-${user?.name ? user.name.toLowerCase().replace(/\s+/g, '-') : 'vendedor'}.svg`
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: 'QR Code em SVG baixado!',
+        description: 'Arquivo vetorial pronto para impressão salvo com sucesso.',
+      })
+    } catch (err) {
+      console.error('Erro ao exportar SVG:', err)
+      toast({
+        title: 'Erro ao baixar SVG',
+        description: 'Não foi possível exportar o arquivo vetorial.',
+        variant: 'destructive',
+      })
+    }
   }
 
   return (
@@ -167,31 +280,51 @@ export default function FormManager() {
         {/* Card do QR Code em Caixa Branca (5 Colunas) */}
         <div className="md:col-span-5 bg-[#12141A] border border-[#262A33] rounded-2xl p-6 shadow-xl flex flex-col items-center justify-center text-center space-y-4">
           <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-1.5">
+              <CheckCircle2 className="w-3 h-3" />
+              ISO/IEC 18004 Válido
+            </div>
             <h3 className="text-base font-bold text-white">QR Code para Escaneamento</h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              Ideal para apresentações, eventos ou tela do celular
+              Escaneável por qualquer câmera de smartphone ou leitor
             </p>
           </div>
 
-          {/* Caixa branca com bordas arredondadas para máxima legibilidade óptica */}
-          <div className="p-4 bg-white rounded-2xl shadow-2xl border-4 border-indigo-500/20 group hover:border-indigo-500/40 transition-all">
-            <QRCodeSVG value={publicFormUrl} size={190} />
+          {/* Caixa branca com bordas arredondadas e margem óptica padrão */}
+          <div
+            ref={qrContainerRef}
+            className="p-4 bg-white rounded-2xl shadow-2xl border-4 border-indigo-500/20 hover:border-indigo-500/50 transition-all duration-300 flex items-center justify-center"
+          >
+            <QRCodeSVG value={publicFormUrl} size={190} ecl="M" />
           </div>
 
           <p className="text-[11px] text-gray-400 max-w-xs leading-tight">
-            Aponte a câmera do celular para abrir o formulário com seu vínculo comercial já
-            aplicado.
+            Aponte a câmera para abrir o formulário público com seu vínculo de vendedor já aplicado.
           </p>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopyLink}
-            className="border-[#262A33] text-gray-300 hover:text-white rounded-xl text-xs h-9"
-          >
-            <Share2 className="w-3.5 h-3.5 mr-1.5" />
-            Copiar Link Direto
-          </Button>
+          {/* Botões de Ação do QR Code: Download PNG e SVG */}
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPNG}
+              disabled={downloading}
+              className="w-full border-[#262A33] bg-[#161922] text-gray-200 hover:text-white hover:bg-[#1E2330] rounded-xl text-xs h-9 flex items-center justify-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-400" />
+              Baixar PNG
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadSVG}
+              className="w-full border-[#262A33] bg-[#161922] text-gray-200 hover:text-white hover:bg-[#1E2330] rounded-xl text-xs h-9 flex items-center justify-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              Baixar SVG
+            </Button>
+          </div>
         </div>
       </div>
     </div>
