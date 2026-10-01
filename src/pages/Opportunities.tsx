@@ -64,6 +64,8 @@ export default function Opportunities() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [droppedFilesForModal, setDroppedFilesForModal] = useState<File[] | null>(null)
+  const [isPageDragging, setIsPageDragging] = useState(false)
 
   // Formulário Estado
   const [formData, setFormData] = useState<{
@@ -127,6 +129,54 @@ export default function Opportunities() {
     fetchOpportunities()
     fetchSellers()
   }, [fetchOpportunities, fetchSellers])
+
+  // Prevenir comportamento padrão do navegador de abrir/salvar arquivo ao soltar na tela
+  useEffect(() => {
+    const handleWindowDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+        setIsPageDragging(true)
+      }
+    }
+
+    const handleWindowDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      if (e.relatedTarget === null || e.clientY <= 0 || e.clientX <= 0) {
+        setIsPageDragging(false)
+      }
+    }
+
+    const handleWindowDrop = (e: DragEvent) => {
+      e.preventDefault()
+      setIsPageDragging(false)
+
+      // Se o usuário soltar arquivo em qualquer lugar da tela de oportunidades,
+      // capturamos e abrimos automaticamente o importador com os arquivos
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const filesArray = Array.from(e.dataTransfer.files)
+        // Verificar extensões válidas (.xlsx, .xls, .ods, .csv, .tsv, .txt, .json)
+        const validFiles = filesArray.filter((f) => {
+          const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+          return ['.xlsx', '.xls', '.ods', '.csv', '.tsv', '.txt', '.json'].includes(ext)
+        })
+
+        if (validFiles.length > 0) {
+          setDroppedFilesForModal(validFiles)
+          setImportModalOpen(true)
+        }
+      }
+    }
+
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('dragleave', handleWindowDragLeave)
+    window.addEventListener('drop', handleWindowDrop)
+
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('dragleave', handleWindowDragLeave)
+      window.removeEventListener('drop', handleWindowDrop)
+    }
+  }, [])
 
   // Inscrição em tempo real
   useRealtime<Opportunity>('opportunities', () => {
@@ -1054,10 +1104,26 @@ export default function Opportunities() {
         </DialogContent>
       </Dialog>
 
+      {/* Overlay visual quando o usuário arrasta arquivos sobre a tela */}
+      {isPageDragging && !importModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0E1017]/90 border-4 border-dashed border-indigo-500 rounded-2xl flex flex-col items-center justify-center pointer-events-none backdrop-blur-sm animate-fadeIn">
+          <div className="w-20 h-20 rounded-3xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mb-4 animate-bounce">
+            <UploadCloud className="w-10 h-10" />
+          </div>
+          <h3 className="text-xl font-bold text-white">Solte a planilha para importar no bitCRM</h3>
+          <p className="text-sm text-gray-400 mt-1">
+            Reconhecimento automático de formatos XLSX, CSV, TXT e JSON
+          </p>
+        </div>
+      )}
+
       {/* Modal de Importação de Oportunidades */}
       <ImportOpportunitiesModal
         open={importModalOpen}
-        onOpenChange={setImportModalOpen}
+        onOpenChange={(v) => {
+          setImportModalOpen(v)
+          if (!v) setDroppedFilesForModal(null)
+        }}
         onSuccess={() => {
           fetchOpportunities()
         }}
@@ -1065,6 +1131,8 @@ export default function Opportunities() {
         currentUserId={user?.id}
         existingOpportunities={opportunities}
         sellersList={sellersList}
+        initialDroppedFiles={droppedFilesForModal}
+        onClearInitialDroppedFiles={() => setDroppedFilesForModal(null)}
       />
 
       {/* Modal: Detalhes da Oportunidade */}

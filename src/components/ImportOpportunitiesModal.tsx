@@ -64,6 +64,8 @@ export interface ImportOpportunitiesModalProps {
   currentUserId?: string
   existingOpportunities: Opportunity[]
   sellersList: { id: string; name?: string; email: string }[]
+  initialDroppedFiles?: File[] | null
+  onClearInitialDroppedFiles?: () => void
 }
 
 export function ImportOpportunitiesModal({
@@ -74,27 +76,41 @@ export function ImportOpportunitiesModal({
   currentUserId,
   existingOpportunities,
   sellersList,
+  initialDroppedFiles,
+  onClearInitialDroppedFiles,
 }: ImportOpportunitiesModalProps) {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Etapa atual: 1 = Upload, 2 = Mapeamento, 3 = Confirmação, 4 = Importação & Conclusão
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  // Etapa atual: 1 = Upload, 2 = Revisão Resumida & Configurações, 3 = Importação & Conclusão
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   // Arquivos carregados e dados brutos
   const [parsedFiles, setParsedFiles] = useState<ParsedSheetData[]>([])
-  const [selectedFileIdx, setSelectedFileIdx] = useState<number>(0)
   const [isParsingFiles, setIsParsingFiles] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  // Disparar processamento se vierem arquivos arrastados da tela principal
+  React.useEffect(() => {
+    if (open && initialDroppedFiles && initialDroppedFiles.length > 0) {
+      processIncomingFiles(initialDroppedFiles)
+      onClearInitialDroppedFiles?.()
+    }
+  }, [open, initialDroppedFiles])
 
   // Mapeamento de colunas por arquivo: { [fileIndex]: { [headerName]: OppTargetField } }
   const [mappings, setMappings] = useState<Record<number, Record<string, OppTargetField>>>({})
 
-  // Configurações da Importação
+  // Configurações da Importação (Padrões solicitados pelo usuário)
   const [assignedSellerId, setAssignedSellerId] = useState<string>(currentUserId || '')
   const [defaultStage, setDefaultStage] = useState<Opportunity['stage']>('Novo')
   const [defaultSource, setDefaultSource] = useState<Opportunity['source']>('Prospecção')
   const [defaultValue, setDefaultValue] = useState<string>('500')
   const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true)
+
+  // Opção de abrir detalhes avançados de mapeamento (caso o usuário queira expandir)
+  const [showAdvancedMapping, setShowAdvancedMapping] = useState<boolean>(false)
+  const [selectedFileIdx, setSelectedFileIdx] = useState<number>(0)
 
   // Progresso de importação
   const [isImporting, setIsImporting] = useState<boolean>(false)
@@ -123,6 +139,8 @@ export function ImportOpportunitiesModal({
     setImportProgress(0)
     setCurrentImportIndex(0)
     setIsImporting(false)
+    setShowAdvancedMapping(false)
+    setIsDragOver(false)
     setImportStats({
       total: 0,
       successCount: 0,
@@ -132,10 +150,10 @@ export function ImportOpportunitiesModal({
     })
   }
 
-  // Manipulador de upload universal (XLSX/XLS/ODS/CSV/TSV/TXT/JSON)
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+  // Processador universal de arquivos (File[] ou FileList)
+  const processIncomingFiles = async (filesList: FileList | File[]) => {
+    const filesArray = Array.from(filesList)
+    if (filesArray.length === 0) return
 
     setIsParsingFiles(true)
     const newParsedList: ParsedSheetData[] = []
@@ -143,20 +161,21 @@ export function ImportOpportunitiesModal({
     const parseErrors: string[] = []
 
     try {
-      for (let i = 0; i < files.length; i++) {
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i]
         try {
-          const parsedSheets = await parseSpreadsheetFile(files[i])
+          const parsedSheets = await parseSpreadsheetFile(file)
 
           parsedSheets.forEach((parsedItem) => {
             const fileIndex = newParsedList.length
             newParsedList.push(parsedItem)
-            // Criar mapeamento inicial automático adaptativo
+            // Criar mapeamento inicial automático inteligente em segundo plano
             newMappings[fileIndex] = guessInitialFileMappings(parsedItem.headers, parsedItem.rows)
           })
         } catch (err) {
-          console.error(`Erro ao ler o arquivo ${files[i].name}:`, err)
+          console.error(`Erro ao ler o arquivo ${file.name}:`, err)
           const msg = err instanceof Error ? err.message : 'Não conseguimos ler este arquivo.'
-          parseErrors.push(`${files[i].name}: ${msg}`)
+          parseErrors.push(`${file.name}: ${msg}`)
         }
       }
 
@@ -183,7 +202,8 @@ export function ImportOpportunitiesModal({
       setParsedFiles(newParsedList)
       setMappings(newMappings)
       setSelectedFileIdx(0)
-      setStep(2) // Avançar para etapa de mapeamento
+      // Direto para Etapa 2: Confirmação / Revisão Resumida (pulando a etapa de mapeamento obrigatória)
+      setStep(2)
     } catch (err) {
       console.error('Erro ao ler arquivos:', err)
       toast({
@@ -197,7 +217,48 @@ export function ImportOpportunitiesModal({
     }
   }
 
-  // Atualizar campo de mapeamento
+  // Manipulador de input change (seleção manual)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      await processIncomingFiles(e.target.files)
+    }
+  }
+
+  // Drag & drop handlers seguros para a dropzone do modal
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Apenas se sair do container alvo
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragOver(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await processIncomingFiles(e.dataTransfer.files)
+    }
+  }
+
+  // Atualizar campo de mapeamento manual se aberto nas opções avançadas
   const handleUpdateMapping = (fileIdx: number, header: string, targetField: OppTargetField) => {
     setMappings((prev) => ({
       ...prev,
@@ -383,7 +444,7 @@ export function ImportOpportunitiesModal({
 
   // Iniciar Importação em Lote via API do PocketBase
   const handleStartImport = async () => {
-    setStep(4)
+    setStep(3)
     setIsImporting(true)
     setImportProgress(0)
 
@@ -521,13 +582,12 @@ export function ImportOpportunitiesModal({
               </div>
             </div>
 
-            {/* Stepper de progresso */}
+            {/* Stepper de progresso simplificado: 1 Upload -> 2 Revisão & Confirmação -> 3 Conclusão */}
             <div className="hidden sm:flex items-center gap-2 text-xs">
               {[
-                { s: 1, label: 'Upload' },
-                { s: 2, label: 'Mapeamento' },
-                { s: 3, label: 'Revisão' },
-                { s: 4, label: 'Conclusão' },
+                { s: 1, label: '1. Upload' },
+                { s: 2, label: '2. Confirmação' },
+                { s: 3, label: '3. Conclusão' },
               ].map((item) => (
                 <div key={item.s} className="flex items-center gap-1.5">
                   <div
@@ -548,7 +608,7 @@ export function ImportOpportunitiesModal({
                   >
                     {item.label}
                   </span>
-                  {item.s < 4 && <span className="text-gray-700">›</span>}
+                  {item.s < 3 && <span className="text-gray-700">›</span>}
                 </div>
               ))}
             </div>
@@ -558,13 +618,21 @@ export function ImportOpportunitiesModal({
         {/* Conteúdo Dinâmico por Etapa */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 custom-scrollbar">
           {/* ========================================================================= */}
-          {/* ETAPA 1: UPLOAD DOS ARQUIVOS */}
+          {/* ETAPA 1: UPLOAD DOS ARQUIVOS (COM DROPZONE ATIVA) */}
           {/* ========================================================================= */}
           {step === 1 && (
             <div className="space-y-4">
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[#2E3342] hover:border-indigo-500/70 bg-[#0E1017] hover:bg-[#12141F] rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 group flex flex-col items-center justify-center space-y-3"
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 group flex flex-col items-center justify-center space-y-3 ${
+                  isDragOver
+                    ? 'border-indigo-400 bg-indigo-950/40 scale-[1.01] shadow-lg shadow-indigo-600/20'
+                    : 'border-[#2E3342] hover:border-indigo-500/70 bg-[#0E1017] hover:bg-[#12141F]'
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -575,7 +643,13 @@ export function ImportOpportunitiesModal({
                   className="hidden"
                 />
 
-                <div className="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 group-hover:scale-105 group-hover:bg-indigo-600/20 transition-all flex items-center justify-center text-indigo-400">
+                <div
+                  className={`w-14 h-14 rounded-2xl border transition-all flex items-center justify-center ${
+                    isDragOver
+                      ? 'bg-indigo-600 text-white border-indigo-400 scale-110'
+                      : 'bg-indigo-600/10 border-indigo-500/20 group-hover:scale-105 group-hover:bg-indigo-600/20 text-indigo-400'
+                  }`}
+                >
                   {isParsingFiles ? (
                     <Loader2 className="w-7 h-7 animate-spin" />
                   ) : (
@@ -586,8 +660,10 @@ export function ImportOpportunitiesModal({
                 <div>
                   <p className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
                     {isParsingFiles
-                      ? 'Processando arquivos...'
-                      : 'Clique para selecionar planilhas ou arraste aqui'}
+                      ? 'Processando planilhas e mapeando dados silenciosamente...'
+                      : isDragOver
+                        ? 'Solte o arquivo de planilha aqui para carregar'
+                        : 'Clique para selecionar ou arraste sua planilha aqui'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     Suporta <strong className="text-gray-400">.XLSX</strong>,{' '}
@@ -596,41 +672,36 @@ export function ImportOpportunitiesModal({
                     <strong className="text-gray-400">.CSV</strong>,{' '}
                     <strong className="text-gray-400">.TSV</strong>,{' '}
                     <strong className="text-gray-400">.TXT</strong> e{' '}
-                    <strong className="text-gray-400">.JSON</strong> (você pode selecionar mais de
-                    um)
+                    <strong className="text-gray-400">.JSON</strong>
                   </p>
                 </div>
 
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#181B24] border border-[#262A33] text-[11px] text-gray-400">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Reconhecimento automático de qualquer formato de lista
+                  Mapeamento inteligente instantâneo sem telas desnecessárias
                 </div>
               </div>
 
-              {/* Informações de boas práticas */}
+              {/* Informações resumidas */}
               <div className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] flex items-start gap-3">
                 <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-gray-400 space-y-1">
-                  <p className="font-semibold text-gray-300">
-                    Como funciona o processo de importação:
-                  </p>
+                  <p className="font-semibold text-gray-300">Importação direta e inteligente:</p>
                   <ul className="list-disc pl-4 space-y-0.5 text-gray-400">
-                    <li>O navegador lê o arquivo diretamente em memória com total segurança.</li>
                     <li>
-                      O sistema reconhece automaticamente o formato, o separador e a linha de
-                      cabeçalho — mesmo em planilhas sem títulos padronizados.
+                      O bitCRM detecta automaticamente colunas de empresa, telefone, cidade e
+                      observações.
                     </li>
                     <li>
-                      As colunas são mapeadas para os campos da oportunidade e podem ser ajustadas
-                      manualmente.
+                      Colunas de numeração sequencial (#, Nº, Linha) e links fixos do WhatsApp são
+                      desconsiderados automaticamente.
                     </li>
                     <li>
-                      Contatos duplicados podem ser ignorados automaticamente por telefone ou nome
-                      de empresa.
+                      Contatos duplicados por telefone ou nome são identificados e prevenidos.
                     </li>
                     <li>
-                      Os leads são criados com valor padrão de R$ 500,00 e atribuídos ao seu
-                      usuário.
+                      Configurações padrão: Vendedor Admin, Estágio Novo, Origem Prospecção e R$
+                      500,00 por lead.
                     </li>
                   </ul>
                 </div>
@@ -639,145 +710,40 @@ export function ImportOpportunitiesModal({
           )}
 
           {/* ========================================================================= */}
-          {/* ETAPA 2: MAPEAMENTO DE COLUNAS */}
+          {/* ETAPA 2: REVISÃO RESUMIDA & CONFIGURAÇÕES (NOVO FLUXO DIRETO) */}
           {/* ========================================================================= */}
           {step === 2 && parsedFiles.length > 0 && (
             <div className="space-y-4">
-              {/* Seletor de Arquivos caso haja mais de 1 */}
-              {parsedFiles.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {/* Arquivos detectados com total de registros */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-gray-400 block">
+                  Arquivos detectados e registros:
+                </span>
+                <div className="space-y-2">
                   {parsedFiles.map((file, idx) => (
-                    <button
+                    <div
                       key={idx}
-                      onClick={() => setSelectedFileIdx(idx)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all ${
-                        selectedFileIdx === idx
-                          ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                          : 'bg-[#0E1017] border-[#262A33] text-gray-400 hover:text-white'
-                      }`}
+                      className="flex items-center justify-between p-3 rounded-xl bg-[#0E1017] border border-[#262A33]"
                     >
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span className="truncate max-w-[200px]">{file.fileName}</span>
-                      <span className="text-[10px] bg-[#181B24] px-1.5 py-0.2 rounded-full text-gray-400">
-                        {file.rows.length}
-                      </span>
-                    </button>
+                      <div className="flex items-center gap-2.5 truncate">
+                        <FileSpreadsheet className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <span className="text-xs font-bold text-white truncate">
+                          {file.fileName}
+                        </span>
+                        <span className="text-[11px] text-gray-400 hidden sm:inline">
+                          ({file.sheetName})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                          {file.rows.length} registros detectados
+                        </span>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              )}
+              </div>
 
-              {/* Informação do arquivo ativo */}
-              {parsedFiles[selectedFileIdx] && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4 text-indigo-400" />
-                      <span className="text-xs font-bold text-white">
-                        {parsedFiles[selectedFileIdx].fileName}
-                      </span>
-                      <span className="text-[11px] text-gray-400">
-                        ({parsedFiles[selectedFileIdx].sheetName})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!parsedFiles[selectedFileIdx].hasDetectedHeader && (
-                        <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Sem cabeçalho — colunas inferidas pelo conteúdo
-                        </span>
-                      )}
-                      <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                        {parsedFiles[selectedFileIdx].rows.length} registros detectados
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-gray-400">
-                    Revise o mapeamento das colunas da planilha para os campos do CRM:
-                  </p>
-
-                  {/* Tabela de Mapeamento */}
-                  <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017]">
-                    <div className="grid grid-cols-12 gap-2 p-2.5 bg-[#181B24] text-[11px] font-bold text-gray-300 border-b border-[#262A33]">
-                      <div className="col-span-5">Coluna da Planilha</div>
-                      <div className="col-span-4">Exemplo da 1ª Linha</div>
-                      <div className="col-span-3">Campo no CRM</div>
-                    </div>
-
-                    <div className="divide-y divide-[#262A33]/70 max-h-[320px] overflow-y-auto custom-scrollbar">
-                      {parsedFiles[selectedFileIdx].headers.map((header) => {
-                        const currentMapped = mappings[selectedFileIdx]?.[header] || 'ignore'
-                        const sampleValue = parsedFiles[selectedFileIdx].rows[0]?.[header] || '—'
-
-                        return (
-                          <div
-                            key={header}
-                            className="grid grid-cols-12 gap-2 p-2.5 items-center text-xs hover:bg-[#12141A]/50 transition-colors"
-                          >
-                            <div className="col-span-5 font-medium text-white flex items-center gap-1.5 truncate">
-                              <span className="truncate">{header}</span>
-                            </div>
-
-                            <div className="col-span-4 text-gray-400 truncate text-[11px] font-mono bg-[#12141A] px-2 py-1 rounded border border-[#262A33]/50">
-                              {sampleValue}
-                            </div>
-
-                            <div className="col-span-3">
-                              <Select
-                                value={currentMapped}
-                                onValueChange={(val) =>
-                                  handleUpdateMapping(
-                                    selectedFileIdx,
-                                    header,
-                                    val as OppTargetField,
-                                  )
-                                }
-                              >
-                                <SelectTrigger
-                                  className={`h-8 text-xs rounded-lg ${
-                                    currentMapped === 'company'
-                                      ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300 font-semibold'
-                                      : currentMapped !== 'ignore'
-                                        ? 'bg-[#181B24] border-[#2E3342] text-white'
-                                        : 'bg-[#12141A] border-[#262A33] text-gray-500'
-                                  }`}
-                                >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                                  {TARGET_FIELDS.map((opt) => (
-                                    <SelectItem key={opt.key} value={opt.key}>
-                                      {opt.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {!canProceedToConfirmation && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>
-                        É necessário mapear pelo menos uma coluna como{' '}
-                        <strong>Empresa / Título da Oportunidade</strong>.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* ETAPA 3: REVISÃO & CONFIGURAÇÕES DE IMPORTAÇÃO */}
-          {/* ========================================================================= */}
-          {step === 3 && (
-            <div className="space-y-4">
               {/* Cards de Resumo */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 bg-[#0E1017] border border-[#262A33] rounded-xl">
@@ -791,7 +757,7 @@ export function ImportOpportunitiesModal({
                 </div>
 
                 <div className="p-3.5 bg-[#0E1017] border border-[#262A33] rounded-xl">
-                  <span className="text-[11px] text-gray-400 block">Duplicatas Detectadas</span>
+                  <span className="text-[11px] text-gray-400 block">Duplicatas Encontradas</span>
                   <span
                     className={`text-xl font-bold tabular-nums ${
                       totalDuplicates > 0 ? 'text-amber-400' : 'text-emerald-400'
@@ -810,21 +776,24 @@ export function ImportOpportunitiesModal({
                     {readyToImportCount} leads
                   </span>
                   <span className="text-[10px] text-indigo-300/70 block mt-0.5">
-                    {skipDuplicates ? 'Duplicatas serão ignoradas' : 'Incluindo duplicatas'}
+                    {skipDuplicates ? 'Duplicatas serão puladas' : 'Incluindo duplicatas'}
                   </span>
                 </div>
               </div>
 
-              {/* Opções de Importação */}
+              {/* Opções de Importação com Valores Padrão */}
               <div className="p-4 bg-[#0E1017] border border-[#262A33] rounded-xl space-y-4">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Building className="w-3.5 h-3.5 text-indigo-400" />
-                  Parâmetros Padrão das Novas Oportunidades
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Building className="w-3.5 h-3.5 text-indigo-400" />
+                    Configurações Padrão de Importação
+                  </h4>
+                  <span className="text-[11px] text-gray-400">Ajuste se necessário</span>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-300">Responsável (Vendedor / Admin)</Label>
+                    <Label className="text-xs text-gray-300">Responsável (Admin / Vendedor)</Label>
                     <Select value={assignedSellerId} onValueChange={setAssignedSellerId}>
                       <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-9 rounded-xl">
                         <SelectValue placeholder="Selecione o responsável" />
@@ -890,14 +859,6 @@ export function ImportOpportunitiesModal({
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center gap-2 text-[11px] text-gray-500">
-                  <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>
-                    Se a planilha tiver colunas de Estágio, Valor ou Origem, cada lead usará o valor
-                    da própria linha; caso contrário, os padrões acima.
-                  </span>
-                </div>
-
                 {/* Tratamento de Duplicatas */}
                 <div className="pt-2 border-t border-[#262A33] flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
@@ -915,34 +876,44 @@ export function ImportOpportunitiesModal({
                     </label>
                   </div>
                   {totalDuplicates > 0 && (
-                    <span className="text-[11px] text-amber-400">
+                    <span className="text-[11px] text-amber-400 font-medium">
                       {totalDuplicates}{' '}
-                      {totalDuplicates === 1
-                        ? 'duplicata será ignorada'
-                        : 'duplicatas serão ignoradas'}
+                      {totalDuplicates === 1 ? 'duplicata será pulada' : 'duplicatas serão puladas'}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Preview dos Primeiros Leads */}
+              {/* Amostra rápida dos primeiros registros importados */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-gray-400 block">
-                  Prévia dos primeiros leads a serem importados:
-                </span>
-                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[180px] overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-400 block">
+                    Amostra dos registros mapeados automaticamente:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedMapping(!showAdvancedMapping)}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors underline decoration-dotted"
+                  >
+                    {showAdvancedMapping
+                      ? 'Ocultar ajuste avançado de colunas'
+                      : 'Personalizar colunas manualmente'}
+                  </button>
+                </div>
+
+                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[160px] overflow-y-auto custom-scrollbar">
                   {processedLeads.slice(0, 5).map((lead, idx) => (
                     <div key={idx} className="p-2.5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 truncate">
                         <span className="font-bold text-white truncate">{lead.company}</span>
+                        {lead.contact_phone && (
+                          <span className="text-[10px] text-indigo-300 font-mono bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                            {lead.contact_phone}
+                          </span>
+                        )}
                         {lead.city && (
                           <span className="text-[10px] text-gray-400 bg-[#181B24] px-1.5 py-0.5 rounded border border-[#262A33]">
                             {lead.city}
-                          </span>
-                        )}
-                        {lead.contact_phone && (
-                          <span className="text-[10px] text-gray-400 font-mono">
-                            {lead.contact_phone}
                           </span>
                         )}
                       </div>
@@ -953,7 +924,7 @@ export function ImportOpportunitiesModal({
                           </span>
                         ) : (
                           <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            Novo
+                            Pronto para criar
                           </span>
                         )}
                       </div>
@@ -961,13 +932,81 @@ export function ImportOpportunitiesModal({
                   ))}
                 </div>
               </div>
+
+              {/* Se o usuário desejar abrir o ajuste avançado de mapeamento */}
+              {showAdvancedMapping && parsedFiles[selectedFileIdx] && (
+                <div className="p-3 bg-[#0A0C11] border border-[#262A33] rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-300">
+                      Mapeamento das Colunas ({parsedFiles[selectedFileIdx].fileName})
+                    </span>
+                    {parsedFiles.length > 1 && (
+                      <div className="flex items-center gap-1">
+                        {parsedFiles.map((f, fIdx) => (
+                          <button
+                            key={fIdx}
+                            onClick={() => setSelectedFileIdx(fIdx)}
+                            className={`px-2 py-0.5 text-[10px] rounded font-semibold ${
+                              selectedFileIdx === fIdx
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-[#181B24] text-gray-400'
+                            }`}
+                          >
+                            {f.fileName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="divide-y divide-[#262A33]/70 max-h-[200px] overflow-y-auto custom-scrollbar">
+                    {parsedFiles[selectedFileIdx].headers.map((header) => {
+                      const currentMapped = mappings[selectedFileIdx]?.[header] || 'ignore'
+                      const sampleValue = parsedFiles[selectedFileIdx].rows[0]?.[header] || '—'
+
+                      return (
+                        <div
+                          key={header}
+                          className="grid grid-cols-12 gap-2 py-2 items-center text-xs"
+                        >
+                          <div className="col-span-5 text-gray-200 font-medium truncate">
+                            {header}
+                          </div>
+                          <div className="col-span-4 text-gray-500 font-mono text-[10px] truncate">
+                            {sampleValue}
+                          </div>
+                          <div className="col-span-3">
+                            <Select
+                              value={currentMapped}
+                              onValueChange={(val) =>
+                                handleUpdateMapping(selectedFileIdx, header, val as OppTargetField)
+                              }
+                            >
+                              <SelectTrigger className="h-7 text-[11px] bg-[#12141A] border-[#262A33] text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                                {TARGET_FIELDS.map((opt) => (
+                                  <SelectItem key={opt.key} value={opt.key}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* ETAPA 4: IMPORTAÇÃO EM PROGRESSO & RELATÓRIO FINAL */}
+          {/* ETAPA 3: IMPORTAÇÃO EM PROGRESSO & RELATÓRIO FINAL */}
           {/* ========================================================================= */}
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-5 py-4">
               {isImporting ? (
                 <div className="text-center space-y-4">
@@ -1054,7 +1093,7 @@ export function ImportOpportunitiesModal({
           )}
         </div>
 
-        {/* Rodapé com Navegação dos Passos */}
+        {/* Rodapé com Navegação dos Passos (Novo fluxo 3 etapas) */}
         <DialogFooter className="shrink-0 pt-3 border-t border-[#262A33] flex items-center justify-between sm:justify-between w-full">
           {step === 1 && (
             <div className="flex items-center justify-end w-full">
@@ -1073,50 +1112,30 @@ export function ImportOpportunitiesModal({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setStep(1)}
+                onClick={() => {
+                  setParsedFiles([])
+                  setStep(1)
+                }}
                 className="border-[#262A33] text-gray-300 text-xs"
               >
                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                Voltar
-              </Button>
-
-              <Button
-                size="sm"
-                onClick={() => setStep(3)}
-                disabled={!canProceedToConfirmation}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
-              >
-                Avançar para Revisão
-                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-              </Button>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="flex items-center justify-between w-full">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStep(2)}
-                className="border-[#262A33] text-gray-300 text-xs"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                Ajustar Mapeamento
+                Trocar Arquivos
               </Button>
 
               <Button
                 size="sm"
                 onClick={handleStartImport}
-                disabled={readyToImportCount === 0}
+                disabled={readyToImportCount === 0 || !canProceedToConfirmation}
                 className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20"
               >
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Importar {readyToImportCount} Oportunidades
+                Confirmar e Importar ({readyToImportCount} Oportunidades)
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </Button>
             </div>
           )}
 
-          {step === 4 && !isImporting && (
+          {step === 3 && !isImporting && (
             <div className="flex items-center justify-end w-full gap-2">
               <Button
                 onClick={() => {

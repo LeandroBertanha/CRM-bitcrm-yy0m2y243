@@ -421,16 +421,34 @@ export function matchHeaderByKeyword(header: string): OppTargetField | null {
   if (
     norm === '#' ||
     norm === 'id' ||
+    norm === 'n' ||
+    norm === 'no' ||
     norm === 'num' ||
     norm === 'numero' ||
+    norm === 'ordem' ||
+    norm === 'seq' ||
+    norm === 'sequencia' ||
     norm === 'codigo' ||
     norm === 'cod' ||
     norm === 'item' ||
-    norm === 'index'
+    norm === 'index' ||
+    norm === 'posicao' ||
+    norm.startsWith('n ') ||
+    norm.startsWith('no ') ||
+    norm.startsWith('num ') ||
+    norm === 'linha'
   ) {
     return 'ignore'
   }
-  if (norm.includes('abrir whatsapp') || norm === 'link whatsapp') return 'ignore'
+  if (
+    norm.includes('abrir whatsapp') ||
+    norm.includes('link whatsapp') ||
+    norm.includes('abrir whats') ||
+    norm.includes('link whats') ||
+    norm.includes('link de whatsapp')
+  ) {
+    return 'ignore'
+  }
 
   // E-mail
   if (
@@ -637,37 +655,138 @@ export function guessInitialFileMappings(
   const mapping: Record<string, OppTargetField> = {}
   const assignedFields = new Set<OppTargetField>()
 
-  // 1ª Passagem: Palavras-chave nos cabeçalhos
+  // 0ª Passagem: Identificar e marcar colunas ignoradas explicitamente por cabeçalho
+  // e colunas de índice/ordem sequencial pelo conteúdo (ex: 1, 2, 3...)
   headers.forEach((header) => {
     const keywordMatch = matchHeaderByKeyword(header)
+    if (keywordMatch === 'ignore') {
+      mapping[header] = 'ignore'
+      return
+    }
+
+    // Verificar se os valores são numéricos sequenciais (1, 2, 3...) típicos de coluna de índice (#, Nº, Item)
+    const sampleValues = rows
+      .slice(0, 20)
+      .map((r) => String(r[header] || '').trim())
+      .filter(Boolean)
+    if (sampleValues.length >= 2) {
+      let isSequentialIndex = true
+      for (let i = 0; i < sampleValues.length; i++) {
+        const valNum = Number(sampleValues[i])
+        // Se não for número inteiro pequeno sequencial (ex: 1,2,3 ou começando em 0/1)
+        if (isNaN(valNum) || !Number.isInteger(valNum) || valNum <= 0 || valNum > 100000) {
+          isSequentialIndex = false
+          break
+        }
+        if (i > 0) {
+          const prevNum = Number(sampleValues[i - 1])
+          if (valNum !== prevNum + 1) {
+            isSequentialIndex = false
+            break
+          }
+        }
+      }
+      if (isSequentialIndex) {
+        mapping[header] = 'ignore'
+        return
+      }
+
+      // Verificar se todos os valores da coluna são links/botões repetidos como "Abrir WhatsApp"
+      const firstVal = sampleValues[0].toLowerCase()
+      if (
+        firstVal.includes('abrir') ||
+        firstVal.includes('clique') ||
+        firstVal.includes('api.whatsapp') ||
+        firstVal.includes('wa.me')
+      ) {
+        const allSame = sampleValues.every((v) => v.toLowerCase() === firstVal)
+        if (allSame) {
+          mapping[header] = 'ignore'
+          return
+        }
+      }
+    }
+  })
+
+  // 1ª Passagem: Palavras-chave nos cabeçalhos
+  // Para evitar mapeamentos duplicados indesejados (como dois telefones: "Celular" vs "WhatsApp + Pitch R$ 500"):
+  // Se o cabeçalho tiver indício de pitch/mensagem ("pitch", "texto", "mensagem"), mesmo que contenha "whatsapp",
+  // ele deve ir para 'message' se for pitch.
+  headers.forEach((header) => {
+    if (mapping[header] === 'ignore') return
+
+    const norm = normalizeHeaderString(header)
+    let keywordMatch = matchHeaderByKeyword(header)
+
+    // Desempate específico de cabeçalho: se tiver "pitch" ou "mensagem" junto com "whatsapp", prefira 'message'
+    if (norm.includes('pitch') || norm.includes('mensagem')) {
+      keywordMatch = 'message'
+    }
+
     if (keywordMatch && keywordMatch !== 'ignore') {
-      // Se for company e já existir uma mapeada, pode ser contact_name
-      if (keywordMatch === 'company' && assignedFields.has('company')) {
-        mapping[header] = 'contact_name'
-        assignedFields.add('contact_name')
+      // Se já atribuímos esse campo único (ex: contact_phone, company, contact_email)
+      if (assignedFields.has(keywordMatch)) {
+        if (keywordMatch === 'company') {
+          if (!assignedFields.has('contact_name')) {
+            mapping[header] = 'contact_name'
+            assignedFields.add('contact_name')
+          } else {
+            mapping[header] = 'ignore'
+          }
+        } else if (keywordMatch === 'contact_phone') {
+          // Se já tem telefone, checar se a nova coluna tem "pitch" ou dados adicionais que sirvam de mensagem
+          if (norm.includes('pitch') || norm.includes('msg') || norm.includes('obs')) {
+            mapping[header] = 'message'
+            assignedFields.add('message')
+          } else {
+            // Comparar qualidade dos dados: se esta coluna tiver maior densidade de telefones puros
+            // ou se o nome for mais específico ("celular" vs "contato")
+            const prevHeader = Object.keys(mapping).find((h) => mapping[h] === 'contact_phone')
+            if (prevHeader) {
+              const currentSample = rows.slice(0, 15).map((r) => r[header] || '')
+              const prevSample = rows.slice(0, 15).map((r) => r[prevHeader] || '')
+              const currentScore = currentSample.filter(isPhoneContent).length
+              const prevScore = prevSample.filter(isPhoneContent).length
+
+              if (currentScore > prevScore) {
+                // Substituir: esta é melhor
+                mapping[prevHeader] = 'ignore'
+                mapping[header] = 'contact_phone'
+              } else {
+                mapping[header] = 'ignore'
+              }
+            } else {
+              mapping[header] = 'ignore'
+            }
+          }
+        } else if (keywordMatch === 'message') {
+          // Mensagem pode acumular se necessário
+          mapping[header] = 'message'
+        } else {
+          mapping[header] = 'ignore'
+        }
       } else {
         mapping[header] = keywordMatch
         assignedFields.add(keywordMatch)
       }
-    } else if (keywordMatch === 'ignore') {
-      mapping[header] = 'ignore'
     }
   })
 
   // 2ª Passagem: Para as colunas não identificadas, inspecionar os valores
   headers.forEach((header) => {
-    if (!mapping[header] || mapping[header] === 'ignore') {
+    if (!mapping[header]) {
       const sampleValues = rows.slice(0, 20).map((r) => r[header] || '')
       const contentGuess = inferTargetFieldFromContent(sampleValues)
 
       if (contentGuess) {
-        // Se o campo inferido ainda não foi atribuído ou se for compatível
-        if (!assignedFields.has(contentGuess) || contentGuess === 'message') {
+        // Se o campo inferido ainda não foi atribuído
+        if (!assignedFields.has(contentGuess)) {
           mapping[header] = contentGuess
           assignedFields.add(contentGuess)
-        } else if (contentGuess === 'contact_phone' && !assignedFields.has('contact_phone')) {
-          mapping[header] = 'contact_phone'
-          assignedFields.add('contact_phone')
+        } else if (contentGuess === 'message') {
+          mapping[header] = 'message'
+        } else {
+          mapping[header] = 'ignore'
         }
       }
     }
