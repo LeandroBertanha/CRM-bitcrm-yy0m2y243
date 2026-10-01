@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-10-01T16:47:31.177Z",
+  "collections": [
+    {
+      "name": "users",
+      "type": "auth",
+      "apiRules": {
+        "list": "id = @request.auth.id",
+        "view": "id = @request.auth.id",
+        "create": "",
+        "update": "id = @request.auth.id",
+        "delete": "id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "opportunities",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
+        "create": "",
+        "update": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')",
+        "delete": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.email = 'leandro.bertanha@gmail.com')"
+      },
+      "fields": [
+        {
+          "name": "company",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "stage",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Novo", "Qualificado", "Proposta", "Ganho", "Perdido"]
+        },
+        {
+          "name": "source",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Formulário Público", "Indicação", "Site", "WhatsApp", "Evento", "Outro"]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "contact_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_opportunities_stage ON opportunities (stage)",
+        "CREATE INDEX idx_opportunities_seller ON opportunities (seller)",
+        "CREATE INDEX idx_opportunities_created ON opportunities (created)"
+      ]
+    }
+  ]
+}

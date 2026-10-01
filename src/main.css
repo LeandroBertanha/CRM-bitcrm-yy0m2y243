@@ -1,0 +1,201 @@
+/* Global styles - Theme, font, utilities, animations and global components */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* bit Consulting Dark Theme by default */
+    --background: 228 17% 5%; /* #0A0B0E */
+    --foreground: 220 15% 97%; /* #F5F6F8 */
+
+    --card: 225 18% 9%; /* #12141A */
+    --card-foreground: 220 15% 97%;
+
+    --popover: 225 18% 9%;
+    --popover-foreground: 220 15% 97%;
+
+    --primary: 239 84% 67%; /* #6366F1 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 15% 15%;
+    --secondary-foreground: 220 15% 95%;
+
+    --muted: 224 15% 15%;
+    --muted-foreground: 218 11% 65%; /* #9CA3AF */
+
+    --accent: 239 84% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 223 14% 17%; /* #262A33 */
+    --input: 223 14% 17%;
+    --ring: 239 84% 67%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 228 17% 5%;
+    --sidebar-foreground: 220 15% 97%;
+    --sidebar-primary: 239 84% 67%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 18% 12%;
+    --sidebar-accent-foreground: 220 15% 97%;
+    --sidebar-border: 223 14% 17%;
+    --sidebar-ring: 239 84% 67%;
+
+    --chart-1: 239 84% 67%;
+    --chart-2: 217 91% 60%;
+    --chart-3: 160 84% 39%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 228 17% 5%;
+    --foreground: 220 15% 97%;
+
+    --card: 225 18% 9%;
+    --card-foreground: 220 15% 97%;
+
+    --popover: 225 18% 9%;
+    --popover-foreground: 220 15% 97%;
+
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 15% 15%;
+    --secondary-foreground: 220 15% 95%;
+
+    --muted: 224 15% 15%;
+    --muted-foreground: 218 11% 65%;
+
+    --accent: 239 84% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 223 14% 17%;
+    --input: 223 14% 17%;
+    --ring: 239 84% 67%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    background-color: #0a0b0e;
+    color: #f5f6f8;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* NEVER REMOVE THIS */
+  section[aria-label='Notifications alt+T'] {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+@layer utilities {
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.03);
+    }
+  }
+
+  .animate-fadeInUp {
+    animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-glow {
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+  .glow-border {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 15px -3px rgba(99, 102, 241, 0.2);
+  }
+
+  .glow-button {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
+  }
+
+  .glow-button:hover {
+    box-shadow: 0 0 26px rgba(129, 140, 248, 0.5);
+  }
+}
