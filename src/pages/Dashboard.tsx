@@ -72,14 +72,10 @@ export default function Dashboard() {
 
   const totalOppsCount = myOpps.length
 
-  // Estágios em negociação (funil aberto antes do desfecho Ganho/Perdido: Novo, Qualificado, Agendado, Proposta)
+  // Estágios em negociação: Qualificado, Agendado e Proposta (o estágio Novo não entra no cálculo de negociação)
   const inNegotiationOpps = useMemo(() => {
     return myOpps.filter(
-      (opp) =>
-        opp.stage === 'Novo' ||
-        opp.stage === 'Qualificado' ||
-        opp.stage === 'Agendado' ||
-        opp.stage === 'Proposta',
+      (opp) => opp.stage === 'Qualificado' || opp.stage === 'Agendado' || opp.stage === 'Proposta',
     )
   }, [myOpps])
 
@@ -122,7 +118,7 @@ export default function Dashboard() {
     {
       title: 'Em Negociação',
       value: inNegotiationCount.toString(),
-      description: 'Novo, Qualif., Agend. e Prop.',
+      description: 'Qualif., Agend. e Proposta',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
@@ -131,7 +127,7 @@ export default function Dashboard() {
     {
       title: 'Valor em Negociação',
       value: formatBRL(inNegotiationValue),
-      description: 'Volume aberto no pipeline',
+      description: 'Qualif., Agend. e Proposta',
       icon: DollarSign,
       color: 'from-indigo-500/20 to-cyan-500/10',
       borderColor: 'border-indigo-500/30',
