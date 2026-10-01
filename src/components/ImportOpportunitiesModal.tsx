@@ -1,7 +1,19 @@
 import React, { useState, useRef, useMemo } from 'react'
-import * as XLSX from 'xlsx'
 import pb from '@/lib/pocketbase/client'
 import { STAGES, SOURCES, Opportunity } from '@/types/crm'
+import {
+  ParsedSheetData,
+  OppTargetField,
+  TARGET_FIELDS,
+  ProcessedLeadItem,
+  parseSpreadsheetFile,
+  guessInitialFileMappings,
+  normalizePhoneKey,
+  normalizeCompanyKey,
+  normalizeStageValue,
+  normalizeSourceValue,
+  parseCurrencyValue,
+} from '@/lib/opportunityImportHelper'
 import {
   Dialog,
   DialogContent,
@@ -41,50 +53,10 @@ import {
   FileText,
   User,
   Trash2,
+  Wand2,
 } from 'lucide-react'
 
-export interface ParsedSheetData {
-  fileName: string
-  sheetName: string
-  headers: string[]
-  rows: Record<string, string>[]
-}
-
-export type OppTargetField =
-  | 'company'
-  | 'contact_name'
-  | 'contact_phone'
-  | 'contact_email'
-  | 'city'
-  | 'message'
-  | 'last_contact'
-  | 'next_contact'
-  | 'website'
-  | 'source_ref'
-  | 'ignore'
-
-interface FieldOption {
-  key: OppTargetField
-  label: string
-  description?: string
-  required?: boolean
-}
-
-const TARGET_FIELDS: FieldOption[] = [
-  { key: 'company', label: 'Empresa / Nome do Cliente *', required: true },
-  { key: 'contact_name', label: 'Nome do Contato' },
-  { key: 'contact_phone', label: 'Telefone / Celular / WhatsApp' },
-  { key: 'contact_email', label: 'E-mail do Contato' },
-  { key: 'city', label: 'Cidade / Região' },
-  { key: 'message', label: 'Mensagem Personalizada / Pitch' },
-  { key: 'last_contact', label: 'Último Contato (irá nas observações)' },
-  { key: 'next_contact', label: 'Próximo Retorno (irá nas observações)' },
-  { key: 'website', label: 'Site Próprio (irá nas observações)' },
-  { key: 'source_ref', label: 'Fonte / Validação (irá nas observações)' },
-  { key: 'ignore', label: '— Ignorar Coluna —' },
-]
-
-interface ImportOpportunitiesModalProps {
+export interface ImportOpportunitiesModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -92,19 +64,6 @@ interface ImportOpportunitiesModalProps {
   currentUserId?: string
   existingOpportunities: Opportunity[]
   sellersList: { id: string; name?: string; email: string }[]
-}
-
-interface ProcessedLeadItem {
-  company: string
-  contact_name: string
-  contact_phone: string
-  contact_email: string
-  city: string
-  notesList: string[]
-  fullMessage: string
-  isDuplicate: boolean
-  duplicateReason?: string
-  sourceFile: string
 }
 
 export function ImportOpportunitiesModal({
@@ -173,101 +132,7 @@ export function ImportOpportunitiesModal({
     })
   }
 
-  // Detecta mapeamento automático inteligente com base no nome do cabeçalho
-  const guessTargetField = (headerName: string): OppTargetField => {
-    const norm = headerName
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .trim()
-
-    if (norm === '#' || norm === 'id' || norm === 'num' || norm === 'numero') return 'ignore'
-    if (norm.includes('abrir whatsapp') || norm === 'whatsapp') return 'ignore'
-    if (
-      norm.includes('pitch') ||
-      norm.includes('mensagem personalizada') ||
-      norm.includes('mensagem')
-    ) {
-      return 'message'
-    }
-    if (
-      norm.includes('empresa') ||
-      norm.includes('nome da empresa') ||
-      norm.includes('razao social')
-    ) {
-      return 'company'
-    }
-    if (
-      norm === 'nome' ||
-      norm.includes('cliente') ||
-      norm.includes('lead') ||
-      norm.includes('salao') ||
-      norm.includes('estetica')
-    ) {
-      return 'company'
-    }
-    if (
-      norm.includes('celular') ||
-      norm.includes('telefone') ||
-      norm.includes('fone') ||
-      norm.includes('contato')
-    ) {
-      return 'contact_phone'
-    }
-    if (
-      norm.includes('cidade') ||
-      norm.includes('municipio') ||
-      norm.includes('regiao') ||
-      norm.includes('bairro')
-    ) {
-      return 'city'
-    }
-    if (norm.includes('email') || norm.includes('e-mail')) {
-      return 'contact_email'
-    }
-    if (norm.includes('ultimo contato') || norm.includes('ult. contato')) {
-      return 'last_contact'
-    }
-    if (
-      norm.includes('retorno') ||
-      norm.includes('proximo retorno') ||
-      norm.includes('prox retorno')
-    ) {
-      return 'next_contact'
-    }
-    if (norm.includes('site') || norm.includes('website') || norm.includes('dominio')) {
-      return 'website'
-    }
-    if (
-      norm.includes('fonte') ||
-      norm.includes('validacao') ||
-      norm.includes('origem') ||
-      norm.includes('link')
-    ) {
-      return 'source_ref'
-    }
-    if (norm.includes('observ') || norm.includes('obs') || norm.includes('detalhe')) {
-      return 'message'
-    }
-
-    return 'ignore'
-  }
-
-  // Sanitiza número de telefone para chave única
-  const cleanPhoneKey = (phoneStr: string): string => {
-    return phoneStr.replace(/\D/g, '')
-  }
-
-  // Sanitiza nome da empresa para chave única
-  const cleanCompanyKey = (nameStr: string): string => {
-    return nameStr
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '')
-  }
-
-  // Manipulador de upload de arquivos XLSX/CSV
+  // Manipulador de upload universal (XLSX/XLS/ODS/CSV/TSV/TXT/JSON)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
@@ -275,111 +140,44 @@ export function ImportOpportunitiesModal({
     setIsParsingFiles(true)
     const newParsedList: ParsedSheetData[] = []
     const newMappings: Record<number, Record<string, OppTargetField>> = {}
+    const parseErrors: string[] = []
 
     try {
       for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        const data = await file.arrayBuffer()
-        const workbook = XLSX.read(data, { type: 'array' })
+        try {
+          const parsedSheets = await parseSpreadsheetFile(files[i])
 
-        // Se houver aba chamada "Leads" ou "Prospecção", priorize-a; senão pega a primeira
-        let sheetName = workbook.SheetNames[0]
-        const preferred = workbook.SheetNames.find(
-          (name) =>
-            name.toLowerCase().includes('lead') ||
-            name.toLowerCase().includes('prospec') ||
-            name.toLowerCase().includes('dados'),
-        )
-        if (preferred) {
-          sheetName = preferred
-        }
-
-        const sheet = workbook.Sheets[sheetName]
-        if (!sheet) continue
-
-        // Ler como array de arrays para detectar linhas de cabeçalho
-        const rawRows = XLSX.utils.sheet_to_json<string[]>(sheet, {
-          header: 1,
-          defval: '',
-          blankrows: false,
-        })
-
-        if (!rawRows || rawRows.length === 0) continue
-
-        // Encontrar a linha real de cabeçalho (que contenha palavras como Empresa, Nome, Celular, etc.)
-        let headerRowIdx = 0
-        for (let r = 0; r < Math.min(5, rawRows.length); r++) {
-          const rowValues = rawRows[r].map((c) => String(c || '').trim())
-          const hasCompanyOrPhone = rowValues.some((v) => {
-            const low = v.toLowerCase()
-            return (
-              low.includes('empresa') ||
-              low.includes('nome') ||
-              low.includes('celular') ||
-              low.includes('telefone') ||
-              low.includes('whatsapp')
-            )
+          parsedSheets.forEach((parsedItem) => {
+            const fileIndex = newParsedList.length
+            newParsedList.push(parsedItem)
+            // Criar mapeamento inicial automático adaptativo
+            newMappings[fileIndex] = guessInitialFileMappings(parsedItem.headers, parsedItem.rows)
           })
-          if (hasCompanyOrPhone) {
-            headerRowIdx = r
-            break
-          }
+        } catch (err) {
+          console.error(`Erro ao ler o arquivo ${files[i].name}:`, err)
+          const msg = err instanceof Error ? err.message : 'Não conseguimos ler este arquivo.'
+          parseErrors.push(`${files[i].name}: ${msg}`)
         }
-
-        const headerRow = rawRows[headerRowIdx] || []
-        const headers: string[] = []
-        for (let c = 0; c < headerRow.length; c++) {
-          const val = String(headerRow[c] || '').trim()
-          headers.push(val || `Coluna_${c + 1}`)
-        }
-
-        // Ler as linhas subsequentes
-        const dataRows: Record<string, string>[] = []
-        for (let r = headerRowIdx + 1; r < rawRows.length; r++) {
-          const rowArr = rawRows[r] || []
-          // Ignorar se a linha inteira estiver vazia
-          const hasData = rowArr.some((c) => String(c ?? '').trim() !== '')
-          if (!hasData) continue
-
-          const rowObj: Record<string, string> = {}
-          let nonBlankCount = 0
-          headers.forEach((h, colIdx) => {
-            const cellVal = String(rowArr[colIdx] ?? '').trim()
-            if (cellVal) nonBlankCount++
-            rowObj[h] = cellVal
-          })
-
-          // Pelo menos 1 campo deve estar preenchido
-          if (nonBlankCount > 0) {
-            dataRows.push(rowObj)
-          }
-        }
-
-        const parsedItem: ParsedSheetData = {
-          fileName: file.name,
-          sheetName,
-          headers,
-          rows: dataRows,
-        }
-
-        const fileIndex = newParsedList.length
-        newParsedList.push(parsedItem)
-
-        // Criar mapeamento inicial automático
-        const fileMapping: Record<string, OppTargetField> = {}
-        headers.forEach((header) => {
-          fileMapping[header] = guessTargetField(header)
-        })
-        newMappings[fileIndex] = fileMapping
       }
 
       if (newParsedList.length === 0) {
         toast({
-          title: 'Nenhum dado encontrado',
-          description: 'Não foi possível ler as planilhas enviadas.',
+          title: 'Erro na leitura do arquivo',
+          description:
+            parseErrors.length > 0
+              ? parseErrors.join('\n')
+              : 'Não conseguimos ler este arquivo. Tente XLSX, CSV ou TXT.',
           variant: 'destructive',
         })
         return
+      }
+
+      if (parseErrors.length > 0) {
+        toast({
+          title: 'Alguns arquivos não puderam ser lidos',
+          description: parseErrors.join('\n'),
+          variant: 'destructive',
+        })
       }
 
       setParsedFiles(newParsedList)
@@ -390,7 +188,7 @@ export function ImportOpportunitiesModal({
       console.error('Erro ao ler arquivos:', err)
       toast({
         title: 'Erro na leitura do arquivo',
-        description: 'Verifique se o arquivo é um XLSX ou CSV válido.',
+        description: 'Não conseguimos ler este arquivo. Tente XLSX, CSV ou TXT.',
         variant: 'destructive',
       })
     } finally {
@@ -420,8 +218,8 @@ export function ImportOpportunitiesModal({
     // Criar mapa de oportunidades já existentes no banco
     const existingKeys = new Set<string>()
     for (const opp of existingOpportunities) {
-      const cKey = cleanCompanyKey(opp.company || '')
-      const pKey = cleanPhoneKey(opp.contact_phone || '')
+      const cKey = normalizeCompanyKey(opp.company || '')
+      const pKey = normalizePhoneKey(opp.contact_phone || '')
       if (cKey) existingKeys.add(`c:${cKey}`)
       if (pKey) existingKeys.add(`p:${pKey}`)
       if (cKey && pKey) existingKeys.add(`cp:${cKey}_${pKey}`)
@@ -437,6 +235,9 @@ export function ImportOpportunitiesModal({
         let contact_email = ''
         let city = ''
         let messageText = ''
+        let rowStage: Opportunity['stage'] | undefined = undefined
+        let rowValue: number | undefined = undefined
+        let rowSource: Opportunity['source'] | undefined = undefined
         const notesList: string[] = []
 
         Object.entries(row).forEach(([colHeader, colVal]) => {
@@ -446,7 +247,6 @@ export function ImportOpportunitiesModal({
           const mappedTarget = fileMap[colHeader] || 'ignore'
           switch (mappedTarget) {
             case 'company':
-              // Se for apenas o nome da empresa
               company = val
               break
             case 'contact_name':
@@ -464,18 +264,37 @@ export function ImportOpportunitiesModal({
             case 'message':
               messageText = val
               break
+            case 'website':
+              notesList.push(`Site próprio: ${val}`)
+              break
+            case 'source_ref': {
+              notesList.push(`Fonte/validação: ${val}`)
+              if (!rowSource) {
+                const srcMatch = normalizeSourceValue(val)
+                if (srcMatch) rowSource = srcMatch
+              }
+              break
+            }
             case 'last_contact':
               notesList.push(`Último contato: ${val}`)
               break
             case 'next_contact':
               notesList.push(`Próximo retorno: ${val}`)
               break
-            case 'website':
-              notesList.push(`Site próprio: ${val}`)
+            case 'stage': {
+              if (!rowStage) {
+                const stageMatch = normalizeStageValue(val)
+                if (stageMatch) rowStage = stageMatch
+              }
               break
-            case 'source_ref':
-              notesList.push(`Fonte/validação: ${val}`)
+            }
+            case 'value': {
+              if (rowValue === undefined) {
+                const parsed = parseCurrencyValue(val)
+                if (parsed !== null && parsed > 0) rowValue = parsed
+              }
               break
+            }
             default:
               break
           }
@@ -497,8 +316,8 @@ export function ImportOpportunitiesModal({
         }
 
         // Checar duplicatas contra o banco e contra o lote
-        const cKey = cleanCompanyKey(company)
-        const pKey = cleanPhoneKey(contact_phone)
+        const cKey = normalizeCompanyKey(company)
+        const pKey = normalizePhoneKey(contact_phone)
         let isDuplicate = false
         let duplicateReason = ''
 
@@ -536,6 +355,9 @@ export function ImportOpportunitiesModal({
           contact_phone,
           contact_email,
           city,
+          stage: rowStage,
+          value: rowValue,
+          source: rowSource,
           notesList,
           fullMessage,
           isDuplicate,
@@ -571,7 +393,7 @@ export function ImportOpportunitiesModal({
 
     const skippedDuplicatesCount = processedLeads.filter((l) => l.isDuplicate).length
 
-    const numericValue = parseFloat(defaultValue.replace(',', '.')) || 500
+    const fallbackNumericValue = parseFloat(defaultValue.replace(',', '.')) || 500
     const finalSellerId =
       assignedSellerId ||
       currentUserId ||
@@ -591,9 +413,9 @@ export function ImportOpportunitiesModal({
       try {
         await pb.collection('opportunities').create({
           company: lead.company,
-          stage: defaultStage,
-          source: defaultSource,
-          value: numericValue,
+          stage: lead.stage || defaultStage,
+          source: lead.source || defaultSource,
+          value: lead.value !== undefined ? lead.value : fallbackNumericValue,
           seller: finalSellerId || null,
           contact_name: lead.contact_name || '',
           contact_email: lead.contact_email || '',
@@ -648,7 +470,7 @@ export function ImportOpportunitiesModal({
       ),
     ]
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.setAttribute('href', url)
@@ -690,7 +512,7 @@ export function ImportOpportunitiesModal({
                 <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
                   Importar Oportunidades de Planilhas
                   <span className="text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                    XLSX / CSV
+                    XLSX / CSV / TXT / JSON
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-gray-400 mt-0.5">
@@ -747,7 +569,7 @@ export function ImportOpportunitiesModal({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".xlsx, .xls, .csv"
+                  accept=".xlsx,.xls,.ods,.csv,.tsv,.txt,.json"
                   multiple
                   onChange={handleFileChange}
                   className="hidden"
@@ -768,16 +590,20 @@ export function ImportOpportunitiesModal({
                       : 'Clique para selecionar planilhas ou arraste aqui'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Suporta arquivos <strong className="text-gray-400">.XLSX</strong>,{' '}
-                    <strong className="text-gray-400">.XLS</strong> ou{' '}
-                    <strong className="text-gray-400">.CSV</strong> (você pode selecionar mais de
+                    Suporta <strong className="text-gray-400">.XLSX</strong>,{' '}
+                    <strong className="text-gray-400">.XLS</strong>,{' '}
+                    <strong className="text-gray-400">.ODS</strong>,{' '}
+                    <strong className="text-gray-400">.CSV</strong>,{' '}
+                    <strong className="text-gray-400">.TSV</strong>,{' '}
+                    <strong className="text-gray-400">.TXT</strong> e{' '}
+                    <strong className="text-gray-400">.JSON</strong> (você pode selecionar mais de
                     um)
                   </p>
                 </div>
 
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#181B24] border border-[#262A33] text-[11px] text-gray-400">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Triagem automática de colunas por nome
+                  Reconhecimento automático de qualquer formato de lista
                 </div>
               </div>
 
@@ -790,7 +616,14 @@ export function ImportOpportunitiesModal({
                   </p>
                   <ul className="list-disc pl-4 space-y-0.5 text-gray-400">
                     <li>O navegador lê o arquivo diretamente em memória com total segurança.</li>
-                    <li>As colunas da planilha são mapeadas para os campos da oportunidade.</li>
+                    <li>
+                      O sistema reconhece automaticamente o formato, o separador e a linha de
+                      cabeçalho — mesmo em planilhas sem títulos padronizados.
+                    </li>
+                    <li>
+                      As colunas são mapeadas para os campos da oportunidade e podem ser ajustadas
+                      manualmente.
+                    </li>
                     <li>
                       Contatos duplicados podem ser ignorados automaticamente por telefone ou nome
                       de empresa.
@@ -843,12 +676,20 @@ export function ImportOpportunitiesModal({
                         {parsedFiles[selectedFileIdx].fileName}
                       </span>
                       <span className="text-[11px] text-gray-400">
-                        (Aba: &quot;{parsedFiles[selectedFileIdx].sheetName}&quot;)
+                        ({parsedFiles[selectedFileIdx].sheetName})
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                      {parsedFiles[selectedFileIdx].rows.length} registros detectados
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {!parsedFiles[selectedFileIdx].hasDetectedHeader && (
+                        <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Sem cabeçalho — colunas inferidas pelo conteúdo
+                        </span>
+                      )}
+                      <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                        {parsedFiles[selectedFileIdx].rows.length} registros detectados
+                      </span>
+                    </div>
                   </div>
 
                   <p className="text-xs text-gray-400">
@@ -923,7 +764,7 @@ export function ImportOpportunitiesModal({
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span>
                         É necessário mapear pelo menos uma coluna como{' '}
-                        <strong>Empresa / Nome do Cliente</strong>.
+                        <strong>Empresa / Título da Oportunidade</strong>.
                       </span>
                     </div>
                   )}
@@ -1047,6 +888,14 @@ export function ImportOpportunitiesModal({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="pt-2 flex items-center gap-2 text-[11px] text-gray-500">
+                  <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>
+                    Se a planilha tiver colunas de Estágio, Valor ou Origem, cada lead usará o valor
+                    da própria linha; caso contrário, os padrões acima.
+                  </span>
                 </div>
 
                 {/* Tratamento de Duplicatas */}
