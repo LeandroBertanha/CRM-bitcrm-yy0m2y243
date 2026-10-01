@@ -95,9 +95,14 @@ export default function Dashboard() {
     return wonOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
   }, [wonOpps])
 
-  // 5 Oportunidades mais recentes
+  // 5 Oportunidades mais recentes (apenas estágios em negociação: Qualificado, Agendado e Proposta)
   const recentOpportunities = useMemo(() => {
-    return myOpps.slice(0, 5)
+    return myOpps
+      .filter(
+        (opp) =>
+          opp.stage === 'Qualificado' || opp.stage === 'Agendado' || opp.stage === 'Proposta',
+      )
+      .slice(0, 5)
   }, [myOpps])
 
   // Leads recentes vindos do formulário público (source === 'Formulário Público')
