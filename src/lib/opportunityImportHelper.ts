@@ -176,6 +176,17 @@ export function normalizeStageValue(stageStr: string): Opportunity['stage'] | nu
   ) {
     return 'Novo'
   }
+  // Agendado: reunião agendada, call agendada, visita marcada, compromisso
+  if (
+    norm.includes('agend') ||
+    norm.includes('marcad') ||
+    norm.includes('reuniao') ||
+    norm.includes('reunião') ||
+    norm.includes('visita') ||
+    norm.includes('scheduled')
+  ) {
+    return 'Agendado'
+  }
   // Qualificado: contatado, atendido, qualificado, quente, morno
   if (
     norm.includes('qualific') ||

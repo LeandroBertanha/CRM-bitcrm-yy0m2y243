@@ -96,10 +96,15 @@ export default function AdminMetrics() {
   // KPIs Globais
   const totalOppsCount = activeOpps.length
 
-  // Estágios abertos (pipeline ativo, não concluído nem descartado): Novo, Qualificado e Proposta
+  // Estágios abertos (pipeline ativo, não concluído nem descartado): Novo, Qualificado, Agendado e Proposta
+  // Conforme requisito: "cálculo do 'Pipe Aberto' (deve incluir Novo, Qualificado e Agendado como estágios abertos)"
   const inProgressOpps = useMemo(() => {
     return activeOpps.filter(
-      (opp) => opp.stage === 'Novo' || opp.stage === 'Qualificado' || opp.stage === 'Proposta',
+      (opp) =>
+        opp.stage === 'Novo' ||
+        opp.stage === 'Qualificado' ||
+        opp.stage === 'Agendado' ||
+        opp.stage === 'Proposta',
     )
   }, [activeOpps])
 
@@ -274,7 +279,7 @@ export default function AdminMetrics() {
     {
       title: 'Em Andamento',
       value: inProgressOpps.length.toString(),
-      description: 'Estágios abertos (Novo, Qualificado, Proposta)',
+      description: 'Estágios abertos (Novo, Qualificado, Agendado, Proposta)',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
@@ -552,7 +557,7 @@ export default function AdminMetrics() {
                   Funil por Estágio Comercial
                 </h3>
                 <p className="text-xs text-gray-400">
-                  Distribuição das oportunidades e valores nos 5 estágios
+                  Distribuição das oportunidades e valores nos 6 estágios
                 </p>
               </div>
             </div>
@@ -588,9 +593,11 @@ export default function AdminMetrics() {
                           ? 'bg-rose-500'
                           : item.stage === 'Proposta'
                             ? 'bg-amber-500'
-                            : item.stage === 'Qualificado'
-                              ? 'bg-blue-500'
-                              : 'bg-indigo-500'
+                            : item.stage === 'Agendado'
+                              ? 'bg-cyan-500'
+                              : item.stage === 'Qualificado'
+                                ? 'bg-blue-500'
+                                : 'bg-slate-500'
                     }`}
                     style={{ width: `${Math.max(item.pct, item.count > 0 ? 4 : 0)}%` }}
                   />

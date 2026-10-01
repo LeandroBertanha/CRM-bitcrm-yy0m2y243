@@ -19,7 +19,7 @@ export interface OpportunityNote extends RecordModel {
 
 export interface Opportunity extends RecordModel {
   company: string
-  stage: 'Novo' | 'Qualificado' | 'Proposta' | 'Ganho' | 'Perdido'
+  stage: 'Novo' | 'Qualificado' | 'Agendado' | 'Proposta' | 'Ganho' | 'Perdido'
   source:
     | 'Formulário Público'
     | 'Indicação'
@@ -64,6 +64,13 @@ export const STAGE_CONFIG: Record<
     bg: 'bg-blue-950/40',
     dot: 'bg-blue-400',
   },
+  Agendado: {
+    label: 'Agendado',
+    color: 'text-cyan-300',
+    border: 'border-cyan-700/50',
+    bg: 'bg-cyan-950/40',
+    dot: 'bg-cyan-400',
+  },
   Proposta: {
     label: 'Proposta',
     color: 'text-amber-300',
@@ -90,6 +97,7 @@ export const STAGE_CONFIG: Record<
 export const STAGES: Opportunity['stage'][] = [
   'Novo',
   'Qualificado',
+  'Agendado',
   'Proposta',
   'Ganho',
   'Perdido',

@@ -40,7 +40,6 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   ArrowRight,
   ArrowLeft,
   Download,
@@ -48,12 +47,6 @@ import {
   Sparkles,
   Info,
   Building,
-  Phone,
-  MapPin,
-  FileText,
-  User,
-  Trash2,
-  Wand2,
 } from 'lucide-react'
 
 export interface ImportOpportunitiesModalProps {
@@ -64,8 +57,8 @@ export interface ImportOpportunitiesModalProps {
   currentUserId?: string
   existingOpportunities: Opportunity[]
   sellersList: { id: string; name?: string; email: string }[]
-  initialDroppedFiles?: File[] | null
-  onClearInitialDroppedFiles?: () => void
+  initialDroppedFile?: File | null
+  onClearInitialDroppedFile?: () => void
 }
 
 export function ImportOpportunitiesModal({
@@ -76,41 +69,32 @@ export function ImportOpportunitiesModal({
   currentUserId,
   existingOpportunities,
   sellersList,
-  initialDroppedFiles,
-  onClearInitialDroppedFiles,
+  initialDroppedFile,
+  onClearInitialDroppedFile,
 }: ImportOpportunitiesModalProps) {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Etapa atual: 1 = Upload, 2 = Revisão Resumida & Configurações, 3 = Importação & Conclusão
+  // Etapa atual: 1 = Upload (1 arquivo por vez), 2 = Revisão & Configurações, 3 = Progresso & Resultado
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
-  // Arquivos carregados e dados brutos
-  const [parsedFiles, setParsedFiles] = useState<ParsedSheetData[]>([])
-  const [isParsingFiles, setIsParsingFiles] = useState(false)
+  // Arquivo único carregado e dados estruturados
+  const [parsedFile, setParsedFile] = useState<ParsedSheetData | null>(null)
+  const [isParsingFile, setIsParsingFile] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
 
-  // Disparar processamento se vierem arquivos arrastados da tela principal
-  React.useEffect(() => {
-    if (open && initialDroppedFiles && initialDroppedFiles.length > 0) {
-      processIncomingFiles(initialDroppedFiles)
-      onClearInitialDroppedFiles?.()
-    }
-  }, [open, initialDroppedFiles])
+  // Mapeamento automático de colunas do arquivo
+  const [mapping, setMapping] = useState<Record<string, OppTargetField>>({})
 
-  // Mapeamento de colunas por arquivo: { [fileIndex]: { [headerName]: OppTargetField } }
-  const [mappings, setMappings] = useState<Record<number, Record<string, OppTargetField>>>({})
-
-  // Configurações da Importação (Padrões solicitados pelo usuário)
+  // Configurações da Importação
   const [assignedSellerId, setAssignedSellerId] = useState<string>(currentUserId || '')
   const [defaultStage, setDefaultStage] = useState<Opportunity['stage']>('Novo')
   const [defaultSource, setDefaultSource] = useState<Opportunity['source']>('Prospecção')
   const [defaultValue, setDefaultValue] = useState<string>('500')
   const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true)
 
-  // Opção de abrir detalhes avançados de mapeamento (caso o usuário queira expandir)
+  // Opção de abrir detalhes avançados de mapeamento manual (colunas)
   const [showAdvancedMapping, setShowAdvancedMapping] = useState<boolean>(false)
-  const [selectedFileIdx, setSelectedFileIdx] = useState<number>(0)
 
   // Progresso de importação
   const [isImporting, setIsImporting] = useState<boolean>(false)
@@ -130,12 +114,19 @@ export function ImportOpportunitiesModal({
     errors: [],
   })
 
+  // Disparar processamento se vier arquivo arrastado da tela principal
+  React.useEffect(() => {
+    if (open && initialDroppedFile) {
+      processIncomingFile(initialDroppedFile)
+      onClearInitialDroppedFile?.()
+    }
+  }, [open, initialDroppedFile])
+
   // Limpa tudo ao fechar
   const handleReset = () => {
     setStep(1)
-    setParsedFiles([])
-    setSelectedFileIdx(0)
-    setMappings({})
+    setParsedFile(null)
+    setMapping({})
     setImportProgress(0)
     setCurrentImportIndex(0)
     setIsImporting(false)
@@ -150,77 +141,47 @@ export function ImportOpportunitiesModal({
     })
   }
 
-  // Processador universal de arquivos (File[] ou FileList)
-  const processIncomingFiles = async (filesList: FileList | File[]) => {
-    const filesArray = Array.from(filesList)
-    if (filesArray.length === 0) return
+  // Processador de UM único arquivo (se outro for enviado, substitui o anterior)
+  const processIncomingFile = async (file: File) => {
+    if (!file) return
 
-    setIsParsingFiles(true)
-    const newParsedList: ParsedSheetData[] = []
-    const newMappings: Record<number, Record<string, OppTargetField>> = {}
-    const parseErrors: string[] = []
-
+    setIsParsingFile(true)
     try {
-      for (let i = 0; i < filesArray.length; i++) {
-        const file = filesArray[i]
-        try {
-          const parsedSheets = await parseSpreadsheetFile(file)
-
-          parsedSheets.forEach((parsedItem) => {
-            const fileIndex = newParsedList.length
-            newParsedList.push(parsedItem)
-            // Criar mapeamento inicial automático inteligente em segundo plano
-            newMappings[fileIndex] = guessInitialFileMappings(parsedItem.headers, parsedItem.rows)
-          })
-        } catch (err) {
-          console.error(`Erro ao ler o arquivo ${file.name}:`, err)
-          const msg = err instanceof Error ? err.message : 'Não conseguimos ler este arquivo.'
-          parseErrors.push(`${file.name}: ${msg}`)
-        }
+      const parsedSheets = await parseSpreadsheetFile(file)
+      if (!parsedSheets || parsedSheets.length === 0) {
+        throw new Error('Não conseguimos ler este arquivo. Tente XLSX, CSV ou TXT.')
       }
 
-      if (newParsedList.length === 0) {
-        toast({
-          title: 'Erro na leitura do arquivo',
-          description:
-            parseErrors.length > 0
-              ? parseErrors.join('\n')
-              : 'Não conseguimos ler este arquivo. Tente XLSX, CSV ou TXT.',
-          variant: 'destructive',
-        })
-        return
+      const activeSheet = parsedSheets[0]
+      if (activeSheet.rows.length === 0) {
+        throw new Error('O arquivo selecionado não contém linhas com dados.')
       }
 
-      if (parseErrors.length > 0) {
-        toast({
-          title: 'Alguns arquivos não puderam ser lidos',
-          description: parseErrors.join('\n'),
-          variant: 'destructive',
-        })
-      }
+      // Mapeamento automático silencioso
+      const autoMapping = guessInitialFileMappings(activeSheet.headers, activeSheet.rows)
 
-      setParsedFiles(newParsedList)
-      setMappings(newMappings)
-      setSelectedFileIdx(0)
-      // Direto para Etapa 2: Confirmação / Revisão Resumida (pulando a etapa de mapeamento obrigatória)
+      setParsedFile(activeSheet)
+      setMapping(autoMapping)
       setStep(2)
     } catch (err) {
-      console.error('Erro ao ler arquivos:', err)
+      console.error(`Erro ao ler o arquivo ${file.name}:`, err)
+      const msg = err instanceof Error ? err.message : 'Não conseguimos ler este arquivo.'
       toast({
         title: 'Erro na leitura do arquivo',
-        description: 'Não conseguimos ler este arquivo. Tente XLSX, CSV ou TXT.',
+        description: msg,
         variant: 'destructive',
       })
     } finally {
-      setIsParsingFiles(false)
+      setIsParsingFile(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
-  // Manipulador de input change (seleção manual)
+  // Manipulador de input change (seleção manual: pega sempre files[0])
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      await processIncomingFiles(e.target.files)
+    const files = e.target.files
+    if (files && files.length > 0) {
+      await processIncomingFile(files[0])
     }
   }
 
@@ -243,7 +204,6 @@ export function ImportOpportunitiesModal({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // Apenas se sair do container alvo
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
     setIsDragOver(false)
   }
@@ -254,24 +214,22 @@ export function ImportOpportunitiesModal({
     setIsDragOver(false)
 
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await processIncomingFiles(e.dataTransfer.files)
+      // Pega o primeiro arquivo solto (substitui o anterior caso já existisse)
+      await processIncomingFile(e.dataTransfer.files[0])
     }
   }
 
-  // Atualizar campo de mapeamento manual se aberto nas opções avançadas
-  const handleUpdateMapping = (fileIdx: number, header: string, targetField: OppTargetField) => {
-    setMappings((prev) => ({
+  // Atualizar campo de mapeamento manual nas opções avançadas
+  const handleUpdateMapping = (header: string, targetField: OppTargetField) => {
+    setMapping((prev) => ({
       ...prev,
-      [fileIdx]: {
-        ...(prev[fileIdx] || {}),
-        [header]: targetField,
-      },
+      [header]: targetField,
     }))
   }
 
-  // Converter todos os dados dos arquivos parseados conforme os mapeamentos
+  // Converter dados do arquivo parseado conforme os mapeamentos
   const processedLeads: ProcessedLeadItem[] = useMemo(() => {
-    if (parsedFiles.length === 0) return []
+    if (!parsedFile) return []
 
     const result: ProcessedLeadItem[] = []
     const seenInBatch = new Set<string>()
@@ -287,157 +245,148 @@ export function ImportOpportunitiesModal({
       if (cKey && pKey) existingKeys.add(`cp:${cKey}_${pKey}`)
     }
 
-    parsedFiles.forEach((fileData, fileIdx) => {
-      const fileMap = mappings[fileIdx] || {}
+    parsedFile.rows.forEach((row) => {
+      let company = ''
+      let contact_name = ''
+      let contact_phone = ''
+      let contact_email = ''
+      let city = ''
+      let messageText = ''
+      let rowStage: Opportunity['stage'] | undefined = undefined
+      let rowValue: number | undefined = undefined
+      let rowSource: Opportunity['source'] | undefined = undefined
+      const notesList: string[] = []
 
-      fileData.rows.forEach((row) => {
-        let company = ''
-        let contact_name = ''
-        let contact_phone = ''
-        let contact_email = ''
-        let city = ''
-        let messageText = ''
-        let rowStage: Opportunity['stage'] | undefined = undefined
-        let rowValue: number | undefined = undefined
-        let rowSource: Opportunity['source'] | undefined = undefined
-        const notesList: string[] = []
+      Object.entries(row).forEach(([colHeader, colVal]) => {
+        const val = String(colVal || '').trim()
+        if (!val) return
 
-        Object.entries(row).forEach(([colHeader, colVal]) => {
-          const val = String(colVal || '').trim()
-          if (!val) return
-
-          const mappedTarget = fileMap[colHeader] || 'ignore'
-          switch (mappedTarget) {
-            case 'company':
-              company = val
-              break
-            case 'contact_name':
-              contact_name = val
-              break
-            case 'contact_phone':
-              contact_phone = val
-              break
-            case 'contact_email':
-              contact_email = val
-              break
-            case 'city':
-              city = val
-              break
-            case 'message':
-              messageText = val
-              break
-            case 'website':
-              notesList.push(`Site próprio: ${val}`)
-              break
-            case 'source_ref': {
-              notesList.push(`Fonte/validação: ${val}`)
-              if (!rowSource) {
-                const srcMatch = normalizeSourceValue(val)
-                if (srcMatch) rowSource = srcMatch
-              }
-              break
+        const mappedTarget = mapping[colHeader] || 'ignore'
+        switch (mappedTarget) {
+          case 'company':
+            company = val
+            break
+          case 'contact_name':
+            contact_name = val
+            break
+          case 'contact_phone':
+            contact_phone = val
+            break
+          case 'contact_email':
+            contact_email = val
+            break
+          case 'city':
+            city = val
+            break
+          case 'message':
+            messageText = val
+            break
+          case 'website':
+            notesList.push(`Site próprio: ${val}`)
+            break
+          case 'source_ref': {
+            notesList.push(`Fonte/validação: ${val}`)
+            if (!rowSource) {
+              const srcMatch = normalizeSourceValue(val)
+              if (srcMatch) rowSource = srcMatch
             }
-            case 'last_contact':
-              notesList.push(`Último contato: ${val}`)
-              break
-            case 'next_contact':
-              notesList.push(`Próximo retorno: ${val}`)
-              break
-            case 'stage': {
-              if (!rowStage) {
-                const stageMatch = normalizeStageValue(val)
-                if (stageMatch) rowStage = stageMatch
-              }
-              break
-            }
-            case 'value': {
-              if (rowValue === undefined) {
-                const parsed = parseCurrencyValue(val)
-                if (parsed !== null && parsed > 0) rowValue = parsed
-              }
-              break
-            }
-            default:
-              break
+            break
           }
-        })
-
-        // Se a empresa ainda estiver vazia mas tiver nome de contato, use-o
-        if (!company && contact_name) {
-          company = contact_name
+          case 'last_contact':
+            notesList.push(`Último contato: ${val}`)
+            break
+          case 'next_contact':
+            notesList.push(`Próximo retorno: ${val}`)
+            break
+          case 'stage': {
+            if (!rowStage) {
+              const stageMatch = normalizeStageValue(val)
+              if (stageMatch) rowStage = stageMatch
+            }
+            break
+          }
+          case 'value': {
+            if (rowValue === undefined) {
+              const parsed = parseCurrencyValue(val)
+              if (parsed !== null && parsed > 0) rowValue = parsed
+            }
+            break
+          }
+          default:
+            break
         }
+      })
 
-        // Se mesmo assim continuar sem empresa, ignorar linha vazia
-        if (!company) return
+      // Se a empresa ainda estiver vazia mas tiver nome de contato, use-o
+      if (!company && contact_name) {
+        company = contact_name
+      }
 
-        // Montar mensagem completa combinando mensagem e notas
-        let fullMessage = messageText
-        if (notesList.length > 0) {
-          const notesCombined = notesList.join(' | ')
-          fullMessage = fullMessage ? `${fullMessage}\n[Info: ${notesCombined}]` : notesCombined
-        }
+      // Se mesmo assim continuar sem empresa, ignorar linha vazia
+      if (!company) return
 
-        // Checar duplicatas contra o banco e contra o lote
-        // REGRA SEGURA:
-        // 1. Se tiver telefone válido (>= 8 dígitos), deduplica se o mesmo telefone já existir no banco/lote.
-        // 2. Se tiver empresa E telefone, deduplica pelo par.
-        // 3. Se NÃO tiver telefone, deduplica apenas se o nome da empresa for suficientemente longo e idêntico.
-        // NUNCA descartar empresas diferentes que apenas compartilham termos comuns.
-        const cKey = normalizeCompanyKey(company)
-        const pKey = normalizePhoneKey(contact_phone)
-        let isDuplicate = false
-        let duplicateReason = ''
+      // Montar mensagem completa combinando mensagem e notas
+      let fullMessage = messageText
+      if (notesList.length > 0) {
+        const notesCombined = notesList.join(' | ')
+        fullMessage = fullMessage ? `${fullMessage}\n[Info: ${notesCombined}]` : notesCombined
+      }
 
-        if (
-          cKey &&
-          pKey &&
-          pKey.length >= 8 &&
-          (existingKeys.has(`cp:${cKey}_${pKey}`) || seenInBatch.has(`cp:${cKey}_${pKey}`))
-        ) {
-          isDuplicate = true
-          duplicateReason = 'Empresa e Telefone já cadastrados'
-        } else if (
-          pKey &&
-          pKey.length >= 8 &&
-          (existingKeys.has(`p:${pKey}`) || seenInBatch.has(`p:${pKey}`))
-        ) {
-          isDuplicate = true
-          duplicateReason = 'Telefone já cadastrado'
-        } else if (
-          !pKey &&
-          cKey &&
-          cKey.length >= 5 &&
-          (existingKeys.has(`c:${cKey}`) || seenInBatch.has(`c:${cKey}`))
-        ) {
-          isDuplicate = true
-          duplicateReason = 'Empresa com mesmo nome (sem telefone)'
-        }
+      // Checar duplicatas contra o banco e contra o lote
+      const cKey = normalizeCompanyKey(company)
+      const pKey = normalizePhoneKey(contact_phone)
+      let isDuplicate = false
+      let duplicateReason = ''
 
-        // Marcar no lote
-        if (cKey) seenInBatch.add(`c:${cKey}`)
-        if (pKey && pKey.length >= 8) seenInBatch.add(`p:${pKey}`)
-        if (cKey && pKey && pKey.length >= 8) seenInBatch.add(`cp:${cKey}_${pKey}`)
+      if (
+        cKey &&
+        pKey &&
+        pKey.length >= 8 &&
+        (existingKeys.has(`cp:${cKey}_${pKey}`) || seenInBatch.has(`cp:${cKey}_${pKey}`))
+      ) {
+        isDuplicate = true
+        duplicateReason = 'Empresa e Telefone já cadastrados'
+      } else if (
+        pKey &&
+        pKey.length >= 8 &&
+        (existingKeys.has(`p:${pKey}`) || seenInBatch.has(`p:${pKey}`))
+      ) {
+        isDuplicate = true
+        duplicateReason = 'Telefone já cadastrado'
+      } else if (
+        !pKey &&
+        cKey &&
+        cKey.length >= 5 &&
+        (existingKeys.has(`c:${cKey}`) || seenInBatch.has(`c:${cKey}`))
+      ) {
+        isDuplicate = true
+        duplicateReason = 'Empresa com mesmo nome (sem telefone)'
+      }
 
-        result.push({
-          company,
-          contact_name,
-          contact_phone,
-          contact_email,
-          city,
-          stage: rowStage,
-          value: rowValue,
-          source: rowSource,
-          notesList,
-          fullMessage,
-          isDuplicate,
-          duplicateReason,
-          sourceFile: fileData.fileName,
-        })
+      // Marcar no lote
+      if (cKey) seenInBatch.add(`c:${cKey}`)
+      if (pKey && pKey.length >= 8) seenInBatch.add(`p:${pKey}`)
+      if (cKey && pKey && pKey.length >= 8) seenInBatch.add(`cp:${cKey}_${pKey}`)
+
+      result.push({
+        company,
+        contact_name,
+        contact_phone,
+        contact_email,
+        city,
+        stage: rowStage,
+        value: rowValue,
+        source: rowSource,
+        notesList,
+        fullMessage,
+        isDuplicate,
+        duplicateReason,
+        sourceFile: parsedFile.fileName,
       })
     })
 
     return result
-  }, [parsedFiles, mappings, existingOpportunities])
+  }, [parsedFile, mapping, existingOpportunities])
 
   const totalDuplicates = useMemo(() => {
     return processedLeads.filter((l) => l.isDuplicate).length
@@ -450,7 +399,13 @@ export function ImportOpportunitiesModal({
     return processedLeads.length
   }, [processedLeads, skipDuplicates])
 
-  // Iniciar Importação em Lote via API do PocketBase otimizada (pb.createBatch + fallback concorrente)
+  // Validação para prosseguir
+  const canProceedToImport = useMemo(() => {
+    if (!parsedFile) return false
+    return Object.values(mapping).includes('company')
+  }, [parsedFile, mapping])
+
+  // Iniciar Importação em Lote via PocketBase (pool concorrente controlado)
   const handleStartImport = async () => {
     setStep(3)
     setIsImporting(true)
@@ -492,10 +447,9 @@ export function ImportOpportunitiesModal({
       return
     }
 
-    // Preparar payload de cada oportunidade: respeita a opção de estágio escolhida na Etapa 2 do modal
     const buildPayload = (lead: ProcessedLeadItem) => ({
       company: lead.company,
-      stage: defaultStage, // A escolha da Etapa 2 define o estágio para todo o lote importado (padrão "Novo")
+      stage: defaultStage, // Estágio padrão da importação continua "Novo" (ou o que o usuário escolher)
       source: lead.source || defaultSource,
       value: lead.value !== undefined ? lead.value : fallbackNumericValue,
       seller: finalSellerId || null,
@@ -508,7 +462,6 @@ export function ImportOpportunitiesModal({
       payment_installments: null,
     })
 
-    // Função de criação individual para ser usada diretamente ou como fallback granular
     const createSingleLead = async (lead: ProcessedLeadItem) => {
       try {
         await pb.collection('opportunities').create(buildPayload(lead))
@@ -529,9 +482,6 @@ export function ImportOpportunitiesModal({
       }
     }
 
-    // Criamos as oportunidades uma a uma em paralelo controlado (pool concorrente de 5 requisições).
-    // Isto evita abortar dezenas de leads caso um registro individual falhe (como ocorreria com createBatch transacional)
-    // e garante que TODOS os registros válidos entrem com relatório preciso.
     const CONCURRENCY = 5
     let processedSoFar = 0
 
@@ -560,7 +510,7 @@ export function ImportOpportunitiesModal({
     onSuccess()
   }
 
-  // Baixar relatório simples em CSV dos resultados da importação
+  // Baixar relatório de erros em CSV
   const handleDownloadReport = () => {
     const lines = [
       ['Empresa', 'Telefone', 'Status', 'Detalhes'].join(';'),
@@ -579,16 +529,6 @@ export function ImportOpportunitiesModal({
     document.body.removeChild(link)
   }
 
-  // Validação para avançar do Mapeamento para Confirmação
-  const canProceedToConfirmation = useMemo(() => {
-    if (parsedFiles.length === 0) return false
-    // Cada arquivo deve ter ao menos a coluna de empresa mapeada
-    return parsedFiles.every((_, idx) => {
-      const fileMap = mappings[idx] || {}
-      return Object.values(fileMap).includes('company')
-    })
-  }, [parsedFiles, mappings])
-
   return (
     <Dialog
       open={open}
@@ -599,7 +539,7 @@ export function ImportOpportunitiesModal({
         }
       }}
     >
-      <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-3xl rounded-2xl shadow-2xl p-6 max-h-[90vh] flex flex-col">
+      <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl rounded-2xl shadow-2xl p-6 max-h-[90vh] flex flex-col">
         {/* Cabeçalho do Modal */}
         <DialogHeader className="shrink-0 pb-3 border-b border-[#262A33]">
           <div className="flex items-center justify-between">
@@ -609,21 +549,21 @@ export function ImportOpportunitiesModal({
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
-                  Importar Oportunidades de Planilhas
+                  Importar Planilha de Oportunidades
                   <span className="text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                    XLSX / CSV / TXT / JSON
+                    1 arquivo por vez
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-gray-400 mt-0.5">
-                  Importe listas de prospecção diretamente para o pipeline do bitCRM
+                  Importe contatos e listas diretamente para o funil do bitCRM
                 </DialogDescription>
               </div>
             </div>
 
-            {/* Stepper de progresso simplificado: 1 Upload -> 2 Revisão & Confirmação -> 3 Conclusão */}
+            {/* Stepper simples 3 etapas */}
             <div className="hidden sm:flex items-center gap-2 text-xs">
               {[
-                { s: 1, label: '1. Upload' },
+                { s: 1, label: '1. Arquivo' },
                 { s: 2, label: '2. Confirmação' },
                 { s: 3, label: '3. Conclusão' },
               ].map((item) => (
@@ -653,10 +593,10 @@ export function ImportOpportunitiesModal({
           </div>
         </DialogHeader>
 
-        {/* Conteúdo Dinâmico por Etapa */}
+        {/* Conteúdo Dinâmico */}
         <div className="flex-1 overflow-y-auto py-4 space-y-4 custom-scrollbar">
           {/* ========================================================================= */}
-          {/* ETAPA 1: UPLOAD DOS ARQUIVOS (COM DROPZONE ATIVA) */}
+          {/* ETAPA 1: ARRASTAR OU SELECIONAR UM ARQUIVO (SINGLE FILE, SEM MÚLTIPLOS) */}
           {/* ========================================================================= */}
           {step === 1 && (
             <div className="space-y-4">
@@ -672,11 +612,11 @@ export function ImportOpportunitiesModal({
                     : 'border-[#2E3342] hover:border-indigo-500/70 bg-[#0E1017] hover:bg-[#12141F]'
                 }`}
               >
+                {/* Input estritamente single file (sem atributo multiple) */}
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept=".xlsx,.xls,.ods,.csv,.tsv,.txt,.json"
-                  multiple
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -688,7 +628,7 @@ export function ImportOpportunitiesModal({
                       : 'bg-indigo-600/10 border-indigo-500/20 group-hover:scale-105 group-hover:bg-indigo-600/20 text-indigo-400'
                   }`}
                 >
-                  {isParsingFiles ? (
+                  {isParsingFile ? (
                     <Loader2 className="w-7 h-7 animate-spin" />
                   ) : (
                     <UploadCloud className="w-7 h-7" />
@@ -697,49 +637,41 @@ export function ImportOpportunitiesModal({
 
                 <div>
                   <p className="text-sm font-semibold text-white group-hover:text-indigo-300 transition-colors">
-                    {isParsingFiles
-                      ? 'Processando planilhas e mapeando dados silenciosamente...'
+                    {isParsingFile
+                      ? 'Lendo planilha e mapeando colunas...'
                       : isDragOver
-                        ? 'Solte o arquivo de planilha aqui para carregar'
-                        : 'Clique para selecionar ou arraste sua planilha aqui'}
+                        ? 'Solte o arquivo aqui para iniciar a importação'
+                        : 'Clique para escolher ou arraste UM arquivo aqui'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Suporta <strong className="text-gray-400">.XLSX</strong>,{' '}
-                    <strong className="text-gray-400">.XLS</strong>,{' '}
-                    <strong className="text-gray-400">.ODS</strong>,{' '}
-                    <strong className="text-gray-400">.CSV</strong>,{' '}
-                    <strong className="text-gray-400">.TSV</strong>,{' '}
-                    <strong className="text-gray-400">.TXT</strong> e{' '}
-                    <strong className="text-gray-400">.JSON</strong>
+                    Formatos suportados: <strong className="text-gray-400">.xlsx</strong>,{' '}
+                    <strong className="text-gray-400">.xls</strong>,{' '}
+                    <strong className="text-gray-400">.ods</strong>,{' '}
+                    <strong className="text-gray-400">.csv</strong>,{' '}
+                    <strong className="text-gray-400">.tsv</strong>,{' '}
+                    <strong className="text-gray-400">.txt</strong> e{' '}
+                    <strong className="text-gray-400">.json</strong>
                   </p>
                 </div>
 
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#181B24] border border-[#262A33] text-[11px] text-gray-400">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Mapeamento inteligente instantâneo sem telas desnecessárias
+                  Importe um arquivo de cada vez com detecção automática silenciosa
                 </div>
               </div>
 
-              {/* Informações resumidas */}
               <div className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] flex items-start gap-3">
                 <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <div className="text-xs text-gray-400 space-y-1">
-                  <p className="font-semibold text-gray-300">Importação direta e inteligente:</p>
+                  <p className="font-semibold text-gray-300">Como funciona a importação:</p>
                   <ul className="list-disc pl-4 space-y-0.5 text-gray-400">
+                    <li>Envie um arquivo por vez para manter o controle total do seu lote.</li>
+                    <li>Se você soltar outro arquivo, ele substitui o anterior imediatamente.</li>
                     <li>
-                      O bitCRM detecta automaticamente colunas de empresa, telefone, cidade e
-                      observações.
+                      Colunas de Empresa, Telefone, Cidade e Mensagem são mapeadas automaticamente.
                     </li>
                     <li>
-                      Colunas de numeração sequencial (#, Nº, Linha) e links fixos do WhatsApp são
-                      desconsiderados automaticamente.
-                    </li>
-                    <li>
-                      Contatos duplicados por telefone ou nome são identificados e prevenidos.
-                    </li>
-                    <li>
-                      Configurações padrão: Vendedor Admin, Estágio Novo, Origem Prospecção e R$
-                      500,00 por lead.
+                      Estágio inicial padrão: <strong>Novo</strong> (pode ser alterado na revisão).
                     </li>
                   </ul>
                 </div>
@@ -748,54 +680,57 @@ export function ImportOpportunitiesModal({
           )}
 
           {/* ========================================================================= */}
-          {/* ETAPA 2: REVISÃO RESUMIDA & CONFIGURAÇÕES (NOVO FLUXO DIRETO) */}
+          {/* ETAPA 2: CONFIRMAÇÃO / REVISÃO RESUMIDA E CONFIGURAÇÕES */}
           {/* ========================================================================= */}
-          {step === 2 && parsedFiles.length > 0 && (
+          {step === 2 && parsedFile && (
             <div className="space-y-4">
-              {/* Arquivos detectados com total de registros */}
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-gray-400 block">
-                  Arquivos detectados e registros:
-                </span>
-                <div className="space-y-2">
-                  {parsedFiles.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 rounded-xl bg-[#0E1017] border border-[#262A33]"
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <FileSpreadsheet className="w-4 h-4 text-indigo-400 shrink-0" />
-                        <span className="text-xs font-bold text-white truncate">
-                          {file.fileName}
-                        </span>
-                        <span className="text-[11px] text-gray-400 hidden sm:inline">
-                          ({file.sheetName})
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                          {file.rows.length} registros detectados
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+              {/* Arquivo ativo */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33]">
+                <div className="flex items-center gap-2.5 truncate">
+                  <FileSpreadsheet className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-white block truncate">
+                      {parsedFile.fileName}
+                    </span>
+                    <span className="text-[11px] text-gray-400">
+                      Aba: {parsedFile.sheetName} &bull; {parsedFile.rows.length} registros
+                    </span>
+                  </div>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-[#262A33] text-gray-300 hover:text-white text-xs h-8"
+                >
+                  Substituir Arquivo
+                </Button>
+                {/* Input oculto para substituição de arquivo */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.ods,.csv,.tsv,.txt,.json"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </div>
 
               {/* Cards de Resumo */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 bg-[#0E1017] border border-[#262A33] rounded-xl">
-                  <span className="text-[11px] text-gray-400 block">Total Identificado</span>
+                  <span className="text-[11px] text-gray-400 block">Total de Leads</span>
                   <span className="text-xl font-bold text-white tabular-nums">
-                    {processedLeads.length} leads
+                    {processedLeads.length}
                   </span>
                   <span className="text-[10px] text-gray-500 block mt-0.5">
-                    De {parsedFiles.length} {parsedFiles.length === 1 ? 'arquivo' : 'arquivos'}
+                    Identificados na planilha
                   </span>
                 </div>
 
                 <div className="p-3.5 bg-[#0E1017] border border-[#262A33] rounded-xl">
-                  <span className="text-[11px] text-gray-400 block">Duplicatas Encontradas</span>
+                  <span className="text-[11px] text-gray-400 block">Duplicados</span>
                   <span
                     className={`text-xl font-bold tabular-nums ${
                       totalDuplicates > 0 ? 'text-amber-400' : 'text-emerald-400'
@@ -804,37 +739,37 @@ export function ImportOpportunitiesModal({
                     {totalDuplicates}
                   </span>
                   <span className="text-[10px] text-gray-500 block mt-0.5">
-                    Nome ou telefone coincidente
+                    Já cadastrados no sistema
                   </span>
                 </div>
 
                 <div className="p-3.5 bg-[#0E1017] border border-indigo-500/30 bg-indigo-600/5 rounded-xl">
-                  <span className="text-[11px] text-indigo-300 block">Prontos para Importar</span>
+                  <span className="text-[11px] text-indigo-300 block">Prontos para Criar</span>
                   <span className="text-xl font-bold text-indigo-400 tabular-nums">
-                    {readyToImportCount} leads
+                    {readyToImportCount}
                   </span>
                   <span className="text-[10px] text-indigo-300/70 block mt-0.5">
-                    {skipDuplicates ? 'Duplicatas serão puladas' : 'Incluindo duplicatas'}
+                    {skipDuplicates ? 'Duplicados serão pulados' : 'Incluindo duplicados'}
                   </span>
                 </div>
               </div>
 
-              {/* Opções de Importação com Valores Padrão */}
+              {/* Configurações Padrão */}
               <div className="p-4 bg-[#0E1017] border border-[#262A33] rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                     <Building className="w-3.5 h-3.5 text-indigo-400" />
-                    Configurações Padrão de Importação
+                    Configurações do Lote
                   </h4>
-                  <span className="text-[11px] text-gray-400">Ajuste se necessário</span>
+                  <span className="text-[11px] text-gray-400">Definições para os novos cards</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-300">Responsável (Admin / Vendedor)</Label>
+                    <Label className="text-xs text-gray-300">Vendedor Responsável</Label>
                     <Select value={assignedSellerId} onValueChange={setAssignedSellerId}>
                       <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-9 rounded-xl">
-                        <SelectValue placeholder="Selecione o responsável" />
+                        <SelectValue placeholder="Selecione o vendedor" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
                         {sellersList.map((s) => (
@@ -847,7 +782,9 @@ export function ImportOpportunitiesModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-300">Valor da Proposta (R$)</Label>
+                    <Label className="text-xs text-gray-300">
+                      Valor Padrão da Oportunidade (R$)
+                    </Label>
                     <Input
                       type="number"
                       step="any"
@@ -878,7 +815,7 @@ export function ImportOpportunitiesModal({
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-300">Origem do Lead</Label>
+                    <Label className="text-xs text-gray-300">Origem Padrão</Label>
                     <Select
                       value={defaultSource}
                       onValueChange={(val) => setDefaultSource(val as Opportunity['source'])}
@@ -897,7 +834,7 @@ export function ImportOpportunitiesModal({
                   </div>
                 </div>
 
-                {/* Tratamento de Duplicatas */}
+                {/* Checkbox de deduplicação */}
                 <div className="pt-2 border-t border-[#262A33] flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
                     <Checkbox
@@ -915,18 +852,17 @@ export function ImportOpportunitiesModal({
                   </div>
                   {totalDuplicates > 0 && (
                     <span className="text-[11px] text-amber-400 font-medium">
-                      {totalDuplicates}{' '}
-                      {totalDuplicates === 1 ? 'duplicata será pulada' : 'duplicatas serão puladas'}
+                      {totalDuplicates} {totalDuplicates === 1 ? 'duplicata' : 'duplicatas'} a pular
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Resumo detalhado por arquivo e amostra dos registros mapeados */}
+              {/* Amostra dos registros mapeados */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-gray-400 block">
-                    Amostra dos registros mapeados ({processedLeads.length} no total):
+                    Prévia dos contatos ({processedLeads.length} identificados):
                   </span>
                   <button
                     type="button"
@@ -935,12 +871,12 @@ export function ImportOpportunitiesModal({
                   >
                     {showAdvancedMapping
                       ? 'Ocultar ajuste avançado de colunas'
-                      : 'Personalizar colunas manualmente'}
+                      : 'Ver ou ajustar mapeamento de colunas'}
                   </button>
                 </div>
 
-                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[180px] overflow-y-auto custom-scrollbar">
-                  {processedLeads.map((lead, idx) => (
+                <div className="border border-[#262A33] rounded-xl overflow-hidden bg-[#0E1017] divide-y divide-[#262A33]/70 max-h-[160px] overflow-y-auto custom-scrollbar">
+                  {processedLeads.slice(0, 10).map((lead, idx) => (
                     <div key={idx} className="p-2.5 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 truncate">
                         <span className="text-[10px] text-gray-500 font-mono w-6">#{idx + 1}</span>
@@ -959,49 +895,34 @@ export function ImportOpportunitiesModal({
                       <div>
                         {lead.isDuplicate ? (
                           <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                            Duplicado ({lead.duplicateReason})
+                            Duplicado
                           </span>
                         ) : (
                           <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            Pronto para criar
+                            Pronto
                           </span>
                         )}
                       </div>
                     </div>
                   ))}
+                  {processedLeads.length > 10 && (
+                    <div className="p-2 text-center text-[11px] text-gray-500">
+                      + {processedLeads.length - 10} outros contatos prontos para importar
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Se o usuário desejar abrir o ajuste avançado de mapeamento */}
-              {showAdvancedMapping && parsedFiles[selectedFileIdx] && (
+              {/* Ajuste avançado de colunas (caso o usuário expanda) */}
+              {showAdvancedMapping && (
                 <div className="p-3 bg-[#0A0C11] border border-[#262A33] rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-300">
-                      Mapeamento das Colunas ({parsedFiles[selectedFileIdx].fileName})
-                    </span>
-                    {parsedFiles.length > 1 && (
-                      <div className="flex items-center gap-1">
-                        {parsedFiles.map((f, fIdx) => (
-                          <button
-                            key={fIdx}
-                            onClick={() => setSelectedFileIdx(fIdx)}
-                            className={`px-2 py-0.5 text-[10px] rounded font-semibold ${
-                              selectedFileIdx === fIdx
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-[#181B24] text-gray-400'
-                            }`}
-                          >
-                            {f.fileName}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="divide-y divide-[#262A33]/70 max-h-[200px] overflow-y-auto custom-scrollbar">
-                    {parsedFiles[selectedFileIdx].headers.map((header) => {
-                      const currentMapped = mappings[selectedFileIdx]?.[header] || 'ignore'
-                      const sampleValue = parsedFiles[selectedFileIdx].rows[0]?.[header] || '—'
+                  <span className="text-xs font-bold text-indigo-300 block">
+                    Mapeamento das Colunas ({parsedFile.fileName})
+                  </span>
+                  <div className="divide-y divide-[#262A33]/70 max-h-[180px] overflow-y-auto custom-scrollbar">
+                    {parsedFile.headers.map((header) => {
+                      const currentMapped = mapping[header] || 'ignore'
+                      const sampleValue = parsedFile.rows[0]?.[header] || '—'
 
                       return (
                         <div
@@ -1018,7 +939,7 @@ export function ImportOpportunitiesModal({
                             <Select
                               value={currentMapped}
                               onValueChange={(val) =>
-                                handleUpdateMapping(selectedFileIdx, header, val as OppTargetField)
+                                handleUpdateMapping(header, val as OppTargetField)
                               }
                             >
                               <SelectTrigger className="h-7 text-[11px] bg-[#12141A] border-[#262A33] text-white">
@@ -1043,7 +964,7 @@ export function ImportOpportunitiesModal({
           )}
 
           {/* ========================================================================= */}
-          {/* ETAPA 3: IMPORTAÇÃO EM PROGRESSO & RELATÓRIO FINAL */}
+          {/* ETAPA 3: PROGRESSO & RESULTADO FINAL */}
           {/* ========================================================================= */}
           {step === 3 && (
             <div className="space-y-5 py-4">
@@ -1069,18 +990,16 @@ export function ImportOpportunitiesModal({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Conclusão */}
                   <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-2">
                     <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
                     <h3 className="text-base font-bold text-white">
                       Importação Concluída com Sucesso!
                     </h3>
                     <p className="text-xs text-gray-300">
-                      As oportunidades foram criadas e já constam no funil de vendas comercial.
+                      As novas oportunidades já estão disponíveis no kanban de vendas.
                     </p>
                   </div>
 
-                  {/* Estatísticas Finais */}
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="p-3 bg-[#0E1017] border border-[#262A33] rounded-xl">
                       <span className="text-xs text-gray-400 block">Importadas</span>
@@ -1108,7 +1027,6 @@ export function ImportOpportunitiesModal({
                     </div>
                   </div>
 
-                  {/* Se houver erros, permitir download de relatório */}
                   {importStats.errorCount > 0 && (
                     <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs text-red-300">
@@ -1132,7 +1050,7 @@ export function ImportOpportunitiesModal({
           )}
         </div>
 
-        {/* Rodapé com Navegação dos Passos (Novo fluxo 3 etapas) */}
+        {/* Rodapé com Navegação */}
         <DialogFooter className="shrink-0 pt-3 border-t border-[#262A33] flex items-center justify-between sm:justify-between w-full">
           {step === 1 && (
             <div className="flex items-center justify-end w-full">
@@ -1152,19 +1070,19 @@ export function ImportOpportunitiesModal({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setParsedFiles([])
+                  setParsedFile(null)
                   setStep(1)
                 }}
                 className="border-[#262A33] text-gray-300 text-xs"
               >
                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                Trocar Arquivos
+                Trocar Arquivo
               </Button>
 
               <Button
                 size="sm"
                 onClick={handleStartImport}
-                disabled={readyToImportCount === 0 || !canProceedToConfirmation}
+                disabled={readyToImportCount === 0 || !canProceedToImport}
                 className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20"
               >
                 <Sparkles className="w-3.5 h-3.5 mr-1.5" />

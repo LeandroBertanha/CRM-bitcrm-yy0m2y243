@@ -73,7 +73,9 @@ export default function Dashboard() {
   const totalOppsCount = myOpps.length
 
   const inNegotiationCount = useMemo(() => {
-    return myOpps.filter((opp) => opp.stage === 'Proposta' || opp.stage === 'Qualificado').length
+    return myOpps.filter(
+      (opp) => opp.stage === 'Proposta' || opp.stage === 'Agendado' || opp.stage === 'Qualificado',
+    ).length
   }, [myOpps])
 
   const wonOpps = useMemo(() => {
@@ -109,7 +111,7 @@ export default function Dashboard() {
     {
       title: 'Em Negociação',
       value: inNegotiationCount.toString(),
-      description: 'Qualificado + Proposta',
+      description: 'Qualificado + Agendado + Proposta',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T19:29:58.688Z",
+  "generatedAt": "2026-10-01T19:47:04.170Z",
   "collections": [
     {
       "name": "users",
@@ -73,7 +73,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Novo", "Qualificado", "Proposta", "Ganho", "Perdido"]
+          "selectValues": ["Novo", "Qualificado", "Agendado", "Proposta", "Ganho", "Perdido"]
         },
         {
           "name": "source",

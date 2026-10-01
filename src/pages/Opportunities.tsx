@@ -65,7 +65,7 @@ export default function Opportunities() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
-  const [droppedFilesForModal, setDroppedFilesForModal] = useState<File[] | null>(null)
+  const [droppedFileForModal, setDroppedFileForModal] = useState<File | null>(null)
   const [isPageDragging, setIsPageDragging] = useState(false)
 
   // Formulário Estado
@@ -163,7 +163,8 @@ export default function Opportunities() {
       setIsPageDragging(false)
 
       // Se o usuário soltar arquivo em qualquer lugar da tela de oportunidades,
-      // capturamos e abrimos automaticamente o importador com os arquivos
+      // capturamos exatamente 1 arquivo e abrimos automaticamente o importador.
+      // Se soltar outro arquivo, substitui o anterior, nunca acumula lista.
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const filesArray = Array.from(e.dataTransfer.files)
         // Verificar extensões válidas (.xlsx, .xls, .ods, .csv, .tsv, .txt, .json)
@@ -173,7 +174,8 @@ export default function Opportunities() {
         })
 
         if (validFiles.length > 0) {
-          setDroppedFilesForModal(validFiles)
+          // Pega o primeiro arquivo válido (substituindo qualquer anterior)
+          setDroppedFileForModal(validFiles[0])
           setImportModalOpen(true)
         }
       }
@@ -687,9 +689,9 @@ export default function Opportunities() {
         </div>
       </div>
 
-      {/* Pipeline Kanban (5 Colunas com Scroll Horizontal Suave) */}
+      {/* Pipeline Kanban (6 Colunas com Scroll Horizontal Suave) */}
       <div className="overflow-x-auto pb-6">
-        <div className="flex gap-4 min-w-[1080px]">
+        <div className="flex gap-4 min-w-[1280px]">
           {STAGES.map((stage) => {
             const stageStyle = STAGE_CONFIG[stage]
             const stageOpps = filteredOpps.filter((opp) => opp.stage === stage)
@@ -1335,7 +1337,7 @@ export default function Opportunities() {
         open={importModalOpen}
         onOpenChange={(v) => {
           setImportModalOpen(v)
-          if (!v) setDroppedFilesForModal(null)
+          if (!v) setDroppedFileForModal(null)
         }}
         onSuccess={() => {
           fetchOpportunities()
@@ -1344,8 +1346,8 @@ export default function Opportunities() {
         currentUserId={user?.id}
         existingOpportunities={opportunities}
         sellersList={sellersList}
-        initialDroppedFiles={droppedFilesForModal}
-        onClearInitialDroppedFiles={() => setDroppedFilesForModal(null)}
+        initialDroppedFile={droppedFileForModal}
+        onClearInitialDroppedFile={() => setDroppedFileForModal(null)}
       />
 
       {/* Modal: Detalhes da Oportunidade */}
