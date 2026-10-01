@@ -65,8 +65,6 @@ export default function Opportunities() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
-  const [droppedFileForModal, setDroppedFileForModal] = useState<File | null>(null)
-  const [isPageDragging, setIsPageDragging] = useState(false)
 
   // Formulário Estado
   // Drag and drop de cards de oportunidades
@@ -135,9 +133,8 @@ export default function Opportunities() {
     fetchSellers()
   }, [fetchOpportunities, fetchSellers])
 
-  // Prevenir comportamento padrão do navegador de abrir/salvar arquivo ao soltar na tela
-  // IMPORTANTE: apenas ativar isPageDragging se for realmente arquivo do sistema (Files)
-  // e NUNCA quando for arrasto de card interno (application/bitcrm-card-id)
+  // Prevenir comportamento padrão do navegador de abrir/fazer download ao soltar arquivos acidentalmente na janela
+  // Mas sem qualquer overlay ou abertura automática do importador
   useEffect(() => {
     const handleWindowDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types.includes('application/bitcrm-card-id')) {
@@ -145,13 +142,6 @@ export default function Opportunities() {
       }
       if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
         e.preventDefault()
-        setIsPageDragging(true)
-      }
-    }
-
-    const handleWindowDragLeave = (e: DragEvent) => {
-      if (e.relatedTarget === null || e.clientY <= 0 || e.clientX <= 0) {
-        setIsPageDragging(false)
       }
     }
 
@@ -159,35 +149,16 @@ export default function Opportunities() {
       if (e.dataTransfer?.types.includes('application/bitcrm-card-id')) {
         return
       }
-      e.preventDefault()
-      setIsPageDragging(false)
-
-      // Se o usuário soltar arquivo em qualquer lugar da tela de oportunidades,
-      // capturamos exatamente 1 arquivo e abrimos automaticamente o importador.
-      // Se soltar outro arquivo, substitui o anterior, nunca acumula lista.
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const filesArray = Array.from(e.dataTransfer.files)
-        // Verificar extensões válidas (.xlsx, .xls, .ods, .csv, .tsv, .txt, .json)
-        const validFiles = filesArray.filter((f) => {
-          const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
-          return ['.xlsx', '.xls', '.ods', '.csv', '.tsv', '.txt', '.json'].includes(ext)
-        })
-
-        if (validFiles.length > 0) {
-          // Pega o primeiro arquivo válido (substituindo qualquer anterior)
-          setDroppedFileForModal(validFiles[0])
-          setImportModalOpen(true)
-        }
+      if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
+        e.preventDefault()
       }
     }
 
     window.addEventListener('dragover', handleWindowDragOver)
-    window.addEventListener('dragleave', handleWindowDragLeave)
     window.addEventListener('drop', handleWindowDrop)
 
     return () => {
       window.removeEventListener('dragover', handleWindowDragOver)
-      window.removeEventListener('dragleave', handleWindowDragLeave)
       window.removeEventListener('drop', handleWindowDrop)
     }
   }, [])
@@ -1319,26 +1290,10 @@ export default function Opportunities() {
         </DialogContent>
       </Dialog>
 
-      {/* Overlay visual quando o usuário arrasta arquivos sobre a tela */}
-      {isPageDragging && !importModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0E1017]/90 border-4 border-dashed border-indigo-500 rounded-2xl flex flex-col items-center justify-center pointer-events-none backdrop-blur-sm animate-fadeIn">
-          <div className="w-20 h-20 rounded-3xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 mb-4 animate-bounce">
-            <UploadCloud className="w-10 h-10" />
-          </div>
-          <h3 className="text-xl font-bold text-white">Solte a planilha para importar no bitCRM</h3>
-          <p className="text-sm text-gray-400 mt-1">
-            Reconhecimento automático de formatos XLSX, CSV, TXT e JSON
-          </p>
-        </div>
-      )}
-
       {/* Modal de Importação de Oportunidades */}
       <ImportOpportunitiesModal
         open={importModalOpen}
-        onOpenChange={(v) => {
-          setImportModalOpen(v)
-          if (!v) setDroppedFileForModal(null)
-        }}
+        onOpenChange={setImportModalOpen}
         onSuccess={() => {
           fetchOpportunities()
         }}
@@ -1346,8 +1301,6 @@ export default function Opportunities() {
         currentUserId={user?.id}
         existingOpportunities={opportunities}
         sellersList={sellersList}
-        initialDroppedFile={droppedFileForModal}
-        onClearInitialDroppedFile={() => setDroppedFileForModal(null)}
       />
 
       {/* Modal: Detalhes da Oportunidade */}
