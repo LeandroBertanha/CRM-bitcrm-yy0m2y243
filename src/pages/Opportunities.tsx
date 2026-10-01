@@ -1379,18 +1379,6 @@ export default function Opportunities() {
               />
             </div>
 
-            {/* Timeline de Conversas / Interações na Edição */}
-            {selectedOpp && (
-              <div className="border-t border-[#262A33] pt-4">
-                <OpportunityTimeline
-                  opportunityId={selectedOpp.id}
-                  currentUserId={user?.id}
-                  currentUserRole={user?.role}
-                  currentUserEmail={user?.email}
-                />
-              </div>
-            )}
-
             <DialogFooter className="pt-3 border-t border-[#262A33] flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -1409,6 +1397,18 @@ export default function Opportunities() {
               </Button>
             </DialogFooter>
           </form>
+
+          {/* Timeline de Conversas / Interações na Edição (fora da tag <form> da oportunidade para evitar colisão e fechamento de modal) */}
+          {selectedOpp && (
+            <div className="border-t border-[#262A33] pt-4">
+              <OpportunityTimeline
+                opportunityId={selectedOpp.id}
+                currentUserId={user?.id}
+                currentUserRole={user?.role}
+                currentUserEmail={user?.email}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

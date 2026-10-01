@@ -84,7 +84,7 @@ export function OpportunityTimeline({
   const [notes, setNotes] = useState<OpportunityNote[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm] = useState(true)
 
   // Campos do formulário de novo registro
   const [type, setType] = useState<OpportunityNote['type']>('ligacao')
@@ -170,7 +170,7 @@ export function OpportunityTimeline({
 
     setIsSubmitting(true)
     try {
-      // Formata a data garantindo o formato RFC3339 com espaço aceito pelo PocketBase
+      // Formata a data garantindo o formato RFC3339 com espaço aceito pelo PocketBase (ex: "YYYY-MM-DD HH:mm:ss.000Z")
       let formattedDate: string
       try {
         const d = dateStr ? new Date(dateStr) : new Date()
@@ -202,7 +202,7 @@ export function OpportunityTimeline({
       })
 
       setText('')
-      setShowForm(false)
+      // Mantém o formulário pronto ou minimizável, mas NÃO esconde a timeline
       // Resetar data para o momento atual
       const now = new Date()
       const tzOffset = now.getTimezoneOffset() * 60000
@@ -282,23 +282,31 @@ export function OpportunityTimeline({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant={showForm ? 'secondary' : 'outline'}
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
             setShowForm(!showForm)
           }}
-          className="h-7 text-xs border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-600/20 rounded-lg px-2.5"
+          className={`h-7 text-xs rounded-lg px-2.5 transition-all ${
+            showForm
+              ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/30'
+              : 'border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-600/20'
+          }`}
         >
           <Plus className="w-3.5 h-3.5 mr-1" />
-          {showForm ? 'Fechar' : 'Nova Interação'}
+          {showForm ? 'Ocultar Formulário' : 'Nova Interação'}
         </Button>
       </div>
 
       {/* Formulário de Adição */}
       {showForm && (
         <form
-          onSubmit={handleAddNote}
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleAddNote(e)
+          }}
           className="p-3.5 rounded-xl bg-[#0A0C11] border border-indigo-500/30 space-y-3 animate-fadeIn"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -360,9 +368,14 @@ export function OpportunityTimeline({
               Cancelar
             </Button>
             <Button
-              type="submit"
+              type="button"
               size="sm"
               disabled={isSubmitting || !text.trim()}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleAddNote(e)
+              }}
               className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 rounded-lg shadow-sm"
             >
               {isSubmitting ? (
