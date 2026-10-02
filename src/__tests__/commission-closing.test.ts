@@ -1,0 +1,164 @@
+import { describe, it, expect } from 'vitest'
+import { calculateCommission, isOpportunityInMonth } from '@/types/commission'
+import { buildCommissionClosingSummary } from '@/services/commission'
+import type { CommissionTier } from '@/types/commission'
+
+describe('Regras de Fechamento de Comissão - Dia 5', () => {
+  const mockTiers: CommissionTier[] = [
+    {
+      id: 'tier1',
+      name: 'Faixa 1 (1 a 4 vendas)',
+      min_sales: 1,
+      max_sales: 4,
+      percentage: 0.2, // 20%
+      commission_per_sale: 100,
+      display_order: 1,
+      is_active: true,
+      collectionId: 'tiers',
+      collectionName: 'commission_tiers',
+      created: '2026-10-01',
+      updated: '2026-10-01',
+    },
+    {
+      id: 'tier2',
+      name: 'Faixa 2 (5 a 9 vendas)',
+      min_sales: 5,
+      max_sales: 9,
+      percentage: 0.25, // 25%
+      commission_per_sale: 125,
+      display_order: 2,
+      is_active: true,
+      collectionId: 'tiers',
+      collectionName: 'commission_tiers',
+      created: '2026-10-01',
+      updated: '2026-10-01',
+    },
+    {
+      id: 'tier3',
+      name: 'Faixa 3 (10 ou mais vendas)',
+      min_sales: 10,
+      max_sales: null,
+      percentage: 0.3, // 30%
+      commission_per_sale: 150,
+      display_order: 3,
+      is_active: true,
+      collectionId: 'tiers',
+      collectionName: 'commission_tiers',
+      created: '2026-10-01',
+      updated: '2026-10-01',
+    },
+  ]
+
+  it('calcula corretamente vendedor com 0 vendas válidas (R$ 0,00 sem quebrar)', () => {
+    const res = calculateCommission(0, mockTiers, 500)
+    expect(res.salesCount).toBe(0)
+    expect(res.isQualifying).toBe(false)
+    expect(res.commissionPerSale).toBe(0)
+    expect(res.totalCommission).toBe(0)
+  })
+
+  it('calcula corretamente vendedor na Faixa 1 (ex: 3 vendas)', () => {
+    const res = calculateCommission(3, mockTiers, 500)
+    expect(res.salesCount).toBe(3)
+    expect(res.isQualifying).toBe(true)
+    expect(res.tierName).toBe('Faixa 1 (1 a 4 vendas)')
+    expect(res.percentage).toBe(0.2)
+    expect(res.commissionPerSale).toBe(100)
+    expect(res.totalCommission).toBe(300)
+  })
+
+  it('calcula corretamente vendedor na Faixa 2 (ex: 6 vendas)', () => {
+    const res = calculateCommission(6, mockTiers, 500)
+    expect(res.salesCount).toBe(6)
+    expect(res.isQualifying).toBe(true)
+    expect(res.tierName).toBe('Faixa 2 (5 a 9 vendas)')
+    expect(res.percentage).toBe(0.25)
+    expect(res.commissionPerSale).toBe(125)
+    expect(res.totalCommission).toBe(750)
+  })
+
+  it('calcula corretamente vendedor na Faixa 3 (ex: 12 vendas)', () => {
+    const res = calculateCommission(12, mockTiers, 500)
+    expect(res.salesCount).toBe(12)
+    expect(res.isQualifying).toBe(true)
+    expect(res.tierName).toBe('Faixa 3 (10 ou mais vendas)')
+    expect(res.percentage).toBe(0.3)
+    expect(res.commissionPerSale).toBe(150)
+    expect(res.totalCommission).toBe(1800)
+  })
+
+  it('avalia isOpportunityInMonth com base em created ou updated', () => {
+    // 2026-10 (mês 9 no JS Date, 0-indexed)
+    const inMonthOpp = {
+      created: '2026-10-15T10:00:00.000Z',
+    }
+    const outMonthOpp = {
+      created: '2026-09-15T10:00:00.000Z',
+    }
+    const updatedInMonth = {
+      created: '2026-09-01T10:00:00.000Z',
+      updated: '2026-10-02T15:30:00.000Z',
+    }
+
+    expect(isOpportunityInMonth(inMonthOpp, 2026, 9)).toBe(true)
+    expect(isOpportunityInMonth(outMonthOpp, 2026, 9)).toBe(false)
+    expect(isOpportunityInMonth(updatedInMonth, 2026, 9)).toBe(true)
+  })
+
+  it('monta o fechamento de comissão mensal do dia 5 consolidando todos os vendedores', () => {
+    const refDate = new Date(2026, 9, 15) // 15 de Outubro de 2026
+    const sellers = [
+      { id: 'usr_1', name: 'Leandro Bertanha', email: 'leandro@test.com', role: 'admin' },
+      { id: 'usr_2', name: 'Bruna Müller', email: 'bruna@test.com', role: 'seller' },
+      { id: 'usr_3', name: 'Hyago Duarte', email: 'hyago@test.com', role: 'seller' },
+    ]
+
+    const opportunities = [
+      // usr_1: 2 vendas Ganhas em Outubro -> Faixa 1 (2 x 100 = 200)
+      { stage: 'Ganho', seller: 'usr_1', created: '2026-10-02T10:00:00.000Z' },
+      { stage: 'Ganho', seller: 'usr_1', created: '2026-10-05T10:00:00.000Z' },
+      // usr_1: 1 oportunidade em Proposta (não Ganho) -> não conta
+      { stage: 'Proposta', seller: 'usr_1', created: '2026-10-08T10:00:00.000Z' },
+
+      // usr_2: 5 vendas Ganhas em Outubro -> Faixa 2 (5 x 125 = 625)
+      { stage: 'Ganho', seller: 'usr_2', created: '2026-10-01T10:00:00.000Z' },
+      { stage: 'Ganho', seller: 'usr_2', created: '2026-10-03T10:00:00.000Z' },
+      { stage: 'Ganho', seller: 'usr_2', created: '2026-10-04T10:00:00.000Z' },
+      { stage: 'Ganho', seller: 'usr_2', created: '2026-10-10T10:00:00.000Z' },
+      { stage: 'Ganho', seller: 'usr_2', created: '2026-10-12T10:00:00.000Z' },
+
+      // usr_3: 0 vendas em Outubro (apenas 1 em Setembro) -> R$ 0,00
+      { stage: 'Ganho', seller: 'usr_3', created: '2026-09-20T10:00:00.000Z' },
+    ]
+
+    const summary = buildCommissionClosingSummary({
+      referenceDate: refDate,
+      sellers,
+      opportunities,
+      tiers: mockTiers,
+      baseSaleValue: 500,
+    })
+
+    expect(summary.periodYear).toBe(2026)
+    expect(summary.periodMonth).toBe(9)
+    expect(summary.paymentDay).toBe(5)
+    expect(summary.paymentDateFormatted).toBe('05/11/2026')
+    expect(summary.totalSalesCount).toBe(7) // 2 + 5
+    expect(summary.totalAmountToPay).toBe(825) // 200 + 625
+    expect(summary.qualifyingSellersCount).toBe(2)
+
+    // Ordenação: usr_2 (625) em 1º, usr_1 (200) em 2º, usr_3 (0) em 3º
+    expect(summary.sellers[0].sellerId).toBe('usr_2')
+    expect(summary.sellers[0].wonCountMonth).toBe(5)
+    expect(summary.sellers[0].totalCommission).toBe(625)
+
+    expect(summary.sellers[1].sellerId).toBe('usr_1')
+    expect(summary.sellers[1].wonCountMonth).toBe(2)
+    expect(summary.sellers[1].totalCommission).toBe(200)
+
+    expect(summary.sellers[2].sellerId).toBe('usr_3')
+    expect(summary.sellers[2].wonCountMonth).toBe(0)
+    expect(summary.sellers[2].totalCommission).toBe(0)
+    expect(summary.sellers[2].isQualifying).toBe(false)
+  })
+})

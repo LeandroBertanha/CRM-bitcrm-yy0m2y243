@@ -4,6 +4,9 @@ import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Opportunity, STAGES, STAGE_CONFIG, SOURCES, formatBRL, formatDateBR } from '@/types/crm'
+import type { CommissionTier, CommissionSettings } from '@/types/commission'
+import { getCommissionTiers, getCommissionSettings } from '@/services/commission'
+import { CommissionClosingSection } from '@/components/CommissionClosingSection'
 import { Button } from '@/components/ui/button'
 import {
   BarChart3,
@@ -43,13 +46,15 @@ export default function AdminMetrics() {
   const [sellers, setSellers] = useState<
     { id: string; name?: string; email: string; role?: string }[]
   >([])
+  const [tiers, setTiers] = useState<CommissionTier[]>([])
+  const [settings, setSettings] = useState<CommissionSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedSellerId, setSelectedSellerId] = useState<string>('all')
 
   const fetchData = useCallback(async () => {
     try {
-      const [oppsRecords, usersRecords] = await Promise.all([
+      const [oppsRecords, usersRecords, tiersRecords, settingsRecord] = await Promise.all([
         pb.collection('opportunities').getFullList<Opportunity>({
           sort: '-created',
           expand: 'seller',
@@ -60,9 +65,13 @@ export default function AdminMetrics() {
             sort: 'name',
             fields: 'id,name,email,role',
           }),
+        getCommissionTiers(),
+        getCommissionSettings(),
       ])
       setOpportunities(oppsRecords)
       setSellers(usersRecords)
+      setTiers(tiersRecords)
+      setSettings(settingsRecord)
     } catch (err) {
       console.error('Erro ao carregar dados de métricas:', err)
     } finally {
@@ -75,8 +84,14 @@ export default function AdminMetrics() {
     fetchData()
   }, [fetchData])
 
-  // Tempo real para manter sincronizado com a equipe
+  // Tempo real para manter sincronizado com a equipe e comissões
   useRealtime<Opportunity>('opportunities', () => {
+    fetchData()
+  })
+  useRealtime<CommissionTier>('commission_tiers', () => {
+    fetchData()
+  })
+  useRealtime<CommissionSettings>('commission_settings', () => {
     fetchData()
   })
 
@@ -385,6 +400,16 @@ export default function AdminMetrics() {
           </Button>
         </div>
       </div>
+
+      {/* SEÇÃO FECHAMENTO DE COMISSÃO — PAGAMENTO DIA 5 */}
+      <CommissionClosingSection
+        sellers={sellers}
+        opportunities={opportunities}
+        tiers={tiers}
+        settings={settings}
+        loading={loading}
+        currentUserId={user?.id}
+      />
 
       {/* Grid de 6 Cartões Resumo (pt-BR, tabular-nums) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">

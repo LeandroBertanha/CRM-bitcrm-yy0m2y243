@@ -35,6 +35,36 @@ export interface CommissionCalculationResult {
   isQualifying: boolean
 }
 
+export interface SellerMonthlyCommission {
+  sellerId: string
+  name: string
+  email: string
+  role?: string
+  wonCountMonth: number
+  tier: CommissionTier | null
+  tierName: string
+  percentage: number
+  commissionPerSale: number
+  totalCommission: number
+  isQualifying: boolean
+}
+
+export interface CommissionClosingSummary {
+  periodMonth: number // 0-11
+  periodYear: number
+  periodMonthName: string // ex: "outubro"
+  periodMonthCapitalized: string // ex: "Outubro"
+  paymentDay: number // sempre 5
+  paymentMonthName: string // ex: "novembro"
+  paymentYear: number
+  paymentDateFormatted: string // ex: "05/11/2026"
+  sellers: SellerMonthlyCommission[]
+  totalSalesCount: number
+  totalAmountToPay: number
+  qualifyingSellersCount: number
+  hasTiersConfigured: boolean
+}
+
 /**
  * Determina a faixa de comissão com base no número total de vendas válidas no mês.
  * Conforme regras do negócio:
@@ -43,6 +73,25 @@ export interface CommissionCalculationResult {
  * - Se as faixas estiverem ordenadas pelo banco (display_order ou min_sales decrescente),
  *   encontra a faixa cujo min_sales <= totalVendas e (max_sales é null ou totalVendas <= max_sales).
  */
+/**
+ * Verifica se uma oportunidade pertence ao mês/ano de referência especificado
+ * usando created ou updated (mesma regra do Comissionamento).
+ */
+export function isOpportunityInMonth(
+  opp: { created?: string; updated?: string },
+  year: number,
+  monthIndex: number,
+): boolean {
+  const dateStr = opp.created || opp.updated
+  if (!dateStr) return false
+  try {
+    const d = new Date(dateStr)
+    return d.getFullYear() === year && d.getMonth() === monthIndex
+  } catch {
+    return false
+  }
+}
+
 export function calculateCommission(
   salesCount: number,
   tiers: CommissionTier[],
