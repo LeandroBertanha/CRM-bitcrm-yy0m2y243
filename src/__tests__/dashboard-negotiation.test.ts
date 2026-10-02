@@ -108,4 +108,13 @@ describe('Regras do Dashboard - Indicadores de Negociação', () => {
     expect(totalWonValue).toBe(80000)
     expect(formatBRL(totalWonValue)).toBe('R$ 80.000,00')
   })
+
+  it('calcula corretamente o indicador de Valor Perdido e contagem de perdidos', () => {
+    const lostOpps = mockOpportunities.filter((opp) => opp.stage === 'Perdido')
+    const totalLostValue = lostOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+
+    expect(lostOpps).toHaveLength(1)
+    expect(totalLostValue).toBe(12000)
+    expect(formatBRL(totalLostValue)).toBe('R$ 12.000,00')
+  })
 })

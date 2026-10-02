@@ -37,6 +37,7 @@ interface SellerStat {
   lostCount: number
   totalPipelineValue: number
   wonValue: number
+  lostValue: number
   conversionRate: number
 }
 
@@ -147,6 +148,13 @@ export default function AdminMetrics() {
     }, 0)
   }, [wonOpps])
 
+  const totalLostValue = useMemo(() => {
+    return lostOpps.reduce((acc, curr) => {
+      const v = typeof curr.value === 'number' ? curr.value : parseFloat(String(curr.value || 0))
+      return acc + (isNaN(v) ? 0 : v)
+    }, 0)
+  }, [lostOpps])
+
   const totalAllValue = useMemo(() => {
     return activeOpps.reduce((acc, curr) => {
       const v = typeof curr.value === 'number' ? curr.value : parseFloat(String(curr.value || 0))
@@ -209,6 +217,7 @@ export default function AdminMetrics() {
         lostCount: 0,
         totalPipelineValue: 0,
         wonValue: 0,
+        lostValue: 0,
         conversionRate: 0,
       })
     })
@@ -225,6 +234,7 @@ export default function AdminMetrics() {
       lostCount: 0,
       totalPipelineValue: 0,
       wonValue: 0,
+      lostValue: 0,
       conversionRate: 0,
     })
 
@@ -244,6 +254,7 @@ export default function AdminMetrics() {
           lostCount: 0,
           totalPipelineValue: 0,
           wonValue: 0,
+          lostValue: 0,
           conversionRate: 0,
         }
         sellerMap.set(sellerId, stat)
@@ -258,7 +269,10 @@ export default function AdminMetrics() {
         stat.wonValue += val
       } else if (opp.stage === 'Perdido') {
         stat.lostCount += 1
+        stat.lostValue += val
       } else {
+        // Pipe Aberto: somente estágios abertos (Novo, Qualificado, Agendado, Proposta).
+        // Perdido e Ganho NUNCA entram no totalPipelineValue.
         stat.inProgressCount += 1
         stat.totalPipelineValue += val
       }
@@ -315,6 +329,15 @@ export default function AdminMetrics() {
       description: 'Encerrados sem conversão',
       icon: AlertOctagon,
       color: 'from-rose-500/20 to-pink-500/10',
+      borderColor: 'border-rose-500/30',
+      iconColor: 'text-rose-400',
+    },
+    {
+      title: 'Valor Perdido',
+      value: formatBRL(totalLostValue),
+      description: 'Oportunidades no estágio Perdido',
+      icon: DollarSign,
+      color: 'from-rose-500/20 to-orange-500/10',
       borderColor: 'border-rose-500/30',
       iconColor: 'text-rose-400',
     },
@@ -411,8 +434,8 @@ export default function AdminMetrics() {
         currentUserId={user?.id}
       />
 
-      {/* Grid de 6 Cartões Resumo (pt-BR, tabular-nums) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+      {/* Grid de Cartões Resumo (pt-BR, tabular-nums) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3.5">
         {summaryCards.map((card, idx) => {
           const Icon = card.icon
           return (
@@ -493,7 +516,8 @@ export default function AdminMetrics() {
                   <th className="py-3 px-3 text-center">Total Negócios</th>
                   <th className="py-3 px-3 text-center">Em Andamento</th>
                   <th className="py-3 px-3 text-center">Ganhos</th>
-                  <th className="py-3 px-3 text-center">Perdidos</th>
+                  <th className="py-3 px-3 text-center">Perdidas</th>
+                  <th className="py-3 px-3 text-right">R$ Perdido</th>
                   <th className="py-3 px-3 text-center">Conversão</th>
                   <th className="py-3 px-3 text-right">Pipeline Aberto</th>
                   <th className="py-3 px-3 text-right">Total Ganho</th>
@@ -536,8 +560,11 @@ export default function AdminMetrics() {
                       <td className="py-3.5 px-3 text-center text-emerald-400 font-bold tabular-nums">
                         {s.wonCount}
                       </td>
-                      <td className="py-3.5 px-3 text-center text-rose-400 tabular-nums">
+                      <td className="py-3.5 px-3 text-center text-rose-400 font-semibold tabular-nums">
                         {s.lostCount}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-medium text-rose-400 tabular-nums">
+                        {formatBRL(s.lostValue)}
                       </td>
                       <td className="py-3.5 px-3 text-center tabular-nums">
                         <span

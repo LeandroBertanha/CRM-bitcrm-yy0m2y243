@@ -372,6 +372,63 @@ export default function Dashboard() {
     return wonOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
   }, [wonOpps])
 
+  const lostOpps = useMemo(() => {
+    return myOpps.filter((opp) => opp.stage === 'Perdido')
+  }, [myOpps])
+
+  const lostCount = lostOpps.length
+
+  const totalLostValue = useMemo(() => {
+    return lostOpps.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0)
+  }, [lostOpps])
+
+  // Para administradores: visão rápida dos perdidos por vendedor (para controle da equipe)
+  const lostStatsBySeller = useMemo(() => {
+    if (!isAdmin) return []
+    const map = new Map<string, { id: string; name: string; count: number; value: number }>()
+
+    // Popula vendedores cadastrados
+    sellersList.forEach((s) => {
+      map.set(s.id, {
+        id: s.id,
+        name: s.name || s.email.split('@')[0],
+        count: 0,
+        value: 0,
+      })
+    })
+
+    const unassignedKey = 'unassigned'
+    map.set(unassignedKey, {
+      id: unassignedKey,
+      name: 'Sem Vendedor',
+      count: 0,
+      value: 0,
+    })
+
+    opportunities.forEach((opp) => {
+      if (opp.stage === 'Perdido') {
+        const sellerId = opp.seller || opp.expand?.seller?.id || unassignedKey
+        let stat = map.get(sellerId)
+        if (!stat) {
+          stat = {
+            id: sellerId,
+            name: opp.expand?.seller?.name || opp.expand?.seller?.email || 'Outro Vendedor',
+            count: 0,
+            value: 0,
+          }
+          map.set(sellerId, stat)
+        }
+        stat.count += 1
+        const v = typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value || 0))
+        stat.value += isNaN(v) ? 0 : v
+      }
+    })
+
+    return Array.from(map.values())
+      .filter((s) => s.count > 0)
+      .sort((a, b) => b.value - a.value || b.count - a.count)
+  }, [isAdmin, sellersList, opportunities])
+
   // 5 Oportunidades mais recentes (apenas estágios em negociação: Qualificado, Agendado e Proposta)
   const recentOpportunities = useMemo(() => {
     return myOpps
@@ -432,6 +489,15 @@ export default function Dashboard() {
       color: 'from-violet-500/20 to-purple-500/10',
       borderColor: 'border-violet-500/30',
       iconColor: 'text-violet-400',
+    },
+    {
+      title: 'Valor Perdido',
+      value: formatBRL(totalLostValue),
+      description: `${lostCount} oportunidade${lostCount === 1 ? '' : 's'} perdida${lostCount === 1 ? '' : 's'}`,
+      icon: DollarSign,
+      color: 'from-rose-500/20 to-red-500/10',
+      borderColor: 'border-rose-500/30',
+      iconColor: 'text-rose-400',
     },
   ]
 
@@ -561,7 +627,7 @@ export default function Dashboard() {
       )}
 
       {/* Grid de Cartões de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {cardsData.map((card, idx) => {
           const Icon = card.icon
           return (
@@ -1172,6 +1238,69 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Painel Executivo do Admin: Oportunidades Perdidas por Vendedor */}
+      {isAdmin && (
+        <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#262A33]">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <span>Controle de Perdidos por Vendedor</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold">
+                    Visão Admin
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-400">
+                  Resumo rápido de volume e valor em BRL de oportunidades perdidas por membro da
+                  equipe
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/metricas"
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group self-start sm:self-auto"
+            >
+              Ver Tabela Completa de Métricas
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+
+          {lostStatsBySeller.length === 0 ? (
+            <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
+              Nenhuma oportunidade marcada como Perdida até o momento.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {lostStatsBySeller.map((seller) => (
+                <div
+                  key={seller.id}
+                  className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] hover:border-rose-500/40 transition-colors flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <span className="font-semibold text-sm text-white block truncate">
+                      {seller.name}
+                    </span>
+                    <span className="text-xs text-rose-300 font-medium">
+                      {seller.count} {seller.count === 1 ? 'perdida' : 'perdidas'}
+                    </span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-bold text-rose-400 tabular-nums block">
+                      {formatBRL(seller.value)}
+                    </span>
+                    <span className="text-[10px] text-gray-500 block">Total perdido</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Modal: Editar Oportunidade pelo Painel */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
