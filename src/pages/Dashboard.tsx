@@ -312,11 +312,11 @@ export default function Dashboard() {
 
   const totalOppsCount = myOpps.length
 
-  // Estágios em negociação: Qualificado, Agendado e Proposta (o estágio Novo não entra no cálculo de negociação)
+  // Estágios para os indicadores "Em Negociação" e "Valor em Negociação": apenas 'Proposta'
+  const NEGOTIATION_STAGES: Opportunity['stage'][] = ['Proposta']
+
   const inNegotiationOpps = useMemo(() => {
-    return myOpps.filter(
-      (opp) => opp.stage === 'Qualificado' || opp.stage === 'Agendado' || opp.stage === 'Proposta',
-    )
+    return myOpps.filter((opp) => NEGOTIATION_STAGES.includes(opp.stage))
   }, [myOpps])
 
   const inNegotiationCount = inNegotiationOpps.length
@@ -363,7 +363,7 @@ export default function Dashboard() {
     {
       title: 'Em Negociação',
       value: inNegotiationCount.toString(),
-      description: 'Qualif., Agend. e Proposta',
+      description: 'Apenas Proposta',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
@@ -372,7 +372,7 @@ export default function Dashboard() {
     {
       title: 'Valor em Negociação',
       value: formatBRL(inNegotiationValue),
-      description: 'Qualif., Agend. e Proposta',
+      description: 'Apenas Proposta',
       icon: DollarSign,
       color: 'from-indigo-500/20 to-cyan-500/10',
       borderColor: 'border-indigo-500/30',
