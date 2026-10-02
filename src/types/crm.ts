@@ -123,6 +123,57 @@ export const formatBRL = (val: number | null | undefined): string => {
   }).format(val)
 }
 
+/**
+ * Formata valores monetários de forma compacta e legível para espaços reduzidos.
+ * Ex:
+ *   - 0..999 => R$ 950
+ *   - 1.500 => R$ 1,5 mil
+ *   - 45.000 => R$ 45 mil
+ *   - 1.250.000 => R$ 1,25 mi
+ *   - 12.000.000 => R$ 12 mi
+ *   - 1.000.000.000 => R$ 1 bi
+ */
+export const formatCompactBRL = (val: number | null | undefined): string => {
+  if (val === undefined || val === null || isNaN(val)) return 'R$ 0'
+  const abs = Math.abs(val)
+  const sign = val < 0 ? '-' : ''
+
+  if (abs < 1_000) {
+    // Para centavos relevantes em valores pequenos (< 1000) ou inteiros limpos
+    const hasCents = abs % 1 !== 0
+    return `${sign}R$ ${new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: 2,
+    }).format(abs)}`
+  }
+
+  if (abs < 1_000_000) {
+    const thousands = abs / 1_000
+    // se for múltiplo exato (ex: 45.000 -> 45 mil), se tiver decimal (ex: 1.500 -> 1,5 mil; 1.250 -> 1,25 mil max 1 ou 2 casas)
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: thousands >= 100 ? 0 : thousands >= 10 ? 1 : 1,
+    }).format(thousands)
+    return `${sign}R$ ${formatted} mil`
+  }
+
+  if (abs < 1_000_000_000) {
+    const millions = abs / 1_000_000
+    const formatted = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: millions >= 100 ? 0 : millions >= 10 ? 1 : 2,
+    }).format(millions)
+    return `${sign}R$ ${formatted} mi`
+  }
+
+  const billions = abs / 1_000_000_000
+  const formatted = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: billions >= 10 ? 1 : 2,
+  }).format(billions)
+  return `${sign}R$ ${formatted} bi`
+}
+
 export const formatDateBR = (isoDate: string): string => {
   if (!isoDate) return ''
   try {

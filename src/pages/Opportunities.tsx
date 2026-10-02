@@ -8,6 +8,7 @@ import {
   SOURCES,
   STAGE_CONFIG,
   formatBRL,
+  formatCompactBRL,
   formatDateBR,
   getReturnAlertInfo,
 } from '@/types/crm'
@@ -867,22 +868,33 @@ export default function Opportunities() {
               >
                 {/* Cabeçalho da Coluna */}
                 <div
-                  className={`p-3.5 border-b border-[#262A33] flex items-center justify-between rounded-t-2xl ${stageStyle.bg}`}
+                  className={`p-3 border-b border-[#262A33] flex items-center justify-between gap-2 rounded-t-2xl min-w-0 ${stageStyle.bg}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${stageStyle.dot}`} />
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stageStyle.dot}`} />
                     <span
-                      className={`text-xs font-bold uppercase tracking-wider ${stageStyle.color}`}
+                      title={stage}
+                      className={`text-xs font-bold uppercase tracking-wider truncate ${stageStyle.color}`}
                     >
                       {stage}
                     </span>
-                    <span className="text-[11px] font-semibold text-gray-400 bg-[#12141A] px-2 py-0.5 rounded-full border border-[#262A33]">
+                    <span
+                      title={`${stageOpps.length} ${stageOpps.length === 1 ? 'oportunidade' : 'oportunidades'}`}
+                      className="text-[11px] font-semibold text-gray-400 bg-[#12141A] px-1.5 py-0.5 rounded-full border border-[#262A33] shrink-0 min-w-[20px] text-center"
+                    >
                       {stageOpps.length}
                     </span>
                   </div>
-                  <span className="text-[11px] font-medium text-gray-400 tabular-nums">
-                    {formatBRL(stageTotalValue)}
-                  </span>
+                  <div
+                    title={`Total do estágio: ${formatBRL(stageTotalValue)}`}
+                    className="text-right shrink-0"
+                  >
+                    <span className="text-[11px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
+                      {stageTotalValue >= 1000
+                        ? formatCompactBRL(stageTotalValue)
+                        : formatBRL(stageTotalValue)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Lista de Cards da Coluna */}
