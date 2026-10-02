@@ -58,6 +58,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { OpportunitySelectorSection } from '@/components/approach/OpportunitySelectorSection'
 
 export default function ApproachFlow() {
   const { user } = useAuth()
@@ -124,6 +125,7 @@ export default function ApproachFlow() {
           pb.collection('opportunities').getFullList<Opportunity>({
             sort: '-created',
             fields: 'id,company,contact_name,contact_phone,city,stage,seller',
+            expand: 'seller',
           }),
         ])
         setPlaybook(pbBundle)
@@ -555,70 +557,20 @@ export default function ApproachFlow() {
               </div>
             </div>
 
-            {/* Opcional: Vincular a Oportunidade Existente ou Preencher Manual */}
-            <div className="p-4 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <Building className="w-4 h-4 text-indigo-400" />
-                  Vincular a Oportunidade Existente (Opcional)
-                </span>
-                <span className="text-[10px] text-gray-500">Personaliza os textos</span>
-              </div>
-
-              <Select value={selectedOppId} onValueChange={handleSelectOpp}>
-                <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl">
-                  <SelectValue placeholder="Escolha uma oportunidade da carteira..." />
-                </SelectTrigger>
-                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs max-h-60">
-                  <SelectItem value="none">Nenhuma (Preencher dados avulsos)</SelectItem>
-                  {opportunities.map((opp) => (
-                    <SelectItem key={opp.id} value={opp.id}>
-                      {opp.company} {opp.contact_name ? `(${opp.contact_name})` : ''} - {opp.stage}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Campos Rápidos para Personalização */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
-                <div>
-                  <Label className="text-[10px] text-gray-400">Nome da Empresa</Label>
-                  <Input
-                    placeholder="Ex: Mendes Estética Automotiva"
-                    value={customCompanyName}
-                    onChange={(e) => setCustomCompanyName(e.target.value)}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-gray-400">Nome do Contato</Label>
-                  <Input
-                    placeholder="Ex: Carlos Mendes"
-                    value={customContactName}
-                    onChange={(e) => setCustomContactName(e.target.value)}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-gray-400">Cidade / Região</Label>
-                  <Input
-                    placeholder="Ex: Carapicuíba"
-                    value={customCity}
-                    onChange={(e) => setCustomCity(e.target.value)}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-gray-400">Telefone / WhatsApp</Label>
-                  <Input
-                    placeholder="Ex: (11) 98765-4321"
-                    value={customPhone}
-                    onChange={(e) => setCustomPhone(e.target.value)}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 mt-1"
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Escolha da Oportunidade da Carteira com Filtro/Busca e Campos de Personalização */}
+            <OpportunitySelectorSection
+              opportunities={opportunities}
+              selectedOppId={selectedOppId}
+              onSelectOpp={handleSelectOpp}
+              companyName={customCompanyName}
+              onChangeCompanyName={setCustomCompanyName}
+              contactName={customContactName}
+              onChangeContactName={setCustomContactName}
+              city={customCity}
+              onChangeCity={setCustomCity}
+              phone={customPhone}
+              onChangePhone={setCustomPhone}
+            />
 
             {/* BOTÃO PRINCIPAL EM DESTAQUE: INICIAR ABORDAGEM */}
             <Button
