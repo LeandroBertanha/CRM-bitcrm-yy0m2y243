@@ -842,9 +842,9 @@ export default function Opportunities() {
         </div>
       </div>
 
-      {/* Pipeline Kanban (6 Colunas com Scroll Horizontal Suave) */}
+      {/* Pipeline Kanban (6 Colunas visíveis simultaneamente em telas desktop >= 1024px e rolagem suave apenas em telas estreitas) */}
       <div className="overflow-x-auto pb-6">
-        <div className="flex gap-4 min-w-[1280px]">
+        <div className="grid grid-cols-6 gap-2.5 lg:gap-3 w-full min-w-[1020px] lg:min-w-0">
           {STAGES.map((stage) => {
             const stageStyle = STAGE_CONFIG[stage]
             const stageOpps = filteredOpps.filter((opp) => opp.stage === stage)
@@ -860,7 +860,7 @@ export default function Opportunities() {
                 onDragOver={(e) => handleColumnDragOver(e, stage)}
                 onDragLeave={(e) => handleColumnDragLeave(e, stage)}
                 onDrop={(e) => handleColumnDrop(e, stage)}
-                className={`flex-1 min-w-[210px] bg-[#0E1017] border rounded-2xl flex flex-col max-h-[calc(100vh-250px)] transition-all duration-200 ${
+                className={`min-w-0 bg-[#0E1017] border rounded-2xl flex flex-col max-h-[calc(100vh-230px)] transition-all duration-200 ${
                   dragOverStage === stage
                     ? 'border-indigo-500 bg-[#121424] shadow-xl shadow-indigo-500/10 ring-2 ring-indigo-500/30'
                     : 'border-[#262A33]'
@@ -868,19 +868,19 @@ export default function Opportunities() {
               >
                 {/* Cabeçalho da Coluna */}
                 <div
-                  className={`p-3 border-b border-[#262A33] flex items-center justify-between gap-2 rounded-t-2xl min-w-0 ${stageStyle.bg}`}
+                  className={`p-2.5 border-b border-[#262A33] flex items-center justify-between gap-1.5 rounded-t-2xl min-w-0 ${stageStyle.bg}`}
                 >
                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stageStyle.dot}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${stageStyle.dot}`} />
                     <span
                       title={stage}
-                      className={`text-xs font-bold uppercase tracking-wider truncate ${stageStyle.color}`}
+                      className={`text-[11px] xl:text-xs font-bold uppercase tracking-wider truncate ${stageStyle.color}`}
                     >
                       {stage}
                     </span>
                     <span
                       title={`${stageOpps.length} ${stageOpps.length === 1 ? 'oportunidade' : 'oportunidades'}`}
-                      className="text-[11px] font-semibold text-gray-400 bg-[#12141A] px-1.5 py-0.5 rounded-full border border-[#262A33] shrink-0 min-w-[20px] text-center"
+                      className="text-[10px] font-semibold text-gray-400 bg-[#12141A] px-1.5 py-0.5 rounded-full border border-[#262A33] shrink-0 min-w-[18px] text-center"
                     >
                       {stageOpps.length}
                     </span>
@@ -889,7 +889,7 @@ export default function Opportunities() {
                     title={`Total do estágio: ${formatBRL(stageTotalValue)}`}
                     className="text-right shrink-0"
                   >
-                    <span className="text-[11px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
+                    <span className="text-[10px] xl:text-[11px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
                       {stageTotalValue >= 1000
                         ? formatCompactBRL(stageTotalValue)
                         : formatBRL(stageTotalValue)}
@@ -898,16 +898,16 @@ export default function Opportunities() {
                 </div>
 
                 {/* Lista de Cards da Coluna */}
-                <div className="p-2.5 space-y-2.5 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="p-2 space-y-2 overflow-y-auto flex-1 custom-scrollbar min-w-0">
                   {stageOpps.length === 0 ? (
                     <div
-                      className={`py-8 text-center border border-dashed rounded-xl my-2 transition-colors ${
+                      className={`py-8 text-center border border-dashed rounded-xl my-2 px-1 transition-colors ${
                         dragOverStage === stage
                           ? 'border-indigo-400 bg-indigo-500/10 text-indigo-300'
                           : 'border-[#262A33]/70 text-gray-500'
                       }`}
                     >
-                      <span className="text-[11px]">
+                      <span className="text-[11px] leading-snug block">
                         {dragOverStage === stage ? 'Solte aqui para mover' : 'Nenhum negócio aqui'}
                       </span>
                     </div>
@@ -922,21 +922,22 @@ export default function Opportunities() {
                         onTouchStart={(e) => handleCardTouchStart(e, opp.id)}
                         onTouchMove={handleCardTouchMove}
                         onTouchEnd={handleCardTouchEnd}
-                        className={`p-3.5 rounded-xl bg-[#12141A] border transition-all duration-150 space-y-2.5 group relative cursor-grab active:cursor-grabbing touch-manipulation ${
+                        className={`p-2.5 rounded-xl bg-[#12141A] border transition-all duration-150 space-y-2 group relative cursor-grab active:cursor-grabbing touch-manipulation min-w-0 ${
                           draggingCardId === opp.id
                             ? 'opacity-40 scale-95 border-indigo-500 shadow-md'
                             : 'border-[#262A33] hover:border-indigo-500/60 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/5'
                         }`}
                       >
                         {/* Topo do Card: Empresa e Ações */}
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start justify-between gap-1.5 min-w-0">
                           <h4
                             onClick={() => handleOpenDetail(opp)}
-                            className="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors cursor-pointer leading-tight"
+                            title={opp.company}
+                            className="font-bold text-xs sm:text-[13px] text-white group-hover:text-indigo-300 transition-colors cursor-pointer leading-tight line-clamp-2 min-w-0 flex-1 break-words"
                           >
                             {opp.company}
                           </h4>
-                          <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity shrink-0">
                             <button
                               onClick={() => handleOpenDetail(opp)}
                               title="Visualizar detalhes"
@@ -953,29 +954,42 @@ export default function Opportunities() {
                             </button>
                           </div>
                         </div>
+
                         {/* Contato & Detalhes */}
                         {(opp.contact_name || opp.contact_phone || opp.city) && (
-                          <div className="text-xs text-gray-400 space-y-1">
+                          <div className="text-[11px] text-gray-400 space-y-0.5 min-w-0">
                             {opp.contact_name && (
-                              <div className="flex items-center gap-1.5 truncate">
+                              <div
+                                className="flex items-center gap-1.5 min-w-0"
+                                title={opp.contact_name}
+                              >
                                 <UserCheck className="w-3 h-3 text-gray-500 shrink-0" />
                                 <span className="truncate">{opp.contact_name}</span>
                               </div>
                             )}
                             {opp.contact_phone && (
-                              <div className="flex items-center gap-1.5">
+                              <div
+                                className="flex items-center gap-1.5 min-w-0"
+                                title={opp.contact_phone}
+                              >
                                 <Phone className="w-3 h-3 text-gray-500 shrink-0" />
-                                <span className="font-mono text-[11px]">{opp.contact_phone}</span>
+                                <span className="font-mono text-[10px] truncate">
+                                  {opp.contact_phone}
+                                </span>
                               </div>
                             )}
                             {opp.city && (
-                              <div className="flex items-center gap-1.5 text-gray-500">
+                              <div
+                                className="flex items-center gap-1.5 text-gray-500 min-w-0"
+                                title={opp.city}
+                              >
                                 <MapPin className="w-3 h-3 text-gray-500 shrink-0" />
-                                <span className="text-[11px] truncate">{opp.city}</span>
+                                <span className="text-[10px] truncate">{opp.city}</span>
                               </div>
                             )}
                           </div>
                         )}
+
                         {/* Badge do Alerta de Retorno se houver */}
                         {opp.return_at &&
                           (() => {
@@ -983,22 +997,26 @@ export default function Opportunities() {
                             if (alert.status === 'none') return null
                             return (
                               <div
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] border ${alert.badgeClass}`}
-                                title={`Alerta agendado: ${alert.formattedDate}`}
+                                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] border min-w-0 ${alert.badgeClass}`}
+                                title={`Alerta agendado: ${alert.formattedDate} (${alert.label})`}
                               >
-                                <Clock className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{alert.label}</span>
+                                <Clock className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate font-medium">{alert.label}</span>
                               </div>
                             )
                           })()}
-                        {/* Valor, Pagamento e Badge de Origem */}{' '}
-                        <div className="flex items-center justify-between pt-1 border-t border-[#262A33]/80">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-indigo-400 tabular-nums">
+
+                        {/* Valor, Pagamento e Badge de Origem */}
+                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-[#262A33]/80 min-w-0">
+                          <div className="flex flex-col min-w-0">
+                            <span
+                              title={formatBRL(opp.value)}
+                              className="text-xs font-bold text-indigo-400 tabular-nums truncate"
+                            >
                               {formatBRL(opp.value)}
                             </span>
                             {opp.payment_type && (
-                              <span className="text-[10px] text-emerald-400 font-medium">
+                              <span className="text-[9px] text-emerald-400 font-medium truncate">
                                 {opp.payment_type}
                                 {opp.payment_type === 'Parcelado' && opp.payment_installments
                                   ? ` (${opp.payment_installments}x)`
@@ -1006,19 +1024,23 @@ export default function Opportunities() {
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-gray-400 bg-[#171A24] px-1.5 py-0.5 rounded border border-[#262A33]">
+                          <span
+                            title={opp.source}
+                            className="text-[9px] text-gray-400 bg-[#171A24] px-1 py-0.5 rounded border border-[#262A33] shrink-0 truncate max-w-[80px]"
+                          >
                             {opp.source}
                           </span>
                         </div>
+
                         {/* Seletor Rápido de Mudança de Estágio */}
-                        <div className="pt-1">
+                        <div className="pt-0.5">
                           <Select
                             value={opp.stage}
                             onValueChange={(val) =>
                               handleStageChange(opp.id, val as Opportunity['stage'])
                             }
                           >
-                            <SelectTrigger className="w-full h-6 text-[10px] bg-[#0E1017] border-[#262A33] text-gray-400 hover:text-white rounded-lg">
+                            <SelectTrigger className="w-full h-6 text-[10px] bg-[#0E1017] border-[#262A33] text-gray-400 hover:text-white rounded-lg px-2">
                               <span className="truncate">Mover: {opp.stage}</span>
                             </SelectTrigger>
                             <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
