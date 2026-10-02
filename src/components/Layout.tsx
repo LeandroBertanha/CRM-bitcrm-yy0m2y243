@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
+import useRealtime from '@/hooks/use-realtime'
+import pb from '@/lib/pocketbase/client'
+import { Opportunity, getReturnAlertInfo } from '@/types/crm'
 import { BrandLogo } from './BrandLogo'
 import {
   LayoutDashboard,
@@ -15,6 +18,9 @@ import {
   ChevronDown,
   Sparkles,
   Coins,
+  Bell,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -32,6 +38,51 @@ export default function Layout() {
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+
+  // Buscar oportunidades para badge/sino de notificações de retornos
+  const fetchOpps = React.useCallback(async () => {
+    if (!user) return
+    try {
+      const records = await pb.collection('opportunities').getFullList<Opportunity>({
+        fields: 'id,company,stage,seller,return_at',
+      })
+      setOpportunities(records)
+    } catch {
+      // Ignora erro
+    }
+  }, [user])
+
+  useEffect(() => {
+    fetchOpps()
+  }, [fetchOpps])
+
+  useRealtime<Opportunity>('opportunities', () => {
+    fetchOpps()
+  })
+
+  // Contagem de alertas ativos para o usuário logado (ou todos para admin)
+  const { overdueCount, todayCount } = React.useMemo(() => {
+    if (!user) return { overdueCount: 0, todayCount: 0 }
+    let overdue = 0
+    let today = 0
+
+    for (const opp of opportunities) {
+      if (!opp.return_at) continue
+      // Se não for admin, apenas da sua carteira
+      if (!isAdmin) {
+        const isMyOpp = !opp.seller || opp.seller === user.id
+        if (!isMyOpp) continue
+      }
+      const info = getReturnAlertInfo(opp.return_at, opp.stage)
+      if (info.status === 'overdue') overdue++
+      else if (info.status === 'today') today++
+    }
+
+    return { overdueCount: overdue, todayCount: today }
+  }, [opportunities, user, isAdmin])
+
+  const totalAlertsCount = overdueCount + todayCount
 
   useEffect(() => {
     const handleScroll = () => {
@@ -121,6 +172,37 @@ export default function Layout() {
 
           {/* Área do Usuário / Menu Dropdown */}
           <div className="flex items-center gap-3">
+            {user && (
+              <NavLink
+                to="/painel"
+                title={
+                  totalAlertsCount > 0
+                    ? `${totalAlertsCount} retorno(s) agendado(s): ${overdueCount} atrasado(s) e ${todayCount} para hoje. Clique para abrir.`
+                    : 'Nenhum retorno agendado pendente'
+                }
+                className={`relative p-2 rounded-xl border transition-all ${
+                  overdueCount > 0
+                    ? 'bg-rose-950/40 border-rose-600/50 text-rose-300 hover:bg-rose-950/60 shadow-sm shadow-rose-900/30'
+                    : todayCount > 0
+                      ? 'bg-amber-950/40 border-amber-600/50 text-amber-300 hover:bg-amber-950/60 shadow-sm shadow-amber-900/30'
+                      : 'bg-[#12141A] border-[#262A33] text-gray-400 hover:text-white hover:bg-[#181B24]'
+                }`}
+              >
+                <Bell className={`w-4 h-4 ${overdueCount > 0 ? 'animate-bounce' : ''}`} />
+                {totalAlertsCount > 0 && (
+                  <span
+                    className={`absolute -top-1 -right-1 px-1.5 py-0.2 text-[10px] font-bold rounded-full border leading-tight ${
+                      overdueCount > 0
+                        ? 'bg-rose-600 text-white border-rose-400 shadow-sm shadow-rose-600/50'
+                        : 'bg-amber-500 text-black border-amber-300'
+                    }`}
+                  >
+                    {totalAlertsCount}
+                  </span>
+                )}
+              </NavLink>
+            )}
+
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

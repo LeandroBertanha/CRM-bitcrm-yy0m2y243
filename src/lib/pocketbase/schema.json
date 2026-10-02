@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T23:49:22.837Z",
+  "generatedAt": "2026-10-02T13:47:18.594Z",
   "collections": [
     {
       "name": "users",
@@ -165,12 +165,19 @@
           "type": "text",
           "required": false,
           "system": false
+        },
+        {
+          "name": "return_at",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_opportunities_stage ON opportunities (stage)",
         "CREATE INDEX idx_opportunities_seller ON opportunities (seller)",
-        "CREATE INDEX idx_opportunities_created ON opportunities (created)"
+        "CREATE INDEX idx_opportunities_created ON opportunities (created)",
+        "CREATE INDEX `idx_opportunities_return_at` ON `opportunities` (return_at)"
       ]
     },
     {

@@ -3,8 +3,35 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
-import { Opportunity, STAGE_CONFIG, formatBRL, formatDateBR } from '@/types/crm'
+import {
+  Opportunity,
+  STAGE_CONFIG,
+  STAGES,
+  formatBRL,
+  formatDateBR,
+  getReturnAlertInfo,
+} from '@/types/crm'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
+import { OpportunityTimeline } from '@/components/OpportunityTimeline'
 import {
   Briefcase,
   TrendingUp,
@@ -19,13 +46,57 @@ import {
   Phone,
   Mail,
   RefreshCw,
+  Clock,
+  AlertTriangle,
+  CalendarCheck,
+  Bell,
+  Edit2,
+  Trash2,
+  XCircle,
 } from 'lucide-react'
 
 export default function Dashboard() {
   const { user, isAdmin } = useAuth()
+  const { toast } = useToast()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Estado para abrir modal de edição direta pelo clique no alerta de retorno
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+  const [sellersList, setSellersList] = useState<{ id: string; name?: string; email: string }[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [formData, setFormData] = useState<{
+    company: string
+    stage: Opportunity['stage']
+    source: Opportunity['source']
+    value: string
+    seller: string
+    contact_name: string
+    contact_email: string
+    contact_phone: string
+    payment_type: string
+    payment_installments: string
+    message: string
+    return_date: string
+    return_time: string
+  }>({
+    company: '',
+    stage: 'Novo',
+    source: 'Formulário Público',
+    value: '',
+    seller: user?.id || '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    payment_type: '',
+    payment_installments: '1',
+    message: '',
+    return_date: '',
+    return_time: '',
+  })
 
   const fetchOpportunities = useCallback(async () => {
     try {
@@ -42,9 +113,150 @@ export default function Dashboard() {
     }
   }, [])
 
+  const fetchSellers = useCallback(async () => {
+    try {
+      const users = await pb
+        .collection('users')
+        .getFullList<{ id: string; name?: string; email: string }>({
+          fields: 'id,name,email',
+        })
+      setSellersList(users)
+    } catch {
+      // Ignora erro caso não possa listar todos
+    }
+  }, [])
+
   useEffect(() => {
     fetchOpportunities()
-  }, [fetchOpportunities])
+    fetchSellers()
+  }, [fetchOpportunities, fetchSellers])
+
+  const parseDateTimeParts = (isoString?: string | null) => {
+    if (!isoString) return { date: '', time: '' }
+    try {
+      const d = new Date(isoString)
+      if (isNaN(d.getTime())) return { date: '', time: '' }
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const hours = String(d.getHours()).padStart(2, '0')
+      const mins = String(d.getMinutes()).padStart(2, '0')
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${mins}`,
+      }
+    } catch {
+      return { date: '', time: '' }
+    }
+  }
+
+  const buildIsoDateTime = (dateStr: string, timeStr: string): string | null => {
+    if (!dateStr.trim()) return null
+    try {
+      const time = timeStr.trim() || '09:00'
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const [hours, minutes] = time.split(':').map(Number)
+      const d = new Date(year, month - 1, day, hours || 0, minutes || 0, 0, 0)
+      if (isNaN(d.getTime())) return null
+      return d.toISOString()
+    } catch {
+      return null
+    }
+  }
+
+  const handleOpenEdit = (opp: Opportunity) => {
+    setSelectedOpp(opp)
+    const { date, time } = parseDateTimeParts(opp.return_at)
+    setFormData({
+      company: opp.company,
+      stage: opp.stage,
+      source: opp.source,
+      value: opp.value ? String(opp.value) : '',
+      seller: opp.seller || user?.id || '',
+      contact_name: opp.contact_name || '',
+      contact_email: opp.contact_email || '',
+      contact_phone: opp.contact_phone || '',
+      payment_type: opp.payment_type || '',
+      payment_installments: opp.payment_installments ? String(opp.payment_installments) : '1',
+      message: opp.message || '',
+      return_date: date,
+      return_time: time,
+    })
+    setFormErrors({})
+    setEditModalOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedOpp) return
+
+    const errors: Record<string, string> = {}
+    if (!formData.company.trim()) errors.company = 'Nome da empresa é obrigatório.'
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const returnAtIso = buildIsoDateTime(formData.return_date, formData.return_time)
+
+      await pb.collection('opportunities').update(selectedOpp.id, {
+        company: formData.company.trim(),
+        stage: formData.stage,
+        source: formData.source,
+        value: formData.value ? parseFloat(formData.value.replace(',', '.')) : 0,
+        seller: formData.seller || user?.id,
+        contact_name: formData.contact_name.trim(),
+        contact_email: formData.contact_email.trim(),
+        contact_phone: formData.contact_phone.trim(),
+        payment_type: formData.payment_type || null,
+        payment_installments:
+          formData.payment_type === 'Parcelado' && formData.payment_installments
+            ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
+            : null,
+        message: formData.message.trim(),
+        return_at: returnAtIso,
+      })
+
+      toast({
+        title: 'Oportunidade atualizada',
+        description: 'As alterações foram salvas com sucesso.',
+      })
+      setEditModalOpen(false)
+      fetchOpportunities()
+    } catch {
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Não foi possível salvar as alterações.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta oportunidade? Esta ação não pode ser desfeita.')) {
+      return
+    }
+    try {
+      await pb.collection('opportunities').delete(id)
+      toast({
+        title: 'Oportunidade excluída',
+        description: 'O registro foi removido com sucesso.',
+      })
+      setEditModalOpen(false)
+      fetchOpportunities()
+    } catch {
+      toast({
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o registro.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Inscrição em tempo real na coleção opportunities
   useRealtime<Opportunity>('opportunities', () => {
@@ -59,16 +271,44 @@ export default function Dashboard() {
   // Filtragem e Métricas
   const myOpps = useMemo(() => {
     if (!user) return []
-    // Se o usuário for admin, no dashboard comercial geral pode ver o agregado ou suas próprias oportunidades.
-    // Mas conforme o requisito:
-    // "Painel do vendedor (existente) continua filtrado apenas pelas oportunidades dele; o do admin agrega tudo."
-    // Para vendedores comuns: filtra rigorosamente por opp.seller === user.id
-    // Se for admin vendo o /painel, mostra as oportunidades atribuídas a ele (ou não atribuídas);
-    // Para ver tudo de todos, ele tem a aba exclusiva "Métricas de Equipe" (/metricas).
     return opportunities.filter(
       (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
     )
   }, [opportunities, user])
+
+  // Separar retornos:
+  // "vendedor vê só o dele; admin vê de todos (mas o Painel de retornos deve focar nas oportunidades do usuário logado, com o admin podendo ver as de todos — se for mais simples, admin vê todas)."
+  // No painel do usuário, priorizamos a carteira relevante (se admin, consideramos todas as oportunidades para não deixar nenhum retorno perdido passar, ou o usuário atual).
+  const oppsForAlerts = useMemo(() => {
+    if (isAdmin) {
+      return opportunities
+    }
+    return myOpps
+  }, [isAdmin, opportunities, myOpps])
+
+  // Retornos atrasados: abertos (Novo, Qualificado, Agendado, Proposta) e status === 'overdue'
+  const overdueReturns = useMemo(() => {
+    return oppsForAlerts
+      .filter((opp) => {
+        if (!opp.return_at) return false
+        const info = getReturnAlertInfo(opp.return_at, opp.stage)
+        return info.status === 'overdue'
+      })
+      .sort((a, b) => new Date(a.return_at!).getTime() - new Date(b.return_at!).getTime())
+  }, [oppsForAlerts])
+
+  // Retornos de hoje: abertos e status === 'today'
+  const todayReturns = useMemo(() => {
+    return oppsForAlerts
+      .filter((opp) => {
+        if (!opp.return_at) return false
+        const info = getReturnAlertInfo(opp.return_at, opp.stage)
+        return info.status === 'today'
+      })
+      .sort((a, b) => new Date(a.return_at!).getTime() - new Date(b.return_at!).getTime())
+  }, [oppsForAlerts])
+
+  const totalActionableAlerts = overdueReturns.length + todayReturns.length
 
   const totalOppsCount = myOpps.length
 
@@ -208,6 +448,81 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Aviso / Notificação no Topo do Painel sobre Retornos */}
+      {totalActionableAlerts > 0 && (
+        <div
+          className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg transition-all animate-fadeIn ${
+            overdueReturns.length > 0
+              ? 'bg-rose-950/30 border-rose-600/40 text-rose-200 shadow-rose-950/20'
+              : 'bg-amber-950/30 border-amber-600/40 text-amber-200 shadow-amber-950/20'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2.5 rounded-xl border ${
+                overdueReturns.length > 0
+                  ? 'bg-rose-900/40 border-rose-500/50 text-rose-400'
+                  : 'bg-amber-900/40 border-amber-500/50 text-amber-400'
+              }`}
+            >
+              <Bell className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Alertas de Retorno Pendentes</span>
+                {overdueReturns.length > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-extrabold uppercase tracking-wider">
+                    {overdueReturns.length} atrasado{overdueReturns.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs opacity-90 mt-0.5">
+                {overdueReturns.length > 0 && todayReturns.length > 0 ? (
+                  <>
+                    Você tem <strong className="text-white font-bold">{todayReturns.length}</strong>{' '}
+                    retorno{todayReturns.length > 1 ? 's' : ''} agendado
+                    {todayReturns.length > 1 ? 's' : ''} para hoje e{' '}
+                    <strong className="text-rose-300 font-bold">{overdueReturns.length}</strong>{' '}
+                    atrasado{overdueReturns.length > 1 ? 's' : ''}.
+                  </>
+                ) : overdueReturns.length > 0 ? (
+                  <>
+                    Você tem{' '}
+                    <strong className="text-rose-300 font-bold">{overdueReturns.length}</strong>{' '}
+                    retorno{overdueReturns.length > 1 ? 's' : ''} com prazo vencido necessitando de
+                    contato imediato.
+                  </>
+                ) : (
+                  <>
+                    Você tem <strong className="text-white font-bold">{todayReturns.length}</strong>{' '}
+                    retorno{todayReturns.length > 1 ? 's' : ''} programado
+                    {todayReturns.length > 1 ? 's' : ''} para hoje.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className={`text-xs h-8 border ${
+                overdueReturns.length > 0
+                  ? 'border-rose-500/50 hover:bg-rose-500/20 text-white'
+                  : 'border-amber-500/50 hover:bg-amber-500/20 text-white'
+              }`}
+            >
+              <Link to="/oportunidades">
+                Ir ao Pipeline
+                <ArrowRight className="w-3.5 h-3.5 ml-1" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Grid de Cartões de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {cardsData.map((card, idx) => {
@@ -244,6 +559,190 @@ export default function Dashboard() {
             </div>
           )
         })}
+      </div>
+
+      {/* Seção Exclusiva: Alerta de Retornos (Retornos de Hoje & Atrasados) */}
+      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 shadow-xl">
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#262A33]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <span>Retornos Agendados (Follow-ups)</span>
+                {totalActionableAlerts > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
+                    {totalActionableAlerts} pendente{totalActionableAlerts > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-gray-400">
+                {isAdmin
+                  ? 'Acompanhamento de retornos da equipe com data e hora'
+                  : 'Seus contatos programados com data e hora com o cliente'}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/oportunidades"
+            className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group"
+          >
+            Abrir Pipeline
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        </div>
+
+        {totalActionableAlerts === 0 ? (
+          <div className="py-8 text-center flex flex-col items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-[#181B24] border border-[#262A33] flex items-center justify-center text-emerald-400 mb-3">
+              <CalendarCheck className="w-6 h-6" />
+            </div>
+            <p className="text-sm text-gray-200 font-semibold">Nenhum retorno agendado para hoje</p>
+            <p className="text-xs text-gray-500 max-w-sm mt-1">
+              Todos os seus retornos estão em dia. Para agendar um novo retorno com horário, abra
+              uma oportunidade e clique em &quot;Editar&quot;.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bloco 1: Retornos Atrasados */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-rose-300">
+                    Retornos Atrasados
+                  </span>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-300 border border-rose-800/50">
+                  {overdueReturns.length}
+                </span>
+              </div>
+
+              {overdueReturns.length === 0 ? (
+                <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
+                  Nenhum retorno atrasado. Parabéns!
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {overdueReturns.map((opp) => {
+                    const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                    const stageStyle = STAGE_CONFIG[opp.stage]
+                    return (
+                      <div
+                        key={opp.id}
+                        onClick={() => handleOpenEdit(opp)}
+                        className="p-3 rounded-xl bg-[#0E1017] border border-rose-800/40 hover:border-rose-500/80 hover:bg-[#191015] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
+                        title="Clique para editar e reagendar este retorno"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-bold text-sm text-white group-hover:text-rose-200 transition-colors block truncate">
+                              {opp.company}
+                            </span>
+                            {opp.contact_name && (
+                              <span className="text-xs text-gray-400 block truncate">
+                                Contato: {opp.contact_name}{' '}
+                                {opp.contact_phone ? `(${opp.contact_phone})` : ''}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                            {stageStyle.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
+                          <div className="flex items-center gap-1.5 text-rose-300 font-semibold">
+                            <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span>Atrasado desde {alert.formattedDate}</span>
+                          </div>
+                          <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
+                            <Edit2 className="w-3 h-3" />
+                            Editar
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Bloco 2: Retornos de Hoje */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                    Retornos de Hoje
+                  </span>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-800/50">
+                  {todayReturns.length}
+                </span>
+              </div>
+
+              {todayReturns.length === 0 ? (
+                <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
+                  Nenhum outro retorno para hoje.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {todayReturns.map((opp) => {
+                    const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                    const stageStyle = STAGE_CONFIG[opp.stage]
+                    return (
+                      <div
+                        key={opp.id}
+                        onClick={() => handleOpenEdit(opp)}
+                        className="p-3 rounded-xl bg-[#0E1017] border border-amber-800/40 hover:border-amber-500/80 hover:bg-[#1a1610] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
+                        title="Clique para editar e registrar o retorno"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-bold text-sm text-white group-hover:text-amber-200 transition-colors block truncate">
+                              {opp.company}
+                            </span>
+                            {opp.contact_name && (
+                              <span className="text-xs text-gray-400 block truncate">
+                                Contato: {opp.contact_name}{' '}
+                                {opp.contact_phone ? `(${opp.contact_phone})` : ''}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                            {stageStyle.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
+                          <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>
+                              Hoje às {alert.formattedDate.split(' ')[1] || alert.formattedDate}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
+                            <Edit2 className="w-3 h-3" />
+                            Abrir
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Seções em Duas Colunas: Oportunidades Recentes e Leads do Formulário */}
@@ -416,6 +915,271 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      {/* Modal: Editar Oportunidade pelo Painel */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="bg-[#12141A] border-[#262A33] text-white max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl custom-scrollbar">
+          <DialogHeader className="pr-10">
+            <DialogTitle className="text-lg font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-400" />
+                Editar Oportunidade
+              </span>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Edite as informações da oportunidade e seu alerta de retorno
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-300">Empresa / Cliente *</Label>
+              <Input
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+              />
+              {formErrors.company && (
+                <span className="text-[11px] text-red-400">{formErrors.company}</span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Estágio</Label>
+                <Select
+                  value={formData.stage}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, stage: val as Opportunity['stage'] })
+                  }
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    {STAGES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Origem</Label>
+                <Select
+                  value={formData.source}
+                  onValueChange={(val) =>
+                    setFormData({ ...formData, source: val as Opportunity['source'] })
+                  }
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    {[
+                      'Formulário Público',
+                      'Indicação',
+                      'Site',
+                      'WhatsApp',
+                      'Evento',
+                      'Prospecção',
+                      'Outro',
+                    ].map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Valor (R$)</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Vendedor</Label>
+                <Select
+                  value={formData.seller}
+                  onValueChange={(val) => setFormData({ ...formData, seller: val })}
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione o vendedor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    {sellersList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name || s.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Contato</Label>
+                <Input
+                  value={formData.contact_name}
+                  onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">E-mail</Label>
+                <Input
+                  type="email"
+                  value={formData.contact_email}
+                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-300">Telefone</Label>
+                <Input
+                  value={formData.contact_phone}
+                  onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                />
+              </div>
+            </div>
+
+            {/* Alerta de Retorno com Data e Hora */}
+            <div className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  <Label className="text-xs font-semibold text-gray-200">Alerta de Retorno</Label>
+                </div>
+                {Boolean(formData.return_date) && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, return_date: '', return_time: '' })}
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Limpar alerta
+                  </button>
+                )}
+              </div>
+
+              <p className="text-[11px] text-gray-400">
+                Data e hora para retornar o contato com o cliente.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] text-gray-400 block">Data do Retorno</span>
+                  <Input
+                    type="date"
+                    value={formData.return_date}
+                    onChange={(e) => setFormData({ ...formData, return_date: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] text-gray-400 block">Horário</span>
+                  <Input
+                    type="time"
+                    value={formData.return_time}
+                    onChange={(e) => setFormData({ ...formData, return_time: e.target.value })}
+                    disabled={!formData.return_date}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-10 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              {formData.return_date &&
+                (() => {
+                  const previewIso = buildIsoDateTime(formData.return_date, formData.return_time)
+                  if (!previewIso) return null
+                  const alert = getReturnAlertInfo(previewIso, formData.stage)
+                  return (
+                    <div
+                      className={`mt-2 p-2 rounded-lg text-xs flex items-center gap-2 border ${alert.badgeClass}`}
+                    >
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {alert.status === 'overdue' && 'Atenção: Horário de retorno já expirado! '}
+                        {alert.status === 'today' && 'Agendado para hoje: '}
+                        {alert.status === 'upcoming' && 'Retorno futuro agendado: '}
+                        <strong>{alert.formattedDate}</strong>
+                      </span>
+                    </div>
+                  )
+                })()}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-300">Mensagem / Observações</Label>
+              <Textarea
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl min-h-[70px]"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-[#262A33] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                {selectedOpp && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(selectedOpp.id)}
+                    className="border-red-500/30 bg-red-950/20 text-red-400 hover:text-red-300 hover:bg-red-950/40 hover:border-red-500/50 text-xs h-9 px-3 w-full sm:w-auto"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    Excluir Oportunidade
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditModalOpen(false)}
+                  className="border-[#262A33] text-gray-300 text-xs h-9"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold h-9"
+                >
+                  {submitting ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+
+          {/* Timeline de Conversas / Interações na Edição */}
+          {selectedOpp && (
+            <div className="border-t border-[#262A33] pt-4">
+              <OpportunityTimeline
+                opportunityId={selectedOpp.id}
+                currentUserId={user?.id}
+                currentUserRole={user?.role}
+                currentUserEmail={user?.email}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

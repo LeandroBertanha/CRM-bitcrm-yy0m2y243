@@ -2,7 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
-import { Opportunity, STAGES, SOURCES, STAGE_CONFIG, formatBRL, formatDateBR } from '@/types/crm'
+import {
+  Opportunity,
+  STAGES,
+  SOURCES,
+  STAGE_CONFIG,
+  formatBRL,
+  formatDateBR,
+  getReturnAlertInfo,
+} from '@/types/crm'
 import { OpportunityTimeline } from '@/components/OpportunityTimeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +49,10 @@ import {
   ExternalLink,
   UploadCloud,
   MapPin,
+  Clock,
+  Calendar,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 
@@ -83,6 +95,8 @@ export default function Opportunities() {
     payment_type: string
     payment_installments: string
     message: string
+    return_date: string
+    return_time: string
   }>({
     company: '',
     stage: 'Novo',
@@ -95,6 +109,8 @@ export default function Opportunities() {
     payment_type: '',
     payment_installments: '1',
     message: '',
+    return_date: '',
+    return_time: '',
   })
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -168,6 +184,41 @@ export default function Opportunities() {
     fetchOpportunities()
   })
 
+  // Converte string ISO ou DB para partes de date (YYYY-MM-DD) e time (HH:mm) locais
+  const parseDateTimeParts = (isoString?: string | null) => {
+    if (!isoString) return { date: '', time: '' }
+    try {
+      const d = new Date(isoString)
+      if (isNaN(d.getTime())) return { date: '', time: '' }
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const hours = String(d.getHours()).padStart(2, '0')
+      const mins = String(d.getMinutes()).padStart(2, '0')
+      return {
+        date: `${year}-${month}-${day}`,
+        time: `${hours}:${mins}`,
+      }
+    } catch {
+      return { date: '', time: '' }
+    }
+  }
+
+  // Combina data e hora selecionadas no formulário em ISO string (ou null se vazio)
+  const buildIsoDateTime = (dateStr: string, timeStr: string): string | null => {
+    if (!dateStr.trim()) return null
+    try {
+      const time = timeStr.trim() || '09:00'
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const [hours, minutes] = time.split(':').map(Number)
+      const d = new Date(year, month - 1, day, hours || 0, minutes || 0, 0, 0)
+      if (isNaN(d.getTime())) return null
+      return d.toISOString()
+    } catch {
+      return null
+    }
+  }
+
   // Abrir Modal de Criação
   const handleOpenCreate = () => {
     setFormData({
@@ -182,6 +233,8 @@ export default function Opportunities() {
       payment_type: '',
       payment_installments: '1',
       message: '',
+      return_date: '',
+      return_time: '',
     })
     setFormErrors({})
     setCreateModalOpen(true)
@@ -190,6 +243,7 @@ export default function Opportunities() {
   // Abrir Modal de Edição
   const handleOpenEdit = (opp: Opportunity) => {
     setSelectedOpp(opp)
+    const { date, time } = parseDateTimeParts(opp.return_at)
     setFormData({
       company: opp.company,
       stage: opp.stage,
@@ -202,6 +256,8 @@ export default function Opportunities() {
       payment_type: opp.payment_type || '',
       payment_installments: opp.payment_installments ? String(opp.payment_installments) : '1',
       message: opp.message || '',
+      return_date: date,
+      return_time: time,
     })
     setFormErrors({})
     setEditModalOpen(true)
@@ -455,6 +511,8 @@ export default function Opportunities() {
 
     setSubmitting(true)
     try {
+      const returnAtIso = buildIsoDateTime(formData.return_date, formData.return_time)
+
       await pb.collection('opportunities').update(selectedOpp.id, {
         company: formData.company.trim(),
         stage: formData.stage,
@@ -470,6 +528,7 @@ export default function Opportunities() {
             ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
             : null,
         message: formData.message.trim(),
+        return_at: returnAtIso,
       })
 
       toast({
@@ -882,7 +941,6 @@ export default function Opportunities() {
                             </button>
                           </div>
                         </div>
-
                         {/* Contato & Detalhes */}
                         {(opp.contact_name || opp.contact_phone || opp.city) && (
                           <div className="text-xs text-gray-400 space-y-1">
@@ -906,8 +964,22 @@ export default function Opportunities() {
                             )}
                           </div>
                         )}
-
-                        {/* Valor, Pagamento e Badge de Origem */}
+                        {/* Badge do Alerta de Retorno se houver */}
+                        {opp.return_at &&
+                          (() => {
+                            const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                            if (alert.status === 'none') return null
+                            return (
+                              <div
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] border ${alert.badgeClass}`}
+                                title={`Alerta agendado: ${alert.formattedDate}`}
+                              >
+                                <Clock className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{alert.label}</span>
+                              </div>
+                            )
+                          })()}
+                        {/* Valor, Pagamento e Badge de Origem */}{' '}
                         <div className="flex items-center justify-between pt-1 border-t border-[#262A33]/80">
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-indigo-400 tabular-nums">
@@ -926,7 +998,6 @@ export default function Opportunities() {
                             {opp.source}
                           </span>
                         </div>
-
                         {/* Seletor Rápido de Mudança de Estágio */}
                         <div className="pt-1">
                           <Select
@@ -1361,6 +1432,74 @@ export default function Opportunities() {
               )}
             </div>
 
+            {/* Alerta de Retorno (Follow-up agendado com data e hora) */}
+            <div className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-indigo-400" />
+                  <Label className="text-xs font-semibold text-gray-200">Alerta de Retorno</Label>
+                </div>
+                {Boolean(formData.return_date) && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, return_date: '', return_time: '' })}
+                    className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-400 transition-colors"
+                    title="Remover alerta de retorno"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Limpar alerta
+                  </button>
+                )}
+              </div>
+
+              <p className="text-[11px] text-gray-400">
+                Data e hora para retornar o contato com o cliente.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] text-gray-400 block">Data do Retorno</span>
+                  <Input
+                    type="date"
+                    value={formData.return_date}
+                    onChange={(e) => setFormData({ ...formData, return_date: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] text-gray-400 block">Horário</span>
+                  <Input
+                    type="time"
+                    value={formData.return_time}
+                    onChange={(e) => setFormData({ ...formData, return_time: e.target.value })}
+                    disabled={!formData.return_date}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-10 disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              {/* Pré-visualização do estado do alerta configurado */}
+              {formData.return_date &&
+                (() => {
+                  const previewIso = buildIsoDateTime(formData.return_date, formData.return_time)
+                  if (!previewIso) return null
+                  const alert = getReturnAlertInfo(previewIso, formData.stage)
+                  return (
+                    <div
+                      className={`mt-2 p-2 rounded-lg text-xs flex items-center gap-2 border ${alert.badgeClass}`}
+                    >
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {alert.status === 'overdue' && 'Atenção: Horário de retorno já expirado! '}
+                        {alert.status === 'today' && 'Agendado para hoje: '}
+                        {alert.status === 'upcoming' && 'Retorno futuro agendado: '}
+                        <strong>{alert.formattedDate}</strong>
+                      </span>
+                    </div>
+                  )
+                })()}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs text-gray-300">Mensagem / Observações</Label>
               <Textarea
@@ -1493,6 +1632,40 @@ export default function Opportunities() {
                     </span>
                   </div>
                 </div>
+
+                {/* Alerta de Retorno no Detalhe se houver */}
+                {selectedOpp.return_at &&
+                  (() => {
+                    const alert = getReturnAlertInfo(selectedOpp.return_at, selectedOpp.stage)
+                    if (alert.status === 'none') return null
+                    return (
+                      <div
+                        className={`p-3 rounded-xl border flex items-center justify-between ${alert.badgeClass}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Clock className="w-4 h-4 shrink-0" />
+                          <div>
+                            <span className="text-[11px] uppercase tracking-wider font-bold block opacity-80">
+                              Alerta de Retorno
+                            </span>
+                            <span className="text-xs font-semibold">{alert.label}</span>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setDetailModalOpen(false)
+                            handleOpenEdit(selectedOpp)
+                          }}
+                          className="text-[11px] h-7 px-2 hover:bg-white/10 text-inherit"
+                        >
+                          Reagendar
+                        </Button>
+                      </div>
+                    )
+                  })()}
 
                 {/* Dados de Contato */}
                 <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-2">
