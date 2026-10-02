@@ -1,5 +1,5 @@
 import pb from '@/lib/pocketbase/client'
-import { calculateCommission } from '@/types/commission'
+import { calculateCommission, calculateCommissionPaymentDate } from '@/types/commission'
 import type {
   CommissionTier,
   CommissionSettings,
@@ -64,13 +64,13 @@ export function buildCommissionClosingSummary(params: {
   const rawMonthName = referenceDate.toLocaleString('pt-BR', { month: 'long' })
   const periodMonthCapitalized = rawMonthName.charAt(0).toUpperCase() + rawMonthName.slice(1)
 
-  // Mês seguinte (onde o pagamento cai dia 5)
-  const nextMonthDate = new Date(periodYear, periodMonth + 1, 5)
-  const paymentYear = nextMonthDate.getFullYear()
-  const paymentMonthName = nextMonthDate.toLocaleString('pt-BR', { month: 'long' })
+  // Mês seguinte (onde o pagamento cai dia 5, ajustado para próximo dia útil se cair em fim de semana ou feriado)
+  const paymentDateInfo = calculateCommissionPaymentDate(periodYear, periodMonth)
+  const paymentYear = paymentDateInfo.effectiveDate.getFullYear()
+  const paymentMonthName = paymentDateInfo.effectiveDate.toLocaleString('pt-BR', { month: 'long' })
   const paymentMonthCapitalized =
     paymentMonthName.charAt(0).toUpperCase() + paymentMonthName.slice(1)
-  const paymentDateFormatted = `05/${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}/${paymentYear}`
+  const paymentDateFormatted = paymentDateInfo.effectiveDateFormatted
 
   // Mapear vendedores
   const map = new Map<
@@ -157,6 +157,7 @@ export function buildCommissionClosingSummary(params: {
     paymentMonthName: paymentMonthCapitalized,
     paymentYear,
     paymentDateFormatted,
+    paymentDateInfo,
     sellers: calculatedSellers,
     totalSalesCount,
     totalAmountToPay,

@@ -3,7 +3,12 @@ import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import { Opportunity, formatBRL } from '@/types/crm'
-import { CommissionTier, CommissionSettings, calculateCommission } from '@/types/commission'
+import {
+  CommissionTier,
+  CommissionSettings,
+  calculateCommission,
+  calculateCommissionPaymentDate,
+} from '@/types/commission'
 import { getCommissionTiers, getCommissionSettings } from '@/services/commission'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +28,8 @@ import {
   HelpCircle,
   Info,
   Calendar,
+  Clock,
+  ArrowRight,
 } from 'lucide-react'
 
 interface SellerCommissionRow {
@@ -104,6 +111,11 @@ export default function CommissionPage() {
   const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1)
   const currentYear = now.getFullYear()
   const currentMonthIndex = now.getMonth() // 0-11
+
+  // Informações da Data Oficial de Pagamento da comissão (dia 5 ou próximo dia útil se fim de semana/feriado)
+  const nextPaymentInfo = useMemo(() => {
+    return calculateCommissionPaymentDate(now)
+  }, [now])
 
   // Filtra oportunidades do mês atual com estágio "Ganho"
   const isOppInCurrentMonth = useCallback(
@@ -267,6 +279,106 @@ export default function CommissionPage() {
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
             Atualizar
           </Button>
+        </div>
+      </div>
+
+      {/* BLOCO DE DESTAQUE: REGRAS E DATA REAL DE PAGAMENTO DA COMISSÃO (TODO DIA 5) */}
+      <div className="bg-gradient-to-br from-[#131b26] via-[#10131c] to-[#0E1017] border border-emerald-500/40 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-emerald-500/15 via-indigo-500/10 to-transparent rounded-bl-full pointer-events-none" />
+
+        <div className="relative z-10 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#262A33]">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0 shadow-lg">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                    Pagamento da Comissão: Todo Dia 5
+                  </h2>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    <Clock className="w-3 h-3 text-emerald-400" />
+                    Regra Oficial do bitCRM
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-300 mt-1 leading-relaxed">
+                  A comissão apurada sobre as vendas válidas do mês é paga{' '}
+                  <strong className="text-white">todo dia 5 de cada mês</strong>. Se o dia 5 cair em{' '}
+                  <strong className="text-emerald-300">sábado, domingo ou feriado nacional</strong>,
+                  o pagamento é realizado no{' '}
+                  <strong className="text-emerald-300">próximo dia útil após o dia 5</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards explicativos dentro do banner */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+            {/* Card 1: Próximo Repasse Real */}
+            <div className="p-4 rounded-xl bg-[#0E1017]/90 border border-emerald-500/40 shadow-md flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                  Próxima Data Real de Pagamento
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight tabular-nums mt-1.5 flex items-baseline gap-2">
+                  <span>{nextPaymentInfo.effectiveDateFormatted}</span>
+                  <span className="text-xs font-semibold text-emerald-300">
+                    ({nextPaymentInfo.effectiveWeekdayName})
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-[#262A33]/80">
+                {nextPaymentInfo.isShifted ? (
+                  <p className="text-[11px] text-amber-300 font-medium leading-relaxed">
+                    ℹ️ {nextPaymentInfo.shiftDescription}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Dia 5 cai em {nextPaymentInfo.weekdayName} (dia útil normal).
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Apuração do Mês Atual */}
+            <div className="p-4 rounded-xl bg-[#0E1017]/90 border border-[#262A33] shadow-md flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Período em Apuração
+                </span>
+                <div className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1.5">
+                  {capitalizedMonth}/{currentYear}
+                </div>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-[#262A33]/80 text-[11px] text-gray-400 leading-relaxed">
+                Vendas ganhas até o último dia deste mês entram no repasse do dia{' '}
+                <strong className="text-emerald-300">
+                  {nextPaymentInfo.effectiveDateFormatted}
+                </strong>
+                .
+              </div>
+            </div>
+
+            {/* Card 3: Regra de Finais de Semana e Feriados */}
+            <div className="p-4 rounded-xl bg-[#0E1017]/90 border border-[#262A33] shadow-md flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">
+                  Finais de Semana e Feriados
+                </span>
+                <div className="text-sm font-semibold text-white mt-1.5 leading-snug">
+                  Garantia de liquidação bancária no 1º dia útil subsequente
+                </div>
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-[#262A33]/80 text-[11px] text-gray-400 leading-relaxed">
+                Considera feriados nacionais oficiais do Brasil (ex.: Confraternização, Tiradentes,
+                Trabalho, Independência, Aparecida, Finados, Proclamação, Natal).
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -746,8 +858,25 @@ export default function CommissionPage() {
           </div>
         </div>
 
-        {/* Lista de regras essenciais lidas do banco */}
+        {/* Lista de regras essenciais: combina as regras dinâmicas com a regra explícita de pagamento no dia 5 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {/* Card com a regra explícita de pagamento dia 5 e próximo dia útil */}
+          <div className="p-3.5 rounded-xl bg-[#0E1017] border border-emerald-500/30 flex items-start gap-3 hover:border-emerald-500/50 transition-colors">
+            <div className="w-5 h-5 rounded-full bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+              📅
+            </div>
+            <div className="space-y-1">
+              <strong className="text-xs text-emerald-300 font-bold block">
+                Pagamento Todo Dia 5 (ou Próximo Dia Útil)
+              </strong>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                A comissão é paga todo dia 5 de cada mês referente às vendas válidas do mês
+                anterior. Caso o dia 5 coincida com sábado, domingo ou feriado nacional brasileiro,
+                o pagamento é realizado no próximo dia útil subsequente.
+              </p>
+            </div>
+          </div>
+
           {settings?.essential_rules && settings.essential_rules.length > 0 ? (
             settings.essential_rules.map((ruleText, idx) => (
               <div
@@ -761,8 +890,9 @@ export default function CommissionPage() {
               </div>
             ))
           ) : (
-            <div className="col-span-2 text-center py-4 text-xs text-gray-500">
-              Nenhuma regra essencial registrada na configuração.
+            <div className="p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33] flex items-center text-xs text-gray-400">
+              Percentual da faixa atingida incide sobre todas as vendas válidas (Ganho) apuradas no
+              mês.
             </div>
           )}
         </div>

@@ -122,7 +122,7 @@ export function CommissionClosingSection({
               </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                 <Calendar className="w-3 h-3 text-emerald-400" />
-                Vencimento: {summary.paymentDateFormatted}
+                Data de Repasse: {summary.paymentDateFormatted}
               </span>
             </div>
             <p className="text-xs text-gray-400 mt-1">
@@ -130,12 +130,10 @@ export function CommissionClosingSection({
               <strong className="text-gray-200">Ganho</strong>) em{' '}
               <strong className="text-white">
                 {summary.periodMonthCapitalized}/{summary.periodYear}
-              </strong>{' '}
-              a serem pagos impreterivelmente no dia{' '}
-              <strong className="text-emerald-300">
-                5 de {summary.paymentMonthName} de {summary.paymentYear}
               </strong>
-              .
+              . Repasse todo <strong>dia 5</strong> (se cair em sábado, domingo ou feriado, no{' '}
+              <strong className="text-emerald-300">próximo dia útil</strong>: repasse em{' '}
+              <strong className="text-emerald-300">{summary.paymentDateFormatted}</strong>).
             </p>
           </div>
         </div>
@@ -250,7 +248,16 @@ export function CommissionClosingSection({
             <div className="text-xl sm:text-2xl font-bold text-amber-300 tabular-nums tracking-tight">
               {summary.paymentDateFormatted}
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">Dia 5 do mês seguinte ao fechamento</p>
+            {summary.paymentDateInfo?.isShifted ? (
+              <p className="text-[10px] text-amber-400/90 mt-1 font-medium">
+                {summary.paymentDateInfo.shiftDescription}
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-500 mt-1">
+                Dia 5 do mês seguinte ({summary.paymentDateInfo?.effectiveWeekdayName || 'dia útil'}
+                )
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -491,7 +498,8 @@ export function CommissionClosingSection({
                 {formatBRL(summary.totalAmountToPay)}
               </div>
               <p className="text-[10px] text-gray-400">
-                Data do repasse: <strong>{summary.paymentDateFormatted}</strong> (todo dia 5)
+                Data do repasse: <strong>{summary.paymentDateFormatted}</strong> (todo dia 5 ou
+                próximo dia útil)
               </p>
             </div>
           </div>
