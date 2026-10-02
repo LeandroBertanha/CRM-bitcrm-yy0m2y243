@@ -21,6 +21,16 @@ import {
   Bell,
   Clock,
   AlertTriangle,
+  Headset,
+  Play,
+  Phone,
+  MapPin,
+  MessageSquare,
+  HelpCircle,
+  ShieldAlert,
+  DollarSign,
+  History,
+  Settings,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -38,6 +48,7 @@ export default function Layout() {
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileApproachOpen, setMobileApproachOpen] = useState(false)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
 
   // Buscar oportunidades para badge/sino de notificações de retornos
@@ -149,7 +160,7 @@ export default function Layout() {
           </div>
 
           {/* Navegação Desktop */}
-          <nav className="hidden md:flex items-center gap-1.5 bg-[#12141A]/70 p-1 rounded-xl border border-[#262A33]">
+          <nav className="hidden md:flex items-center gap-1 bg-[#12141A]/70 p-1 rounded-xl border border-[#262A33]">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.to
@@ -157,7 +168,7 @@ export default function Layout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                     isActive
                       ? 'bg-gradient-to-r from-indigo-600/90 to-blue-600/90 text-white shadow-sm shadow-indigo-500/20'
                       : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
@@ -168,6 +179,107 @@ export default function Layout() {
                 </NavLink>
               )
             })}
+
+            {/* Dropdown Menu Desktop: Guia de Abordagem Comercial */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                    location.pathname.startsWith('/abordagem')
+                      ? 'bg-gradient-to-r from-indigo-600/90 to-blue-600/90 text-white shadow-sm shadow-indigo-500/20'
+                      : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
+                  }`}
+                >
+                  <Headset className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Guia de Abordagem</span>
+                  <ChevronDown className="w-3 h-3 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-64 bg-[#12141A] border-[#262A33] text-gray-200 p-1.5 rounded-xl shadow-2xl space-y-0.5"
+              >
+                <DropdownMenuLabel className="text-[10px] uppercase font-bold tracking-wider text-gray-500 px-2 py-1">
+                  Playbook Comercial bitCRM
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-2 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600/30 font-bold"
+                >
+                  <Play className="w-3.5 h-3.5 fill-indigo-400 text-indigo-400" />
+                  Iniciar Abordagem (Copiloto)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-[#262A33]" />
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/telefone')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <Phone className="w-3.5 h-3.5 text-indigo-400" />
+                  Abordagem por Telefone
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/presencial')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                  Abordagem Presencial
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/whatsapp')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                  WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/pitch')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  Pitch de 30 segundos
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/diagnostico')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+                  Perguntas de Diagnóstico
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/objecoes')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  Objeções
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/valores')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                  Valores (R$ 500 / R$ 55)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/abordagem/historico')}
+                  className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
+                >
+                  <History className="w-3.5 h-3.5 text-purple-400" />
+                  Histórico de Abordagens
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator className="bg-[#262A33]" />
+                    <DropdownMenuItem
+                      onClick={() => navigate('/abordagem/configuracoes')}
+                      className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-indigo-300 hover:text-white"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-indigo-400" />
+                      Configurações do Playbook
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           {/* Área do Usuário / Menu Dropdown */}
@@ -320,7 +432,7 @@ export default function Layout() {
 
         {/* Drawer / Menu Mobile */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0E1017] border-b border-[#262A33] px-4 py-4 space-y-2 animate-fadeInUp">
+          <div className="md:hidden bg-[#0E1017] border-b border-[#262A33] px-4 py-4 space-y-2 animate-fadeInUp max-h-[85vh] overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.to
@@ -340,6 +452,117 @@ export default function Layout() {
                 </NavLink>
               )
             })}
+
+            {/* Acordeão Mobile: Guia de Abordagem Comercial */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setMobileApproachOpen(!mobileApproachOpen)}
+                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  location.pathname.startsWith('/abordagem')
+                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
+                    : 'text-gray-300 hover:text-white hover:bg-[#151821]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Headset className="w-4 h-4 text-indigo-400" />
+                  <span>Guia de Abordagem</span>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${
+                    mobileApproachOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {mobileApproachOpen && (
+                <div className="pl-6 pr-2 py-2 space-y-1 bg-[#12141A]/60 rounded-xl mt-1 border border-[#262A33]">
+                  <NavLink
+                    to="/abordagem"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-indigo-300 hover:bg-[#1A1D27]"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-indigo-400 text-indigo-400" />
+                    Iniciar Abordagem (Copiloto)
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/telefone"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-indigo-400" />
+                    Abordagem por Telefone
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/presencial"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                    Abordagem Presencial
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/whatsapp"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    WhatsApp
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/pitch"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Pitch de 30 segundos
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/diagnostico"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+                    Perguntas de Diagnóstico
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/objecoes"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                    Objeções
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/valores"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                    Valores (R$ 500 / R$ 55)
+                  </NavLink>
+                  <NavLink
+                    to="/abordagem/historico"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
+                  >
+                    <History className="w-3.5 h-3.5 text-purple-400" />
+                    Histórico de Abordagens
+                  </NavLink>
+                  {isAdmin && (
+                    <NavLink
+                      to="/abordagem/configuracoes"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-indigo-300 hover:text-white hover:bg-[#1A1D27]"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-indigo-400" />
+                      Configurações do Playbook
+                    </NavLink>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="pt-2 border-t border-[#262A33]">
               <NavLink
                 to="/perfil"

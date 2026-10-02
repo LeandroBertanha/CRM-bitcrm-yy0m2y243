@@ -570,7 +570,7 @@ export default function Dashboard() {
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <span>Retornos Agendados (Follow-ups)</span>
+                <span>Retornos Agendados (Follow-ups & Abordagens)</span>
                 {totalActionableAlerts > 0 && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
                     {totalActionableAlerts} pendente{totalActionableAlerts > 1 ? 's' : ''}
@@ -579,18 +579,27 @@ export default function Dashboard() {
               </h2>
               <p className="text-xs text-gray-400">
                 {isAdmin
-                  ? 'Acompanhamento de retornos da equipe com data e hora'
-                  : 'Seus contatos programados com data e hora com o cliente'}
+                  ? 'Acompanhamento de retornos da equipe (Pipeline + Guia de Abordagem)'
+                  : 'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)'}
               </p>
             </div>
           </div>
-          <Link
-            to="/oportunidades"
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group"
-          >
-            Abrir Pipeline
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/abordagem"
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group"
+            >
+              Guia de Abordagem
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <Link
+              to="/oportunidades"
+              className="text-xs text-gray-400 hover:text-white font-medium inline-flex items-center gap-1 group"
+            >
+              Pipeline
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
         </div>
 
         {totalActionableAlerts === 0 ? (

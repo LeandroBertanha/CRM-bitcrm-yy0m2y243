@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T15:23:50.756Z",
+  "generatedAt": "2026-10-02T16:01:36.619Z",
   "collections": [
     {
       "name": "users",
@@ -386,6 +386,708 @@
       "indexes": [
         "CREATE INDEX idx_commission_tiers_order ON commission_tiers (display_order)",
         "CREATE INDEX idx_commission_tiers_active ON commission_tiers (is_active)"
+      ]
+    },
+    {
+      "name": "playbook_segments",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"]
+    },
+    {
+      "name": "playbook_scripts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "channel",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+        },
+        {
+          "name": "situation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "script_text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "instructions",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_playbook_scripts_channel ON playbook_scripts (channel, display_order)"
+      ]
+    },
+    {
+      "name": "playbook_questions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["diagnóstico", "qualificação", "fluxo"]
+        },
+        {
+          "name": "text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "triggers",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_playbook_questions_type ON playbook_questions (type, display_order)"
+      ]
+    },
+    {
+      "name": "playbook_answers",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "question",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "playbook_questions"
+        },
+        {
+          "name": "question_pattern",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "answer_text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "resulting_action",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recommended_argument",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_suggested_question",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"]
+    },
+    {
+      "name": "playbook_objections",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "clarification_question",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "treatment_script",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sub_scenarios",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_playbook_objections_order ON playbook_objections (display_order)"
+      ]
+    },
+    {
+      "name": "playbook_arguments",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "situation",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "argument_text",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"]
+    },
+    {
+      "name": "playbook_values",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "creation_value",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "monthly_value",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "inclusions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "script",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "closing_questions",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "playbook_next_steps",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "action",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "trigger_condition",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "display_order",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_playbook_next_steps_order ON playbook_next_steps (display_order)"
+      ]
+    },
+    {
+      "name": "approach_sessions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')",
+        "delete": "@request.auth.id != '' && (seller = @request.auth.id || @request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com')"
+      },
+      "fields": [
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "company_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "city",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "channel",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+        },
+        {
+          "name": "segment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "digital_situation",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "Não abordado",
+            "Tentativa de contato",
+            "Contato realizado",
+            "Diagnóstico realizado",
+            "Interessado",
+            "Exemplos enviados",
+            "Reunião agendada",
+            "Retorno agendado",
+            "Proposta solicitada",
+            "Proposta enviada",
+            "Negociação",
+            "Fechado",
+            "Sem interesse",
+            "Perdido"
+          ]
+        },
+        {
+          "name": "temperature",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["frio", "morno", "quente"]
+        },
+        {
+          "name": "temperature_reason",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "needs",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "interests",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "decision_maker",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "deadline",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "budget",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_action",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "next_contact_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "questions_asked",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "answers",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "objections",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quick_tags",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_approach_sessions_seller ON approach_sessions (seller)",
+        "CREATE INDEX idx_approach_sessions_opp ON approach_sessions (opportunity)",
+        "CREATE INDEX idx_approach_sessions_created ON approach_sessions (created DESC)",
+        "CREATE INDEX idx_approach_sessions_next ON approach_sessions (next_contact_at)"
       ]
     }
   ]

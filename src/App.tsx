@@ -23,6 +23,18 @@ import AdminMetrics from './pages/AdminMetrics'
 import UserManagement from './pages/UserManagement'
 import Commission from './pages/Commission'
 import Layout from './components/Layout'
+
+// Módulo Guia de Abordagem Comercial
+import ApproachFlow from './pages/approach/ApproachFlow'
+import PhoneApproachPage from './pages/approach/PhoneApproachPage'
+import InPersonApproachPage from './pages/approach/InPersonApproachPage'
+import WhatsAppApproachPage from './pages/approach/WhatsAppApproachPage'
+import PitchPage from './pages/approach/PitchPage'
+import DiagnosisPage from './pages/approach/DiagnosisPage'
+import ObjectionsPage from './pages/approach/ObjectionsPage'
+import ValuesPage from './pages/approach/ValuesPage'
+import HistoryPage from './pages/approach/HistoryPage'
+import ApproachSettingsPage from './pages/approach/ApproachSettingsPage'
 import { Loader2 } from 'lucide-react'
 
 // Componente para a rota de primeiro acesso /definir-senha
@@ -179,6 +191,26 @@ const App = () => (
             <Route path="/oportunidades" element={<Opportunities />} />
             <Route path="/comissionamento" element={<Commission />} />
             <Route path="/formulario" element={<FormManager />} />
+
+            {/* Rotas do Guia de Abordagem Comercial */}
+            <Route path="/abordagem" element={<ApproachFlow />} />
+            <Route path="/abordagem/telefone" element={<PhoneApproachPage />} />
+            <Route path="/abordagem/presencial" element={<InPersonApproachPage />} />
+            <Route path="/abordagem/whatsapp" element={<WhatsAppApproachPage />} />
+            <Route path="/abordagem/pitch" element={<PitchPage />} />
+            <Route path="/abordagem/diagnostico" element={<DiagnosisPage />} />
+            <Route path="/abordagem/objecoes" element={<ObjectionsPage />} />
+            <Route path="/abordagem/valores" element={<ValuesPage />} />
+            <Route path="/abordagem/historico" element={<HistoryPage />} />
+            <Route
+              path="/abordagem/configuracoes"
+              element={
+                <AdminRoute>
+                  <ApproachSettingsPage />
+                </AdminRoute>
+              }
+            />
+
             <Route
               path="/metricas"
               element={
