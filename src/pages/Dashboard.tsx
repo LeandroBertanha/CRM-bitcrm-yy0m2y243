@@ -11,6 +11,14 @@ import {
   formatDateBR,
   getReturnAlertInfo,
 } from '@/types/crm'
+import {
+  ReturnPeriodPreset,
+  ReturnPeriodFilterState,
+  formatDateToLocalYMD,
+  getPresetDateRange,
+  filterScheduledReturns,
+  groupReturnsByDay,
+} from '@/lib/returnPeriodFilter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +61,8 @@ import {
   Edit2,
   Trash2,
   XCircle,
+  Calendar,
+  Filter,
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -286,18 +296,45 @@ export default function Dashboard() {
     return myOpps
   }, [isAdmin, opportunities, myOpps])
 
-  // Retornos atrasados: abertos (Novo, Qualificado, Agendado, Proposta) e status === 'overdue'
-  const overdueReturns = useMemo(() => {
-    return oppsForAlerts
-      .filter((opp) => {
-        if (!opp.return_at) return false
-        const info = getReturnAlertInfo(opp.return_at, opp.stage)
-        return info.status === 'overdue'
-      })
-      .sort((a, b) => new Date(a.return_at!).getTime() - new Date(b.return_at!).getTime())
-  }, [oppsForAlerts])
+  // Estado do filtro de período para Retornos Agendados (Padrão: Hoje)
+  const [returnPeriodFilter, setReturnPeriodFilter] = useState<ReturnPeriodFilterState>(() => {
+    const todayStr = formatDateToLocalYMD(new Date())
+    return {
+      preset: 'today',
+      startDate: todayStr,
+      endDate: todayStr,
+    }
+  })
 
-  // Retornos de hoje: abertos e status === 'today'
+  // Manipulador de troca de presets de período
+  const handleSelectPeriodPreset = (preset: ReturnPeriodPreset) => {
+    if (preset === 'custom') {
+      setReturnPeriodFilter((prev) => ({
+        ...prev,
+        preset: 'custom',
+      }))
+      return
+    }
+
+    const { startDate, endDate } = getPresetDateRange(preset)
+    setReturnPeriodFilter({
+      preset,
+      startDate,
+      endDate,
+    })
+  }
+
+  // Filtragem dos retornos agendados (Atrasados + Retornos do Período)
+  const { overdue: overdueReturns, periodReturns } = useMemo(() => {
+    return filterScheduledReturns(oppsForAlerts, returnPeriodFilter)
+  }, [oppsForAlerts, returnPeriodFilter])
+
+  // Agrupamento dos retornos do período por dia
+  const groupedPeriodReturns = useMemo(() => {
+    return groupReturnsByDay(periodReturns)
+  }, [periodReturns])
+
+  // Retornos estritamente de hoje (para manter o badge de topo e aviso do painel inalterados)
   const todayReturns = useMemo(() => {
     return oppsForAlerts
       .filter((opp) => {
@@ -561,9 +598,10 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Seção Exclusiva: Alerta de Retornos (Retornos de Hoje & Atrasados) */}
-      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 shadow-xl">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#262A33]">
+      {/* Seção Exclusiva: Alerta de Retornos (Retornos de Hoje & Atrasados + Consulta por Período) */}
+      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 shadow-xl space-y-4">
+        {/* Cabeçalho da Seção */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#262A33]">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               <Clock className="w-4 h-4" />
@@ -573,7 +611,7 @@ export default function Dashboard() {
                 <span>Retornos Agendados (Follow-ups & Abordagens)</span>
                 {totalActionableAlerts > 0 && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
-                    {totalActionableAlerts} pendente{totalActionableAlerts > 1 ? 's' : ''}
+                    {totalActionableAlerts} hoje/atrasado{totalActionableAlerts > 1 ? 's' : ''}
                   </span>
                 )}
               </h2>
@@ -602,156 +640,366 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {totalActionableAlerts === 0 ? (
-          <div className="py-8 text-center flex flex-col items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-[#181B24] border border-[#262A33] flex items-center justify-center text-emerald-400 mb-3">
-              <CalendarCheck className="w-6 h-6" />
-            </div>
-            <p className="text-sm text-gray-200 font-semibold">Nenhum retorno agendado para hoje</p>
-            <p className="text-xs text-gray-500 max-w-sm mt-1">
-              Todos os seus retornos estão em dia. Para agendar um novo retorno com horário, abra
-              uma oportunidade e clique em &quot;Editar&quot;.
-            </p>
+        {/* Barra de Controle de Período */}
+        <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            <span className="text-xs font-semibold text-gray-400 flex items-center gap-1 shrink-0 mr-1">
+              <Filter className="w-3.5 h-3.5 text-indigo-400" />
+              Período:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => handleSelectPeriodPreset('today')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                returnPeriodFilter.preset === 'today'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30'
+                  : 'bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] border border-[#262A33]'
+              }`}
+            >
+              Hoje
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectPeriodPreset('this_week')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                returnPeriodFilter.preset === 'this_week'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30'
+                  : 'bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] border border-[#262A33]'
+              }`}
+            >
+              Esta semana
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectPeriodPreset('next_7_days')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                returnPeriodFilter.preset === 'next_7_days'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30'
+                  : 'bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] border border-[#262A33]'
+              }`}
+            >
+              Próximos 7 dias
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectPeriodPreset('next_30_days')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                returnPeriodFilter.preset === 'next_30_days'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30'
+                  : 'bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] border border-[#262A33]'
+              }`}
+            >
+              Próximos 30 dias
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectPeriodPreset('custom')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 ${
+                returnPeriodFilter.preset === 'custom'
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm shadow-indigo-600/30'
+                  : 'bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] border border-[#262A33]'
+              }`}
+            >
+              Personalizado
+            </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Bloco 1: Retornos Atrasados */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-300">
-                    Retornos Atrasados
-                  </span>
-                </div>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-300 border border-rose-800/50">
-                  {overdueReturns.length}
+
+          {/* Seletores de Data (De / Até) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">De:</span>
+              <Input
+                type="date"
+                value={returnPeriodFilter.startDate}
+                onChange={(e) =>
+                  setReturnPeriodFilter((prev) => ({
+                    ...prev,
+                    preset: 'custom',
+                    startDate: e.target.value,
+                  }))
+                }
+                className="bg-[#171A24] border-[#262A33] text-white text-xs rounded-lg h-8 w-32 px-2"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Até:</span>
+              <Input
+                type="date"
+                value={returnPeriodFilter.endDate}
+                onChange={(e) =>
+                  setReturnPeriodFilter((prev) => ({
+                    ...prev,
+                    preset: 'custom',
+                    endDate: e.target.value,
+                  }))
+                }
+                className="bg-[#171A24] border-[#262A33] text-white text-xs rounded-lg h-8 w-32 px-2"
+              />
+            </div>
+            {returnPeriodFilter.preset !== 'today' && (
+              <button
+                type="button"
+                onClick={() => handleSelectPeriodPreset('today')}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium ml-1"
+                title="Voltar para a visão padrão de hoje"
+              >
+                Voltar p/ Hoje
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Conteúdo das Colunas de Retornos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* Bloco 1: Retornos Atrasados (sempre visível independente do período selecionado) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-300">
+                  Retornos Atrasados
                 </span>
               </div>
-
-              {overdueReturns.length === 0 ? (
-                <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
-                  Nenhum retorno atrasado. Parabéns!
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {overdueReturns.map((opp) => {
-                    const alert = getReturnAlertInfo(opp.return_at, opp.stage)
-                    const stageStyle = STAGE_CONFIG[opp.stage]
-                    return (
-                      <div
-                        key={opp.id}
-                        onClick={() => handleOpenEdit(opp)}
-                        className="p-3 rounded-xl bg-[#0E1017] border border-rose-800/40 hover:border-rose-500/80 hover:bg-[#191015] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
-                        title="Clique para editar e reagendar este retorno"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="font-bold text-sm text-white group-hover:text-rose-200 transition-colors block truncate">
-                              {opp.company}
-                            </span>
-                            {opp.contact_name && (
-                              <span className="text-xs text-gray-400 block truncate">
-                                Contato: {opp.contact_name}{' '}
-                                {opp.contact_phone ? `(${opp.contact_phone})` : ''}
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
-                            {stageStyle.label}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
-                          <div className="flex items-center gap-1.5 text-rose-300 font-semibold">
-                            <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                            <span>Atrasado desde {alert.formattedDate}</span>
-                          </div>
-                          <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
-                            <Edit2 className="w-3 h-3" />
-                            Editar
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-300 border border-rose-800/50">
+                {overdueReturns.length}
+              </span>
             </div>
 
-            {/* Bloco 2: Retornos de Hoje */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                    Retornos de Hoje
-                  </span>
-                </div>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-950/70 text-amber-300 border border-amber-800/50">
-                  {todayReturns.length}
-                </span>
+            {overdueReturns.length === 0 ? (
+              <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
+                Nenhum retorno atrasado. Parabéns!
               </div>
-
-              {todayReturns.length === 0 ? (
-                <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
-                  Nenhum outro retorno para hoje.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {todayReturns.map((opp) => {
-                    const alert = getReturnAlertInfo(opp.return_at, opp.stage)
-                    const stageStyle = STAGE_CONFIG[opp.stage]
-                    return (
-                      <div
-                        key={opp.id}
-                        onClick={() => handleOpenEdit(opp)}
-                        className="p-3 rounded-xl bg-[#0E1017] border border-amber-800/40 hover:border-amber-500/80 hover:bg-[#1a1610] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
-                        title="Clique para editar e registrar o retorno"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="font-bold text-sm text-white group-hover:text-amber-200 transition-colors block truncate">
-                              {opp.company}
-                            </span>
-                            {opp.contact_name && (
-                              <span className="text-xs text-gray-400 block truncate">
-                                Contato: {opp.contact_name}{' '}
-                                {opp.contact_phone ? `(${opp.contact_phone})` : ''}
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
-                            {stageStyle.label}
+            ) : (
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+                {overdueReturns.map((opp) => {
+                  const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                  const stageStyle = STAGE_CONFIG[opp.stage]
+                  return (
+                    <div
+                      key={opp.id}
+                      onClick={() => handleOpenEdit(opp)}
+                      className="p-3 rounded-xl bg-[#0E1017] border border-rose-800/40 hover:border-rose-500/80 hover:bg-[#191015] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
+                      title="Clique para editar e reagendar este retorno"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="font-bold text-sm text-white group-hover:text-rose-200 transition-colors block truncate">
+                            {opp.company}
                           </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
-                          <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
-                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span>
-                              Hoje às {alert.formattedDate.split(' ')[1] || alert.formattedDate}
+                          {opp.contact_name && (
+                            <span className="text-xs text-gray-400 block truncate">
+                              Contato: {opp.contact_name}{' '}
+                              {opp.contact_phone ? `(${opp.contact_phone})` : ''}
                             </span>
-                          </div>
-                          <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
-                            <Edit2 className="w-3 h-3" />
-                            Abrir
-                          </span>
+                          )}
                         </div>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                          {stageStyle.label}
+                        </span>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
+                        <div className="flex items-center gap-1.5 text-rose-300 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <span>Atrasado desde {alert.formattedDate}</span>
+                        </div>
+                        <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
+                          <Edit2 className="w-3 h-3" />
+                          Editar
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Bloco 2: Retornos de Hoje OU Retornos do Período */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#262A33]/60">
+              <div className="flex items-center gap-2">
+                {returnPeriodFilter.preset === 'today' ? (
+                  <>
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                      Retornos de Hoje
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
+                      Retornos do Período
+                      {returnPeriodFilter.startDate && returnPeriodFilter.endDate && (
+                        <span className="normal-case font-normal text-gray-400 text-[11px] ml-1.5">
+                          ({formatDateBR(returnPeriodFilter.startDate)} a{' '}
+                          {formatDateBR(returnPeriodFilter.endDate)})
+                        </span>
+                      )}
+                    </span>
+                  </>
+                )}
+              </div>
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  returnPeriodFilter.preset === 'today'
+                    ? 'bg-amber-950/70 text-amber-300 border-amber-800/50'
+                    : 'bg-indigo-950/70 text-indigo-300 border-indigo-800/50'
+                }`}
+              >
+                {periodReturns.length}
+              </span>
+            </div>
+
+            {periodReturns.length === 0 ? (
+              <div className="p-4 text-center rounded-xl bg-[#0E1017] border border-[#262A33]/60 text-xs text-gray-500">
+                {returnPeriodFilter.preset === 'today'
+                  ? 'Nenhum outro retorno agendado para hoje.'
+                  : 'Nenhum retorno agendado para o período selecionado.'}
+              </div>
+            ) : returnPeriodFilter.preset === 'today' ? (
+              /* Visual original idêntico quando preset === 'today' */
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+                {periodReturns.map((opp) => {
+                  const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                  const stageStyle = STAGE_CONFIG[opp.stage]
+                  return (
+                    <div
+                      key={opp.id}
+                      onClick={() => handleOpenEdit(opp)}
+                      className="p-3 rounded-xl bg-[#0E1017] border border-amber-800/40 hover:border-amber-500/80 hover:bg-[#1a1610] transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm"
+                      title="Clique para editar e registrar o retorno"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="font-bold text-sm text-white group-hover:text-amber-200 transition-colors block truncate">
+                            {opp.company}
+                          </span>
+                          {opp.contact_name && (
+                            <span className="text-xs text-gray-400 block truncate">
+                              Contato: {opp.contact_name}{' '}
+                              {opp.contact_phone ? `(${opp.contact_phone})` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                          {stageStyle.label}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
+                        <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>
+                            Hoje às {alert.formattedDate.split(' ')[1] || alert.formattedDate}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
+                          <Edit2 className="w-3 h-3" />
+                          Abrir
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Visual agrupado por dia para períodos mais amplos */
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
+                {groupedPeriodReturns.map((group) => (
+                  <div key={group.dateKey} className="space-y-2">
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3 text-indigo-400" />
+                        {group.displayTitle}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-950/60 text-indigo-400 border border-indigo-800/40">
+                        {group.items.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {group.items.map((opp) => {
+                        const alert = getReturnAlertInfo(opp.return_at, opp.stage)
+                        const stageStyle = STAGE_CONFIG[opp.stage]
+                        const isOppToday = alert.status === 'today'
+                        return (
+                          <div
+                            key={opp.id}
+                            onClick={() => handleOpenEdit(opp)}
+                            className={`p-3 rounded-xl bg-[#0E1017] border ${
+                              isOppToday
+                                ? 'border-amber-800/40 hover:border-amber-500/80 hover:bg-[#1a1610]'
+                                : 'border-indigo-800/40 hover:border-indigo-500/80 hover:bg-[#131622]'
+                            } transition-all cursor-pointer group flex flex-col justify-between gap-2 shadow-sm`}
+                            title="Clique para editar e registrar o retorno"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <span
+                                  className={`font-bold text-sm text-white ${
+                                    isOppToday
+                                      ? 'group-hover:text-amber-200'
+                                      : 'group-hover:text-indigo-200'
+                                  } transition-colors block truncate`}
+                                >
+                                  {opp.company}
+                                </span>
+                                {opp.contact_name && (
+                                  <span className="text-xs text-gray-400 block truncate">
+                                    Contato: {opp.contact_name}{' '}
+                                    {opp.contact_phone ? `(${opp.contact_phone})` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${stageStyle.bg} ${stageStyle.color} ${stageStyle.border}`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${stageStyle.dot}`} />
+                                {stageStyle.label}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262A33]/60">
+                              <div
+                                className={`flex items-center gap-1.5 font-semibold ${
+                                  isOppToday ? 'text-amber-300' : 'text-indigo-300'
+                                }`}
+                              >
+                                <Clock
+                                  className={`w-3.5 h-3.5 shrink-0 ${
+                                    isOppToday ? 'text-amber-400' : 'text-indigo-400'
+                                  }`}
+                                />
+                                <span>{alert.formattedDate}</span>
+                              </div>
+                              <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors underline flex items-center gap-1">
+                                <Edit2 className="w-3 h-3" />
+                                Abrir
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Seções em Duas Colunas: Oportunidades Recentes e Leads do Formulário */}
