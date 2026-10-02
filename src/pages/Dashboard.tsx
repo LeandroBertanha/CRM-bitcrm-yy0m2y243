@@ -449,7 +449,7 @@ export default function Dashboard() {
     {
       title: 'Minhas Oportunidades',
       value: totalOppsCount.toString(),
-      fullValue: `${totalOppsCount} oportunidades`,
+      fullValue: `${totalOppsCount} oportunidades no total`,
       description: 'Total em carteira',
       icon: Briefcase,
       color: 'from-blue-500/20 to-indigo-500/10',
@@ -486,7 +486,7 @@ export default function Dashboard() {
       title: 'Ganhas',
       value: wonCount.toString(),
       fullValue: `${wonCount} negócios fechados`,
-      description: 'Negócios fechados',
+      description: 'Vendas fechadas',
       icon: Award,
       color: 'from-emerald-500/20 to-teal-500/10',
       borderColor: 'border-emerald-500/30',
@@ -508,7 +508,7 @@ export default function Dashboard() {
       title: 'Valor Perdido',
       value: totalLostValue >= 1000 ? formatCompactBRL(totalLostValue) : formatBRL(totalLostValue),
       fullValue: formatBRL(totalLostValue),
-      description: `${lostCount} oportunidade${lostCount === 1 ? '' : 's'} perdida${lostCount === 1 ? '' : 's'}`,
+      description: `${lostCount} ${lostCount === 1 ? 'perdida' : 'perdidas'} no funil`,
       icon: DollarSign,
       color: 'from-rose-500/20 to-red-500/10',
       borderColor: 'border-rose-500/30',
@@ -643,49 +643,55 @@ export default function Dashboard() {
       )}
 
       {/* Grid de Cartões de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-3.5">
         {cardsData.map((card, idx) => {
           const Icon = card.icon
           return (
             <div
               key={card.title}
               title={card.fullValue ? `${card.title}: ${card.fullValue}` : card.title}
-              className={`p-4 sm:p-5 rounded-2xl bg-[#12141A] border ${card.borderColor} shadow-xl relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between`}
+              className={`p-3.5 sm:p-4 rounded-2xl bg-[#12141A] border ${card.borderColor} shadow-xl relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-h-[148px]`}
               style={{ animationDelay: `${idx * 80}ms` }}
             >
               <div
-                className={`absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl ${card.color} rounded-bl-full pointer-events-none opacity-50 group-hover:opacity-80 transition-opacity`}
+                className={`absolute top-0 right-0 w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-bl ${card.color} rounded-bl-full pointer-events-none opacity-50 group-hover:opacity-80 transition-opacity`}
               />
+
+              {/* Topo do card: título com quebra apenas entre palavras e ícone compacto */}
               <div className="relative z-10 flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <span
-                    className="text-[11px] sm:text-xs font-semibold text-gray-400 tracking-wider uppercase block leading-snug break-words"
+                    className="text-[11px] font-semibold text-gray-400 tracking-wider uppercase block leading-snug break-normal [word-break:keep-all] [overflow-wrap:normal]"
                     title={card.title}
                   >
                     {card.title}
                   </span>
-                  <div
-                    className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-2 tabular-nums truncate cursor-default"
-                    title={`Valor completo: ${card.fullValue}`}
-                  >
-                    {loading ? (
-                      <div className="h-8 w-20 bg-gray-800 rounded animate-pulse" />
-                    ) : (
-                      card.value
-                    )}
-                  </div>
-                  <p
-                    className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1"
-                    title={card.description}
-                  >
-                    {card.description}
-                  </p>
                 </div>
                 <div
-                  className={`p-2.5 sm:p-3 rounded-xl bg-[#171A24] border border-[#262A33] ${card.iconColor} shadow-inner shrink-0`}
+                  className={`p-2 sm:p-2.5 rounded-xl bg-[#171A24] border border-[#262A33] ${card.iconColor} shadow-inner shrink-0 self-start`}
                 >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Icon className="w-4 h-4" />
                 </div>
+              </div>
+
+              {/* Base do card: valor em destaque nunca truncado e subtítulo sem truncamento */}
+              <div className="relative z-10 mt-2.5">
+                <div
+                  className="text-lg sm:text-xl font-bold text-white tracking-tight tabular-nums whitespace-normal break-words cursor-default"
+                  title={`Valor completo: ${card.fullValue}`}
+                >
+                  {loading ? (
+                    <div className="h-7 w-20 bg-gray-800 rounded animate-pulse" />
+                  ) : (
+                    card.value
+                  )}
+                </div>
+                <p
+                  className="text-[11px] text-gray-400 mt-1 leading-tight break-words [word-break:keep-all]"
+                  title={card.description}
+                >
+                  {card.description}
+                </p>
               </div>
             </div>
           )
