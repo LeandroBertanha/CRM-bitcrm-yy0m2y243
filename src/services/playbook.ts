@@ -105,9 +105,25 @@ export async function saveApproachSession(
   sessionId?: string,
 ): Promise<ApproachSession> {
   if (sessionId) {
-    return pb.collection('approach_sessions').update<ApproachSession>(sessionId, sessionData)
+    return pb.collection('approach_sessions').update<ApproachSession>(sessionId, sessionData, {
+      expand: 'seller,opportunity',
+    })
   }
-  return pb.collection('approach_sessions').create<ApproachSession>(sessionData)
+  return pb.collection('approach_sessions').create<ApproachSession>(sessionData, {
+    expand: 'seller,opportunity',
+  })
+}
+
+/**
+ * Atualiza campos de uma sessão de abordagem existente
+ */
+export async function updateApproachSession(
+  sessionId: string,
+  sessionData: Partial<ApproachSession>,
+): Promise<ApproachSession> {
+  return pb.collection('approach_sessions').update<ApproachSession>(sessionId, sessionData, {
+    expand: 'seller,opportunity',
+  })
 }
 
 /**

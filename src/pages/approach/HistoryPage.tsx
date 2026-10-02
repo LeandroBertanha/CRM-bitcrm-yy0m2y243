@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   History,
@@ -15,11 +15,18 @@ import {
   Loader2,
   Clock,
   CheckCircle,
+  Edit2,
+  Layers,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
-import { formatDateBR } from '@/types/crm'
-import type { ApproachSession, LeadTemperature } from '@/types/playbook'
-import { getApproachSessions } from '@/services/playbook'
+import useRealtime from '@/hooks/use-realtime'
+import pb from '@/lib/pocketbase/client'
+import { useToast } from '@/hooks/use-toast'
+import { formatDateBR, type Opportunity } from '@/types/crm'
+import type { ApproachSession, LeadTemperature, ApproachStatus } from '@/types/playbook'
+import { getApproachSessions, updateApproachSession } from '@/services/playbook'
+import { syncApproachSessionWithOpportunity } from '@/services/approach-sync'
+import { EditApproachSessionModal } from '@/components/approach/EditApproachSessionModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -32,29 +39,106 @@ import {
 
 export default function HistoryPage() {
   const { user, isAdmin } = useAuth()
+  const { toast } = useToast()
   const [sessions, setSessions] = useState<ApproachSession[]>([])
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedSession, setSelectedSession] = useState<ApproachSession | null>(null)
+  const [editingSession, setEditingSession] = useState<ApproachSession | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      if (!user) return
-      try {
-        setLoading(true)
-        const data = await getApproachSessions({
+  const loadData = useCallback(async () => {
+    if (!user) return
+    try {
+      const [sessionsData, oppsData] = await Promise.all([
+        getApproachSessions({
           sellerId: user.id,
           isAdmin,
-        })
-        setSessions(data)
-      } catch (err) {
-        console.error('Erro ao carregar histórico de sessões:', err)
-      } finally {
-        setLoading(false)
-      }
+        }),
+        pb.collection('opportunities').getFullList<Opportunity>({
+          sort: '-created',
+          fields: 'id,company,contact_name,contact_phone,city,stage,seller',
+        }),
+      ])
+      setSessions(sessionsData)
+      setOpportunities(oppsData)
+    } catch (err) {
+      console.error('Erro ao carregar histórico de sessões:', err)
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [user, isAdmin])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Inscrição em tempo real para approach_sessions e opportunities
+  useRealtime<ApproachSession>('approach_sessions', () => {
+    loadData()
+  })
+  useRealtime<Opportunity>('opportunities', () => {
+    loadData()
+  })
+
+  // Salvar edição da sessão e sincronizar com oportunidade
+  const handleSaveSessionEdit = async (data: {
+    temperature?: LeadTemperature
+    temperature_reason?: string
+    status: ApproachStatus
+    next_action?: string
+    next_contact_at?: string | null
+    notes?: string
+    opportunity?: string | null
+  }) => {
+    if (!editingSession || !user) return
+
+    try {
+      // 1. Atualizar a sessão no banco
+      const updated = await updateApproachSession(editingSession.id, {
+        temperature: data.temperature,
+        temperature_reason: data.temperature_reason,
+        status: data.status,
+        next_action: data.next_action,
+        next_contact_at: data.next_contact_at,
+        notes: data.notes,
+        opportunity: data.opportunity || undefined,
+      })
+
+      // 2. Sincronizar com a oportunidade vinculada (se houver)
+      if (data.opportunity) {
+        await syncApproachSessionWithOpportunity({
+          opportunityId: data.opportunity,
+          status: data.status,
+          nextContactAt: data.next_contact_at,
+          notes: data.notes,
+          authorId: user.id,
+        })
+      }
+
+      toast({
+        title: 'Sessão atualizada com sucesso!',
+        description: data.opportunity
+          ? 'Oportunidade e histórico sincronizados no CRM.'
+          : 'Alterações salvas com sucesso.',
+      })
+
+      // Se o modal de detalhes estava aberto para essa sessão, atualizar detalhes
+      if (selectedSession && selectedSession.id === editingSession.id) {
+        setSelectedSession(updated)
+      }
+
+      await loadData()
+    } catch (err) {
+      console.error('Erro ao salvar edição da abordagem:', err)
+      toast({
+        title: 'Erro ao atualizar abordagem',
+        description: 'Não foi possível salvar as alterações.',
+        variant: 'destructive',
+      })
+      throw err
+    }
+  }
 
   const filtered = sessions.filter((s) => {
     if (!searchTerm) return true
@@ -187,12 +271,25 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-[#262A33] shrink-0">
+              <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-2 sm:pt-0 border-[#262A33] shrink-0 gap-2">
                 <span className="text-xs text-gray-400">{formatDateBR(s.created)}</span>
-                <span className="text-[11px] text-indigo-400 group-hover:text-white flex items-center gap-1 mt-1 font-medium">
-                  <Eye className="w-3.5 h-3.5" />
-                  Ver Detalhes
-                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingSession(s)
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                    Editar
+                  </button>
+                  <span className="text-[11px] text-gray-400 group-hover:text-white flex items-center gap-1 font-medium">
+                    <Eye className="w-3.5 h-3.5" />
+                    Detalhes
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -205,10 +302,24 @@ export default function HistoryPage() {
           {selectedSession && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-base font-bold text-white flex items-center justify-between">
-                  <span>{selectedSession.company_name || 'Abordagem Comercial'}</span>
-                  {getTempBadge(selectedSession.temperature)}
-                </DialogTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
+                    <span>{selectedSession.company_name || 'Abordagem Comercial'}</span>
+                    {getTempBadge(selectedSession.temperature)}
+                  </DialogTitle>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setEditingSession(selectedSession)
+                      setSelectedSession(null)
+                    }}
+                    className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center gap-1.5"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Editar
+                  </Button>
+                </div>
                 <DialogDescription className="text-xs text-gray-400">
                   Realizada em {formatDateBR(selectedSession.created)} via {selectedSession.channel}
                 </DialogDescription>
@@ -279,6 +390,29 @@ export default function HistoryPage() {
                   </div>
                 )}
 
+                {/* Oportunidade Vinculada */}
+                {selectedSession.opportunity && (
+                  <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-indigo-400" />
+                      <div>
+                        <span className="text-[10px] text-gray-500 block">
+                          Oportunidade Vinculada
+                        </span>
+                        <span className="font-semibold text-gray-200">
+                          {selectedSession.expand?.opportunity?.company ||
+                            'Oportunidade no Pipeline'}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedSession.expand?.opportunity?.stage && (
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-950/40 text-indigo-300 border border-indigo-800/40">
+                        {selectedSession.expand.opportunity.stage}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Observações da Sessão */}
                 {selectedSession.notes && (
                   <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-1">
@@ -293,6 +427,17 @@ export default function HistoryPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Edição de Sessão */}
+      <EditApproachSessionModal
+        open={Boolean(editingSession)}
+        onOpenChange={(open) => {
+          if (!open) setEditingSession(null)
+        }}
+        session={editingSession}
+        opportunities={opportunities}
+        onSave={handleSaveSessionEdit}
+      />
     </div>
   )
 }

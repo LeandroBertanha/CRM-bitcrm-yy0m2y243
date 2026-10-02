@@ -16,6 +16,10 @@ import type {
   ApproachStatus,
 } from '@/types/playbook'
 import { getPlaybookBundle, saveApproachSession } from '@/services/playbook'
+import {
+  mapApproachStatusToOpportunityStage,
+  syncApproachSessionWithOpportunity,
+} from '@/services/approach-sync'
 import { runApproachEngine, interpolateText } from '@/services/approach-engine'
 import { ScriptCard } from '@/components/approach/ScriptCard'
 import { QuestionCard } from '@/components/approach/QuestionCard'
@@ -304,19 +308,21 @@ export default function ApproachFlow() {
     try {
       let finalOppId = selectedOppId || undefined
 
+      let nextContactAtIso: string | null = null
+      if (data.returnDate) {
+        const [y, m, d] = data.returnDate.split('-').map(Number)
+        const [h, min] = (data.returnTime || '10:00').split(':').map(Number)
+        const dt = new Date(y, m - 1, d, h || 10, min || 0)
+        nextContactAtIso = dt.toISOString()
+      }
+
       // Se marcou para criar nova oportunidade e não tem opp vinculada
       if (data.createOppIfMissing && !finalOppId && (customCompanyName || 'Lead de Abordagem')) {
-        let returnAtIso: string | null = null
-        if (data.returnDate) {
-          const [y, m, d] = data.returnDate.split('-').map(Number)
-          const [h, min] = (data.returnTime || '10:00').split(':').map(Number)
-          const dt = new Date(y, m - 1, d, h || 10, min || 0)
-          returnAtIso = dt.toISOString()
-        }
+        const initialStage = mapApproachStatusToOpportunityStage(data.status) || 'Novo'
 
         const newOpp = await pb.collection('opportunities').create<Opportunity>({
           company: customCompanyName.trim() || 'Novo Lead Abordagem',
-          stage: 'Novo',
+          stage: initialStage,
           source: 'Prospecção',
           value: 500,
           seller: user.id,
@@ -324,34 +330,18 @@ export default function ApproachFlow() {
           contact_phone: customPhone.trim(),
           city: customCity.trim(),
           message: data.notes || 'Criado automaticamente pelo Guia de Abordagem Comercial.',
-          return_at: returnAtIso,
+          return_at: nextContactAtIso,
         })
         finalOppId = newOpp.id
-      } else if (finalOppId && data.returnDate) {
-        // Se já tinha opp e agendou retorno, atualiza return_at na opp existente
-        const [y, m, d] = data.returnDate.split('-').map(Number)
-        const [h, min] = (data.returnTime || '10:00').split(':').map(Number)
-        const dt = new Date(y, m - 1, d, h || 10, min || 0)
-        await pb.collection('opportunities').update(finalOppId, {
-          return_at: dt.toISOString(),
+      } else if (finalOppId) {
+        // Se já tem oportunidade vinculada, sincronizar estágio e retorno via serviço centralizado
+        await syncApproachSessionWithOpportunity({
+          opportunityId: finalOppId,
+          status: data.status,
+          nextContactAt: nextContactAtIso,
+          notes: data.notes,
+          authorId: user.id,
         })
-
-        // E cria uma nota de follow-up na timeline
-        await pb.collection('opportunity_notes').create({
-          opportunity: finalOppId,
-          author: user.id,
-          type: 'ligacao',
-          text: `Retorno agendado via Guia de Abordagem para ${data.returnDate} às ${data.returnTime}. Observações: ${data.notes || 'Sem observações'}`,
-          date: new Date().toISOString(),
-        })
-      }
-
-      let nextContactAtIso: string | null = null
-      if (data.returnDate) {
-        const [y, m, d] = data.returnDate.split('-').map(Number)
-        const [h, min] = (data.returnTime || '10:00').split(':').map(Number)
-        const dt = new Date(y, m - 1, d, h || 10, min || 0)
-        nextContactAtIso = dt.toISOString()
       }
 
       await saveApproachSession({
@@ -383,7 +373,7 @@ export default function ApproachFlow() {
 
       toast({
         title: 'Abordagem Registrada!',
-        description: 'Sessão concluída e salva com sucesso no histórico.',
+        description: 'Sessão concluída e oportunidade sincronizada no CRM.',
       })
 
       navigate('/abordagem/historico')
