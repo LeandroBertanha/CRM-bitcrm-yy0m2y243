@@ -88,6 +88,12 @@
     @apply border-border;
   }
 
+  /* Dark scrollbar global styling */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2c38 #0a0b0e;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
@@ -104,6 +110,37 @@
       radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.05) 0px, transparent 50%);
     background-attachment: fixed;
     min-height: 100vh;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2c38 #0a0b0e;
+  }
+
+  /* Global WebKit Scrollbars (Chrome, Edge, Safari, Opera) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2c38 transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2a2c38;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3b3e4f;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   h1,
@@ -197,5 +234,30 @@
 
   .glow-button:hover {
     box-shadow: 0 0 26px rgba(129, 140, 248, 0.5);
+  }
+
+  /* Utility custom-scrollbar for inner containers and Kanban columns */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2c38 transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(10, 11, 14, 0.3);
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #2a2c38;
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #434759;
   }
 }

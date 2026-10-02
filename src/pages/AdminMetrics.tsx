@@ -3,7 +3,15 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
-import { Opportunity, STAGES, STAGE_CONFIG, SOURCES, formatBRL, formatDateBR } from '@/types/crm'
+import {
+  Opportunity,
+  STAGES,
+  STAGE_CONFIG,
+  SOURCES,
+  formatBRL,
+  formatCompactBRL,
+  formatDateBR,
+} from '@/types/crm'
 import type { CommissionTier, CommissionSettings } from '@/types/commission'
 import { getCommissionTiers, getCommissionSettings } from '@/services/commission'
 import { CommissionClosingSection } from '@/components/CommissionClosingSection'
@@ -299,65 +307,82 @@ export default function AdminMetrics() {
     {
       title: 'Total de Oportunidades',
       value: totalOppsCount.toString(),
+      fullValue: `${totalOppsCount} oportunidades`,
       description: 'Carteira consolidada',
       icon: Briefcase,
       color: 'from-blue-500/20 to-indigo-500/10',
       borderColor: 'border-blue-500/30',
       iconColor: 'text-blue-400',
+      isCurrency: false,
     },
     {
       title: 'Em Andamento',
       value: inProgressOpps.length.toString(),
+      fullValue: `${inProgressOpps.length} negócios em andamento`,
       description: 'Estágios abertos (Novo, Qualificado, Agendado, Proposta)',
       icon: TrendingUp,
       color: 'from-amber-500/20 to-orange-500/10',
       borderColor: 'border-amber-500/30',
       iconColor: 'text-amber-400',
+      isCurrency: false,
     },
     {
       title: 'Negócios Ganhos',
       value: wonOpps.length.toString(),
+      fullValue: `${wonOpps.length} negócios ganhos (${winRate}% de conversão)`,
       description: `${winRate}% de taxa de conversão`,
       icon: Award,
       color: 'from-emerald-500/20 to-teal-500/10',
       borderColor: 'border-emerald-500/30',
       iconColor: 'text-emerald-400',
+      isCurrency: false,
     },
     {
       title: 'Perdidos',
       value: lostOpps.length.toString(),
+      fullValue: `${lostOpps.length} negócios perdidos`,
       description: 'Encerrados sem conversão',
       icon: AlertOctagon,
       color: 'from-rose-500/20 to-pink-500/10',
       borderColor: 'border-rose-500/30',
       iconColor: 'text-rose-400',
+      isCurrency: false,
     },
     {
       title: 'Valor Perdido',
-      value: formatBRL(totalLostValue),
+      value: totalLostValue >= 1000 ? formatCompactBRL(totalLostValue) : formatBRL(totalLostValue),
+      fullValue: formatBRL(totalLostValue),
       description: 'Oportunidades no estágio Perdido',
       icon: DollarSign,
       color: 'from-rose-500/20 to-orange-500/10',
       borderColor: 'border-rose-500/30',
       iconColor: 'text-rose-400',
+      isCurrency: true,
     },
     {
       title: 'Pipe Aberto',
-      value: formatBRL(totalPipelineValue),
+      value:
+        totalPipelineValue >= 1000
+          ? formatCompactBRL(totalPipelineValue)
+          : formatBRL(totalPipelineValue),
+      fullValue: formatBRL(totalPipelineValue),
       description: 'Soma dos estágios abertos no Kanban',
       icon: Layers,
       color: 'from-indigo-500/20 to-purple-500/10',
       borderColor: 'border-indigo-500/30',
       iconColor: 'text-indigo-400',
+      isCurrency: true,
     },
     {
       title: 'Valor Total Ganho',
-      value: formatBRL(totalWonValue),
+      value: totalWonValue >= 1000 ? formatCompactBRL(totalWonValue) : formatBRL(totalWonValue),
+      fullValue: formatBRL(totalWonValue),
       description: 'Receita confirmada pela equipe',
       icon: DollarSign,
       color: 'from-emerald-500/20 to-lime-500/10',
       borderColor: 'border-emerald-500/30',
       iconColor: 'text-emerald-400',
+      isCurrency: true,
     },
   ]
 
@@ -435,39 +460,49 @@ export default function AdminMetrics() {
       />
 
       {/* Grid de Cartões Resumo (pt-BR, tabular-nums) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3">
         {summaryCards.map((card, idx) => {
           const Icon = card.icon
           return (
             <div
               key={card.title}
-              className={`p-4 rounded-2xl bg-[#12141A] border ${card.borderColor} shadow-xl relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-200`}
+              title={card.fullValue ? `${card.title}: ${card.fullValue}` : card.title}
+              className={`p-3.5 sm:p-4 rounded-2xl bg-[#12141A] border ${card.borderColor} shadow-xl relative overflow-hidden group hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between`}
               style={{ animationDelay: `${idx * 60}ms` }}
             >
               <div
                 className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl ${card.color} rounded-bl-full pointer-events-none opacity-40 group-hover:opacity-75 transition-opacity`}
               />
-              <div className="relative z-10 flex flex-col justify-between h-full space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider line-clamp-1">
+              <div className="relative z-10 flex flex-col justify-between h-full space-y-2 min-w-0">
+                <div className="flex items-start justify-between gap-1.5 min-w-0">
+                  <span
+                    className="text-[10px] sm:text-[11px] font-semibold text-gray-400 uppercase tracking-wider line-clamp-2 leading-tight min-w-0 flex-1"
+                    title={card.title}
+                  >
                     {card.title}
                   </span>
                   <div
-                    className={`p-1.5 rounded-lg bg-[#171A24] border border-[#262A33] ${card.iconColor}`}
+                    className={`p-1.5 rounded-lg bg-[#171A24] border border-[#262A33] ${card.iconColor} shrink-0`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
+                <div className="min-w-0">
+                  <div
+                    className="text-lg sm:text-xl font-bold text-white tracking-tight tabular-nums truncate cursor-default"
+                    title={`Valor completo: ${card.fullValue}`}
+                  >
                     {loading ? (
                       <div className="h-7 w-20 bg-gray-800 rounded animate-pulse" />
                     ) : (
                       card.value
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
+                  <p
+                    className="text-[10px] sm:text-[11px] text-gray-500 mt-0.5 line-clamp-1"
+                    title={card.description}
+                  >
                     {card.description}
                   </p>
                 </div>
