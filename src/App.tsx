@@ -12,6 +12,7 @@ import ResetPassword from './pages/ResetPassword'
 import VerifyEmail from './pages/VerifyEmail'
 import ConfirmEmailChange from './pages/ConfirmEmailChange'
 import SetPassword from './pages/SetPassword'
+import Terms from './pages/Terms'
 
 import Dashboard from './pages/Dashboard'
 import Opportunities from './pages/Opportunities'
@@ -143,6 +144,9 @@ const App = () => (
         <Routes>
           {/* Rota Raiz */}
           <Route path="/" element={<Index />} />
+
+          {/* Rota Pública de Termos e Política de Privacidade */}
+          <Route path="/termos" element={<Terms />} />
 
           {/* Rota Protegida de Primeiro Acesso (Definir Nova Senha) */}
           <Route

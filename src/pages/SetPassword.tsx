@@ -5,6 +5,9 @@ import { BrandLogo } from '@/components/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { TermsModal } from '@/components/TermsModal'
+import { CURRENT_TERMS_VERSION } from '@/lib/terms-content'
 import { useToast } from '@/hooks/use-toast'
 import {
   Lock,
@@ -16,10 +19,13 @@ import {
   ShieldAlert,
   KeyRound,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react'
 
+const STORAGE_KEY_ACCEPTED_VERSION = 'bitcrm_terms_accepted_version'
+
 export default function SetPassword() {
-  const { user, setFirstPassword, signOut, tempLoginPassword } = useAuth()
+  const { user, setFirstPassword, signOut, tempLoginPassword, recordTermsConsent } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -29,6 +35,11 @@ export default function SetPassword() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(
+    user?.terms_accepted_version === CURRENT_TERMS_VERSION,
+  )
+  const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const [termsModalTab, setTermsModalTab] = useState<'termos' | 'privacidade'>('termos')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -75,6 +86,13 @@ export default function SetPassword() {
       return
     }
 
+    if (!acceptedTerms) {
+      setErrorMessage(
+        'Você deve ler e aceitar o Termo de Serviço e a Política de Privacidade para concluir seu primeiro acesso.',
+      )
+      return
+    }
+
     setLoading(true)
     try {
       const { error } = await setFirstPassword(
@@ -85,6 +103,20 @@ export default function SetPassword() {
       if (error) {
         setErrorMessage(error.message || 'Erro ao definir nova senha. Tente novamente.')
       } else {
+        // Registra consentimento no localStorage e banco
+        try {
+          localStorage.setItem(STORAGE_KEY_ACCEPTED_VERSION, CURRENT_TERMS_VERSION)
+          localStorage.setItem('bitcrm_terms_accepted_at', new Date().toISOString())
+        } catch {
+          /* ignore */
+        }
+
+        try {
+          await recordTermsConsent(CURRENT_TERMS_VERSION)
+        } catch {
+          /* ignore */
+        }
+
         toast({
           title: 'Senha definida com sucesso!',
           description: 'Seu primeiro acesso foi concluído com sucesso. Bem-vindo ao bitCRM!',
@@ -321,9 +353,54 @@ export default function SetPassword() {
               )}
             </div>
 
+            {/* Aceite dos Termos no Primeiro Acesso */}
+            <div className="pt-1">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33] hover:border-indigo-500/40 transition-colors">
+                <Checkbox
+                  id="accept-terms-first-access"
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(Boolean(checked))}
+                  className="mt-0.5 border-gray-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                />
+                <div className="text-xs leading-relaxed text-gray-300">
+                  <label
+                    htmlFor="accept-terms-first-access"
+                    className="cursor-pointer select-none text-gray-300 font-normal"
+                  >
+                    Li e concordo com o{' '}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTermsModalTab('termos')
+                      setTermsModalOpen(true)
+                    }}
+                    className="text-indigo-400 hover:text-indigo-300 underline font-medium focus:outline-none"
+                  >
+                    Termo de Serviço
+                  </button>{' '}
+                  e a{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTermsModalTab('privacidade')
+                      setTermsModalOpen(true)
+                    }}
+                    className="text-indigo-400 hover:text-indigo-300 underline font-medium focus:outline-none"
+                  >
+                    Política de Privacidade
+                  </button>
+                  <span className="text-[11px] text-gray-500 block mt-0.5 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400 inline" />
+                    Regras operacionais e LGPD da bit Consulting
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <Button
               type="submit"
-              disabled={loading || !isPasswordValid || !passwordsMatch}
+              disabled={loading || !isPasswordValid || !passwordsMatch || !acceptedTerms}
               className="w-full h-11 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/25 transition-all mt-2 disabled:opacity-50"
             >
               {loading ? (
@@ -351,6 +428,14 @@ export default function SetPassword() {
           </div>
         </div>
       </div>
+
+      <TermsModal
+        open={termsModalOpen}
+        onOpenChange={setTermsModalOpen}
+        initialTab={termsModalTab}
+        showAcceptButton={!acceptedTerms}
+        onAccept={() => setAcceptedTerms(true)}
+      />
     </div>
   )
 }

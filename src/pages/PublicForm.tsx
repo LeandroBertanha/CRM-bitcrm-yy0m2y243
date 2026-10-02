@@ -503,7 +503,13 @@ export default function PublicForm() {
 
               <div className="mt-5 pt-4 border-t border-[#262A33]/70 flex items-center justify-center gap-2 text-[11px] text-gray-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Seus dados são protegidos e tratados com sigilo profissional.</span>
+                <span>
+                  Seus dados são protegidos conforme a LGPD. Consulte nossa{' '}
+                  <Link to="/termos" target="_blank" className="text-indigo-400 hover:underline">
+                    Política de Privacidade
+                  </Link>
+                  .
+                </span>
               </div>
             </>
           )}
@@ -511,7 +517,7 @@ export default function PublicForm() {
       </main>
 
       {/* Rodapé Público */}
-      <footer className="max-w-xl w-full mx-auto text-center pt-6 text-[11px] text-gray-500 relative z-10">
+      <footer className="max-w-xl w-full mx-auto text-center pt-6 text-[11px] text-gray-500 relative z-10 space-y-1">
         <p>
           bit Consulting &bull; Consultoria Estratégica e Transformação de Dentro para Fora &bull;{' '}
           <a
@@ -522,6 +528,11 @@ export default function PublicForm() {
           >
             lbertanha.com
           </a>
+        </p>
+        <p className="text-[10px] text-gray-600">
+          <Link to="/termos" className="hover:text-indigo-400 transition-colors">
+            Termos de Serviço & Política de Privacidade
+          </Link>
         </p>
       </footer>
     </div>

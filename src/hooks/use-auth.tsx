@@ -8,6 +8,8 @@ export interface AuthUser extends RecordModel {
   avatar?: string
   role?: 'admin' | 'seller' | string
   mustChangePassword?: boolean
+  terms_accepted_version?: string
+  terms_accepted_at?: string
 }
 
 interface AuthContextType {
@@ -33,6 +35,7 @@ interface AuthContextType {
     passwordConfirm: string,
     oldPassword?: string,
   ) => Promise<{ error: Error | null; record?: AuthUser }>
+  recordTermsConsent: (version: string) => Promise<{ error: Error | null; record?: AuthUser }>
   tempLoginPassword: string | null
   setTempLoginPassword: (pass: string | null) => void
   refreshAuth: () => Promise<void>
@@ -168,6 +171,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(authUser)
       return { error: null, record: authUser }
     } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) }
+    }
+  }
+
+  // Registra o consentimento dos Termos e Política de Privacidade no banco para auditoria
+  const recordTermsConsent = async (version: string) => {
+    const activeUserId = pb.authStore.record?.id || user?.id
+    if (!activeUserId) {
+      return { error: new Error('Não autenticado') }
+    }
+
+    try {
+      const nowIso = new Date().toISOString()
+      const updated = await pb.collection('users').update(activeUserId, {
+        terms_accepted_version: version,
+        terms_accepted_at: nowIso,
+      })
+      const authUser = updated as unknown as AuthUser
+      setUser(authUser)
+      return { error: null, record: authUser }
+    } catch (err) {
+      console.warn('Não foi possível persistir aceite no usuário PocketBase:', err)
       return { error: err instanceof Error ? err : new Error(String(err)) }
     }
   }
@@ -379,6 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         changePassword,
         setFirstPassword,
+        recordTermsConsent,
         tempLoginPassword,
         setTempLoginPassword: updateTempLoginPassword,
         refreshAuth,
