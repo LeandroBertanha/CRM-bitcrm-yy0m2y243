@@ -9,6 +9,8 @@ export type OppTargetField =
   | 'city'
   | 'stage'
   | 'value'
+  | 'source'
+  | 'seller'
   | 'message'
   | 'website'
   | 'source_ref'
@@ -29,13 +31,15 @@ export const TARGET_FIELDS: FieldOption[] = [
   { key: 'contact_phone', label: 'Telefone / Celular / WhatsApp' },
   { key: 'contact_email', label: 'E-mail do Contato' },
   { key: 'city', label: 'Cidade / Região' },
-  { key: 'stage', label: 'Estágio / Status' },
-  { key: 'value', label: 'Valor da Proposta (R$)' },
-  { key: 'message', label: 'Mensagem / Observações / Pitch' },
-  { key: 'website', label: 'Site Próprio (irá nas observações)' },
-  { key: 'source_ref', label: 'Fonte / Origem (irá nas observações)' },
-  { key: 'last_contact', label: 'Último Contato (irá nas observações)' },
-  { key: 'next_contact', label: 'Próximo Retorno (irá nas observações)' },
+  { key: 'stage', label: 'Estágio do Funil' },
+  { key: 'value', label: 'Valor da Oportunidade (R$)' },
+  { key: 'source', label: 'Origem do Lead' },
+  { key: 'seller', label: 'Vendedor Responsável' },
+  { key: 'message', label: 'Mensagem / Observações' },
+  { key: 'website', label: 'Site Próprio (irá nas notas)' },
+  { key: 'source_ref', label: 'Fonte / Referência (irá nas notas)' },
+  { key: 'last_contact', label: 'Último Contato (irá nas notas)' },
+  { key: 'next_contact', label: 'Próximo Retorno (irá nas notas)' },
   { key: 'ignore', label: '— Ignorar Coluna —' },
 ]
 
@@ -56,11 +60,14 @@ export interface ProcessedLeadItem {
   stage?: Opportunity['stage']
   value?: number
   source?: Opportunity['source']
+  sellerName?: string
+  sellerId?: string
   notesList: string[]
   fullMessage: string
   isDuplicate: boolean
   duplicateReason?: string
   sourceFile: string
+  validationIssues?: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -241,8 +248,16 @@ export function normalizeSourceValue(sourceStr: string): Opportunity['source'] |
 
   if (norm.includes('whats') || norm.includes('zap') || norm.includes('wpp')) return 'WhatsApp'
   if (norm.includes('form') || norm.includes('public')) return 'Formulário Público'
-  if (norm.includes('indica') || norm.includes('referral')) return 'Indicação'
-  if (norm.includes('site') || norm.includes('web') || norm.includes('portal')) return 'Site'
+  if (norm.includes('indica') || norm.includes('referral') || norm.includes('indicacao'))
+    return 'Indicação'
+  if (
+    norm.includes('site') ||
+    norm.includes('web') ||
+    norm.includes('portal') ||
+    norm.includes('lp') ||
+    norm.includes('landing')
+  )
+    return 'Site'
   if (norm.includes('evento') || norm.includes('feira') || norm.includes('congresso'))
     return 'Evento'
   if (
@@ -254,6 +269,65 @@ export function normalizeSourceValue(sourceStr: string): Opportunity['source'] |
     return 'Prospecção'
   }
   if (norm.includes('outro') || norm.includes('other')) return 'Outro'
+
+  return null
+}
+
+/**
+ * Tenta mapear o nome/e-mail textual de um vendedor para a lista de usuários existentes no CRM.
+ * Faz matching sem acento, case-insensitive, por primeiro nome ou por substring.
+ */
+export function matchSellerByName(
+  rawSellerText: string,
+  sellersList: { id: string; name?: string; email: string }[],
+): string | null {
+  if (!rawSellerText || !sellersList || sellersList.length === 0) return null
+  const cleaned = rawSellerText
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+  if (!cleaned) return null
+
+  // 1. Coincidência exata com e-mail
+  const byEmail = sellersList.find((s) => s.email?.toLowerCase().trim() === cleaned)
+  if (byEmail) return byEmail.id
+
+  // 2. Coincidência com início de e-mail (ex: 'leandro.bertanha' ou 'leandro')
+  const byEmailPrefix = sellersList.find((s) => {
+    const prefix = s.email?.toLowerCase().split('@')[0]
+    return prefix === cleaned || prefix.includes(cleaned) || cleaned.includes(prefix)
+  })
+  if (byEmailPrefix) return byEmailPrefix.id
+
+  // 3. Coincidência exata de nome sem acento
+  const byExactName = sellersList.find((s) => {
+    const sName = (s.name || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+    return sName === cleaned
+  })
+  if (byExactName) return byExactName.id
+
+  // 4. Primeiro nome ou inclusão
+  const bySubstrName = sellersList.find((s) => {
+    const sName = (s.name || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+    if (!sName) return false
+    const sFirstName = sName.split(' ')[0]
+    const cleanedFirstName = cleaned.split(' ')[0]
+    return (
+      (sFirstName && sFirstName === cleanedFirstName) ||
+      sName.includes(cleaned) ||
+      cleaned.includes(sName)
+    )
+  })
+  if (bySubstrName) return bySubstrName.id
 
   return null
 }
@@ -530,18 +604,33 @@ export function matchHeaderByKeyword(header: string): OppTargetField | null {
     return 'website'
   }
 
+  // Vendedor / Responsável comercial
+  if (
+    norm.includes('vendedor') ||
+    norm.includes('consultor') ||
+    norm.includes('closer') ||
+    norm.includes('sdr') ||
+    norm.includes('atendente') ||
+    norm.includes('dono do lead') ||
+    norm.includes('proprietario') ||
+    norm.includes('owner') ||
+    norm.includes('seller')
+  ) {
+    return 'seller'
+  }
+
   // Fonte / Origem
   if (
-    norm.includes('fonte') ||
     norm.includes('origem') ||
     norm.includes('canal') ||
     norm.includes('source') ||
+    norm.includes('fonte') ||
     norm.includes('onde achou') ||
     norm.includes('validacao') ||
     norm.includes('como conheceu') ||
     norm.includes('captacao')
   ) {
-    return 'source_ref'
+    return 'source'
   }
 
   // Mensagem / Pitch / Anotações
@@ -631,7 +720,6 @@ export function matchHeaderByKeyword(header: string): OppTargetField | null {
     norm.includes('nome do contato') ||
     norm.includes('contato nome') ||
     norm.includes('pessoa de contato') ||
-    norm.includes('responsavel') ||
     norm.includes('socio') ||
     norm.includes('contact person') ||
     norm.includes('interlocutor')

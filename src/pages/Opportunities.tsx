@@ -754,17 +754,16 @@ export default function Opportunities() {
             Atualizar
           </Button>
 
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setImportModalOpen(true)}
-              className="border-indigo-500/40 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 hover:text-white rounded-xl h-9"
-            >
-              <UploadCloud className="w-4 h-4 mr-1.5 text-indigo-400" />
-              Importar
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportModalOpen(true)}
+            className="border-indigo-500/40 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 hover:text-white rounded-xl h-9 font-medium"
+            title="Importar planilha de oportunidades (.xlsx, .xls ou .csv)"
+          >
+            <UploadCloud className="w-4 h-4 mr-1.5 text-indigo-400" />
+            Importar Planilha
+          </Button>
 
           <Button
             onClick={handleOpenCreate}
