@@ -66,22 +66,26 @@ export async function syncApproachSessionWithOpportunity(params: {
   nextContactAt?: string | null
   notes?: string
   authorId?: string
+  manualStage?: Opportunity['stage']
 }): Promise<SyncOpportunityResult> {
-  const { opportunityId, status, nextContactAt, notes, authorId } = params
+  const { opportunityId, status, nextContactAt, notes, authorId, manualStage } = params
 
   if (!opportunityId) {
     return { updated: false, opportunityId: '' }
   }
 
-  const targetStage = mapApproachStatusToOpportunityStage(status)
+  // Regra de prevalência: manualStage informado prevalece sobre o cálculo automático via status
+  const targetStage: Opportunity['stage'] | null =
+    manualStage !== undefined ? manualStage : mapApproachStatusToOpportunityStage(status)
 
   try {
     const opp = await pb.collection('opportunities').getOne<Opportunity>(opportunityId)
 
     const updatePayload: Partial<Opportunity> = {}
     let shouldUpdate = false
+    const stageChanged = Boolean(targetStage && opp.stage !== targetStage)
 
-    if (targetStage && opp.stage !== targetStage) {
+    if (stageChanged && targetStage) {
       updatePayload.stage = targetStage
       shouldUpdate = true
     }
@@ -94,16 +98,20 @@ export async function syncApproachSessionWithOpportunity(params: {
     if (shouldUpdate) {
       await pb.collection('opportunities').update(opportunityId, updatePayload)
 
-      // Se moveu para Perdido ou Ganho ou agendou, registrar nota na timeline da oportunidade
-      if (authorId && (targetStage || notes)) {
+      // Ao atualizar o estágio da oportunidade, gravar nota em opportunity_notes
+      if (authorId && stageChanged && targetStage) {
         try {
           let noteText = ''
-          if (targetStage === 'Perdido') {
-            noteText = `Status atualizado para Perdido via Abordagem Comercial. ${notes ? `Motivo/Obs: ${notes}` : ''}`
-          } else if (targetStage === 'Ganho') {
-            noteText = `Oportunidade marcada como Ganho via Abordagem Comercial! ${notes ? `Obs: ${notes}` : ''}`
-          } else if (targetStage) {
-            noteText = `Estágio atualizado para ${targetStage} via Abordagem Comercial (${status}). ${notes ? `Obs: ${notes}` : ''}`
+          if (manualStage !== undefined) {
+            noteText = `Estágio alterado via Histórico de Abordagens: ${opp.stage} → ${targetStage}`
+            if (notes) {
+              noteText += ` (Obs: ${notes})`
+            }
+          } else {
+            noteText = `Estágio atualizado para ${targetStage} via Abordagem Comercial (${status})`
+            if (notes) {
+              noteText += ` (Obs: ${notes})`
+            }
           }
 
           if (noteText) {

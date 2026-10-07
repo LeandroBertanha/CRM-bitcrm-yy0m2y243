@@ -90,6 +90,7 @@ export default function HistoryPage() {
     next_contact_at?: string | null
     notes?: string
     opportunity?: string | null
+    stage?: Opportunity['stage']
   }) => {
     if (!editingSession || !user) return
 
@@ -113,6 +114,7 @@ export default function HistoryPage() {
           nextContactAt: data.next_contact_at,
           notes: data.notes,
           authorId: user.id,
+          manualStage: data.stage,
         })
       }
 
@@ -143,7 +145,9 @@ export default function HistoryPage() {
   const filtered = sessions.filter((s) => {
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
+    const companyDisplay = s.expand?.opportunity?.company || s.company_name || ''
     return (
+      companyDisplay.toLowerCase().includes(term) ||
       (s.company_name || '').toLowerCase().includes(term) ||
       (s.contact_name || '').toLowerCase().includes(term) ||
       (s.channel || '').toLowerCase().includes(term) ||
@@ -240,7 +244,7 @@ export default function HistoryPage() {
               <div className="space-y-1.5 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-sm text-white group-hover:text-indigo-300 transition-colors">
-                    {s.company_name || 'Empresa sem nome'}
+                    {s.expand?.opportunity?.company || s.company_name || 'Empresa sem nome'}
                   </span>
                   {getTempBadge(s.temperature)}
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#181B24] border border-[#262A33] text-gray-300">
@@ -304,7 +308,11 @@ export default function HistoryPage() {
               <DialogHeader>
                 <div className="flex items-center justify-between gap-2">
                   <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-                    <span>{selectedSession.company_name || 'Abordagem Comercial'}</span>
+                    <span>
+                      {selectedSession.expand?.opportunity?.company ||
+                        selectedSession.company_name ||
+                        'Abordagem Comercial'}
+                    </span>
                     {getTempBadge(selectedSession.temperature)}
                   </DialogTitle>
                   <Button
