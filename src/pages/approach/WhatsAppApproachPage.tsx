@@ -5,8 +5,12 @@ import { Button } from '@/components/ui/button'
 import pb from '@/lib/pocketbase/client'
 import type { PlaybookScript } from '@/types/playbook'
 import { ScriptCard } from '@/components/approach/ScriptCard'
+import { WhatsAppCopilotAction } from '@/components/approach/WhatsAppCopilotAction'
+import { buildWhatsAppMessage } from '@/lib/whatsappApproachHelper'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function WhatsAppApproachPage() {
+  const { user } = useAuth()
   const [scripts, setScripts] = useState<PlaybookScript[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -61,6 +65,25 @@ export default function WhatsAppApproachPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Ação rápida destacada no topo com o script de abertura ativo */}
+      {scripts.length > 0 && (
+        <WhatsAppCopilotAction
+          message={buildWhatsAppMessage({
+            scriptTemplate: scripts[0].script_text,
+            context: {
+              sellerName: user?.name || user?.email?.split('@')[0] || 'Consultor Bit',
+              companyName: '[NOME DA EMPRESA]',
+              contactName: '[NOME DO CONTATO]',
+              segment: 'seu segmento',
+              city: 'sua região',
+            },
+            hasOpportunity: false,
+          })}
+          title="Disparo Rápido WhatsApp Web"
+          showMessagePreview={false}
+        />
+      )}
 
       <div className="space-y-4">
         {scripts.map((sc) => (

@@ -59,6 +59,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { OpportunitySelectorSection } from '@/components/approach/OpportunitySelectorSection'
+import { WhatsAppCopilotAction } from '@/components/approach/WhatsAppCopilotAction'
+import { buildWhatsAppMessage } from '@/lib/whatsappApproachHelper'
 
 export default function ApproachFlow() {
   const { user } = useAuth()
@@ -228,6 +230,17 @@ export default function ApproachFlow() {
     playbook,
     interpolationContext,
   ])
+
+  // Mensagem de WhatsApp interpolada usando script do playbook do banco (ou fallback contextual)
+  const whatsAppMessage = useMemo(() => {
+    // Procura o script de WhatsApp no playbook carregado do banco
+    const waScript = playbook.scripts.find((s) => s.channel === 'WhatsApp' && s.is_active)
+    return buildWhatsAppMessage({
+      scriptTemplate: waScript?.script_text || null,
+      context: interpolationContext,
+      hasOpportunity: Boolean(selectedOppId),
+    })
+  }, [playbook.scripts, interpolationContext, selectedOppId])
 
   // Iniciar Copiloto
   const handleStartCopilot = () => {
@@ -612,6 +625,20 @@ export default function ApproachFlow() {
               </span>
             </div>
           </div>
+
+          {/* BOTÃO EM DESTAQUE NO TOPO QUANDO O CANAL FOR WHATSAPP */}
+          {channel === 'WhatsApp' && (
+            <WhatsAppCopilotAction
+              phone={customPhone}
+              message={whatsAppMessage}
+              companyName={customCompanyName}
+              contactName={customContactName}
+              opportunityId={selectedOppId}
+              authorId={user?.id}
+              title="Abrir WhatsApp Web com Mensagem Pronta"
+              showMessagePreview={true}
+            />
+          )}
 
           {/* 1. PRÓXIMA MELHOR AÇÃO & TEMPERATURA DO LEAD */}
           <NextActionBadge
