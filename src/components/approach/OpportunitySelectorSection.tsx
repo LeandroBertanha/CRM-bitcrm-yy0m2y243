@@ -47,36 +47,54 @@ export function normalizeSearchTerm(term: string | null | undefined): string {
 }
 
 /**
- * Filtra oportunidades em tempo real por empresa, contato, cidade ou vendedor
+ * Normaliza dígitos de telefone para busca numérica consistente
+ */
+export function normalizePhoneDigits(phone: string | null | undefined): string {
+  if (!phone) return ''
+  return phone.toString().replace(/\D/g, '')
+}
+
+/**
+ * Filtra oportunidades em tempo real por empresa, contato, cidade, vendedor, estágio e telefone.
+ * Suporta múltiplos termos digitados separados por espaço (ex: "sao paulo joao", "clinica perdidos").
  */
 export function filterOpportunities(opps: Opportunity[], searchQuery: string): Opportunity[] {
   const normQuery = normalizeSearchTerm(searchQuery)
   if (!normQuery) return opps
 
-  // Suporte a busca por dígitos de telefone se a busca tiver números
-  const queryDigits = searchQuery.replace(/\D/g, '')
+  // Tokenizar por espaços para permitir buscas multi-palavra (ex: "silva curitiba")
+  const tokens = normQuery.split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return opps
 
   return opps.filter((opp) => {
     const normCompany = normalizeSearchTerm(opp.company)
     const normContact = normalizeSearchTerm(opp.contact_name)
     const normCity = normalizeSearchTerm(opp.city)
     const normSeller = normalizeSearchTerm(
-      opp.expand?.seller?.name || opp.expand?.seller?.email || '',
+      opp.expand?.seller?.name ||
+        opp.expand?.seller?.email ||
+        (typeof opp.seller === 'string' ? opp.seller : ''),
     )
     const normStage = normalizeSearchTerm(opp.stage)
+    const normNotes = normalizeSearchTerm(opp.message)
+    const phoneDigits = normalizePhoneDigits(opp.contact_phone)
 
-    if (normCompany.includes(normQuery)) return true
-    if (normContact.includes(normQuery)) return true
-    if (normCity.includes(normQuery)) return true
-    if (normSeller.includes(normQuery)) return true
-    if (normStage.includes(normQuery)) return true
+    // Agrupar texto pesquisável
+    const searchableText = `${normCompany} ${normContact} ${normCity} ${normSeller} ${normStage} ${normNotes}`
 
-    if (queryDigits && opp.contact_phone) {
-      const phoneDigits = opp.contact_phone.replace(/\D/g, '')
-      if (phoneDigits.includes(queryDigits)) return true
-    }
+    // Todos os tokens digitados precisam casar com algum campo do registro
+    return tokens.every((token) => {
+      // 1. Casa no texto geral (empresa, contato, cidade, vendedor, estágio, mensagem)
+      if (searchableText.includes(token)) return true
 
-    return false
+      // 2. Se o token contiver dígitos, testa contra os dígitos do telefone
+      const tokenDigits = token.replace(/\D/g, '')
+      if (tokenDigits.length >= 2 && phoneDigits.includes(tokenDigits)) {
+        return true
+      }
+
+      return false
+    })
   })
 }
 
@@ -268,7 +286,7 @@ export function OpportunitySelectorSection({
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 autoFocus
-                placeholder="Buscar por empresa, contato ou cidade..."
+                placeholder="Buscar por empresa, contato, cidade, vendedor ou telefone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-10 bg-[#0A0B0E] border-[#262A33] focus-visible:border-indigo-500 text-white text-xs placeholder:text-gray-500 rounded-xl h-11"

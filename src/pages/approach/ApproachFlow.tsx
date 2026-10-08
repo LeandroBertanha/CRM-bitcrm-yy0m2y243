@@ -117,16 +117,17 @@ export default function ApproachFlow() {
   const [showPersonalizedPitchModal, setShowPersonalizedPitchModal] = useState(false)
   const [showFollowUpModal, setShowFollowUpModal] = useState(false)
 
-  // 1. Carregar Playbook do banco e oportunidades
+  // 1. Carregar Playbook do banco e oportunidades completas da carteira
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
+        // Busca com batch máximo de 500 para garantir que nenhuma oportunidade fique de fora
         const [pbBundle, opps] = await Promise.all([
           getPlaybookBundle(),
           pb.collection('opportunities').getFullList<Opportunity>({
+            batch: 500,
             sort: '-created',
-            fields: 'id,company,contact_name,contact_phone,city,stage,seller',
             expand: 'seller',
           }),
         ])

@@ -173,5 +173,68 @@ describe('Filtro de Oportunidades na Abordagem (OpportunitySelectorSection)', ()
       const results = filterOpportunities(mockOpportunities, 'termo-inexistente-xyz')
       expect(results.length).toBe(0)
     })
+
+    it('deve encontrar oportunidades com campos vazios (sem cidade ou sem contato)', () => {
+      const oppSemCidade: Opportunity = {
+        id: 'opp-empty-city',
+        collectionId: 'opportunities',
+        collectionName: 'opportunities',
+        company: 'Empresa Sem Cidade Ltda',
+        stage: 'Qualificado',
+        source: 'WhatsApp',
+        value: 1200,
+        seller: '',
+        contact_name: 'Marcos Vinicius',
+        contact_phone: '11988887777',
+        created: '2026-03-01T10:00:00.000Z',
+        updated: '2026-03-01T10:00:00.000Z',
+      }
+      const list = [...mockOpportunities, oppSemCidade]
+
+      const resCompany = filterOpportunities(list, 'empresa sem cidade')
+      expect(resCompany.length).toBe(1)
+      expect(resCompany[0].id).toBe('opp-empty-city')
+
+      const resContact = filterOpportunities(list, 'marcos')
+      expect(resContact.length).toBe(1)
+      expect(resContact[0].id).toBe('opp-empty-city')
+    })
+
+    it('deve encontrar oportunidades pelo estágio (incluindo Perdido)', () => {
+      const oppPerdida: Opportunity = {
+        id: 'opp-lost',
+        collectionId: 'opportunities',
+        collectionName: 'opportunities',
+        company: 'Comércio Desativado',
+        stage: 'Perdido',
+        source: 'Indicação',
+        value: 800,
+        seller: 'user-1',
+        city: 'Santos',
+        created: '2026-03-01T10:00:00.000Z',
+        updated: '2026-03-01T10:00:00.000Z',
+      }
+      const list = [...mockOpportunities, oppPerdida]
+
+      const resStage = filterOpportunities(list, 'perdido')
+      expect(resStage.length).toBe(1)
+      expect(resStage[0].id).toBe('opp-lost')
+
+      const resCompany = filterOpportunities(list, 'comercio desativado')
+      expect(resCompany.length).toBe(1)
+      expect(resCompany[0].id).toBe('opp-lost')
+    })
+
+    it('deve suportar busca multi-palavra combinando termos de campos diferentes', () => {
+      // "odontologia rio" -> odontologia (empresa) + rio (cidade: Rio de Janeiro)
+      const resMulti = filterOpportunities(mockOpportunities, 'odontologia rio')
+      expect(resMulti.length).toBe(1)
+      expect(resMulti[0].id).toBe('opp-3')
+
+      // "camila niteroi" -> contato (Camila) + cidade (Niterói)
+      const resMulti2 = filterOpportunities(mockOpportunities, 'camila niteroi')
+      expect(resMulti2.length).toBe(1)
+      expect(resMulti2[0].id).toBe('opp-4')
+    })
   })
 })

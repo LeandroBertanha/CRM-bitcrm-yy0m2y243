@@ -56,8 +56,9 @@ export default function HistoryPage() {
           isAdmin,
         }),
         pb.collection('opportunities').getFullList<Opportunity>({
+          batch: 500,
           sort: '-created',
-          fields: 'id,company,contact_name,contact_phone,city,stage,seller',
+          expand: 'seller',
         }),
       ])
       setSessions(sessionsData)
