@@ -397,15 +397,17 @@ export default function Dashboard() {
     }
   }, [isAdmin, user, myOpps.length, opportunities.length, loading, error])
 
-  // Separar retornos:
-  // "vendedor vê só o dele; admin vê de todos (mas o Painel de retornos deve focar nas oportunidades do usuário logado, com o admin podendo ver as de todos — se for mais simples, admin vê todas)."
-  // No painel do usuário, priorizamos a carteira relevante (se admin, consideramos todas as oportunidades para não deixar nenhum retorno perdido passar, ou o usuário atual).
+  // Escopo de oportunidades para alertas de retornos (notificações do topo e listagem de retornos agendados):
+  // Regra do usuário: os alertas devem mostrar apenas de quem está logado e não podem mostrar de outros logins.
+  // Prioriza sempre a carteira pessoal do usuário logado.
+  // Caso de fallback: somente quando for admin sem nenhuma oportunidade própria e existirem oportunidades no banco
+  // (isUsingAdminFallback === true), permitindo que a tela nunca fique zerada em silêncio.
   const oppsForAlerts = useMemo(() => {
-    if (isAdmin) {
+    if (isUsingAdminFallback) {
       return opportunities
     }
-    return myOpps
-  }, [isAdmin, opportunities, myOpps])
+    return personalOpps
+  }, [isUsingAdminFallback, opportunities, personalOpps])
 
   // Estado do filtro de período para Retornos Agendados (Padrão: Hoje)
   const [returnPeriodFilter, setReturnPeriodFilter] = useState<ReturnPeriodFilterState>(() => {
@@ -919,8 +921,8 @@ export default function Dashboard() {
                 )}
               </h2>
               <p className="text-xs text-gray-400">
-                {isAdmin
-                  ? 'Acompanhamento de retornos da equipe (Pipeline + Guia de Abordagem)'
+                {isUsingAdminFallback
+                  ? 'Exibindo oportunidades de toda a equipe (Visão Admin)'
                   : 'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)'}
               </p>
             </div>

@@ -66,10 +66,18 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
         ? opportunities
         : personalOpps
 
+    const oppsForAlerts = isUsingAdminFallback ? opportunities : personalOpps
+
+    const scheduledReturnsSubtitle = isUsingAdminFallback
+      ? 'Exibindo oportunidades de toda a equipe (Visão Admin)'
+      : 'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)'
+
     return {
       personalOpps,
       isUsingAdminFallback,
       myOpps,
+      oppsForAlerts,
+      scheduledReturnsSubtitle,
     }
   }
 
@@ -86,6 +94,13 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
     expect(result.isUsingAdminFallback).toBe(false)
     expect(result.myOpps).toHaveLength(2)
     expect(result.myOpps.map((o) => o.id)).toContain('opp-1')
+    // Alertas mostram apenas as oportunidades do próprio admin, não da equipe inteira (não inclui opp-2 do outro vendedor)
+    expect(result.oppsForAlerts).toEqual(result.personalOpps)
+    expect(result.oppsForAlerts.map((o) => o.id)).toEqual(['opp-1', 'opp-3'])
+    expect(result.oppsForAlerts.map((o) => o.id)).not.toContain('opp-2')
+    expect(result.scheduledReturnsSubtitle).toBe(
+      'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)',
+    )
   })
 
   it('(b) admin com 0 oportunidades pessoais mas dados na base vê fallback da equipe com aviso', () => {
@@ -126,6 +141,11 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
     // myOpps passa a refletir toda a equipe
     expect(result.myOpps).toHaveLength(2)
     expect(result.myOpps.map((o) => o.id)).toEqual(['opp-vendor-1', 'opp-vendor-2'])
+    // Em caso de fallback, oppsForAlerts reflete a equipe para nunca ficar zerado em silêncio
+    expect(result.oppsForAlerts).toEqual(onlyOtherSellersOpps)
+    expect(result.scheduledReturnsSubtitle).toBe(
+      'Exibindo oportunidades de toda a equipe (Visão Admin)',
+    )
   })
 
   it('vendedor comum sem oportunidades não ativa fallback de equipe', () => {
@@ -148,6 +168,42 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
     expect(result.personalOpps).toHaveLength(0)
     expect(result.isUsingAdminFallback).toBe(false)
     expect(result.myOpps).toHaveLength(0)
+    expect(result.oppsForAlerts).toHaveLength(0)
+    expect(result.scheduledReturnsSubtitle).toBe(
+      'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)',
+    )
+  })
+
+  it('vendedor comum com oportunidades próprias vê apenas suas oportunidades nos alertas', () => {
+    const mixedOpportunities: Opportunity[] = [
+      {
+        id: 'opp-mine',
+        company: 'Minha Empresa',
+        seller: 'seller-other-id',
+        stage: 'Proposta',
+        return_at: '2026-03-30T14:00:00.000Z',
+      } as unknown as Opportunity,
+      {
+        id: 'opp-other',
+        company: 'Empresa do Colega',
+        seller: 'someone-else',
+        stage: 'Qualificado',
+        return_at: '2026-03-30T15:00:00.000Z',
+      } as unknown as Opportunity,
+    ]
+
+    const result = calculateDashboardScope({
+      user: sellerUser,
+      isAdmin: false,
+      opportunities: mixedOpportunities,
+    })
+
+    expect(result.isUsingAdminFallback).toBe(false)
+    expect(result.oppsForAlerts.map((o) => o.id)).toEqual(['opp-mine'])
+    expect(result.oppsForAlerts.map((o) => o.id)).not.toContain('opp-other')
+    expect(result.scheduledReturnsSubtitle).toBe(
+      'Seus contatos programados com data e hora com o cliente (Pipeline + Guia de Abordagem)',
+    )
   })
 
   it('quando o user estiver nulo temporariamente mas houver dados, ativa fallback em vez de zerar em silêncio', () => {
