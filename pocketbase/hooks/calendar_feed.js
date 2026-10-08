@@ -98,6 +98,21 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
     'X-WR-CALDESC:Retornos agendados e follow-ups comerciais do bitCRM',
   ]
 
+  const formatBrDatePart = (isoStr) => {
+    if (!isoStr) return ''
+    const d = new Date(isoStr)
+    if (isNaN(d.getTime())) return ''
+    const pad = (n) => (n < 10 ? '0' + n : '' + n)
+    // Offset fixo de Brasília UTC-3
+    const brDate = new Date(d.getTime() - 3 * 60 * 60 * 1000)
+    const day = pad(brDate.getUTCDate())
+    const month = pad(brDate.getUTCMonth() + 1)
+    const year = brDate.getUTCFullYear()
+    const hours = pad(brDate.getUTCHours())
+    const mins = pad(brDate.getUTCMinutes())
+    return `${day}/${month}/${year} às ${hours}:${mins}`
+  }
+
   for (let i = 0; i < opps.length; i++) {
     const opp = opps[i]
     const returnAtStr = opp.getString('return_at')
@@ -113,7 +128,7 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
     const contactName = opp.getString('contact_name') || ''
     const contactPhone = opp.getString('contact_phone') || ''
     const stage = opp.getString('stage') || 'Novo'
-    const value = opp.getInt('value') || 0
+    const numValue = Number(opp.get('value')) || 0
     const message = opp.getString('message') || ''
 
     const titleParts = ['Retorno: ' + company]
@@ -122,8 +137,15 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
     }
     const summary = titleParts.join(' — ')
 
-    const formattedValue = (typeof value === 'number' ? value : 0).toFixed(2).replace('.', ',')
+    // Formatação monetária segura compatível com Goja (sem toLocaleString)
+    const formattedValue = (typeof numValue === 'number' && !isNaN(numValue) ? numValue : 0)
+      .toFixed(2)
+      .replace('.', ',')
+
+    const formattedScheduledDate = formatBrDatePart(returnAtStr)
+
     let descLines = [`Empresa: ${company}`, `Estágio: ${stage}`, `Valor: R$ ${formattedValue}`]
+    if (formattedScheduledDate) descLines.push(`Horário agendado: ${formattedScheduledDate}`)
     if (contactName) descLines.push(`Contato: ${contactName}`)
     if (contactPhone) descLines.push(`Telefone: ${contactPhone}`)
     if (message) descLines.push(`Observações: ${message}`)

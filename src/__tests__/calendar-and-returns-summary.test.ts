@@ -9,6 +9,9 @@ import {
   partitionReturnsForSeller,
   resolveCalendarBaseUrl,
   buildCalendarFeedUrls,
+  formatCurrencyBRLManual,
+  formatDateTimeBRManual,
+  CALENDAR_BASE_URL,
 } from '@/lib/calendarHelper'
 
 describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
@@ -44,6 +47,25 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
     })
   })
 
+  describe('formatadores manuais seguros (sem toLocaleString / Intl)', () => {
+    it('formatCurrencyBRLManual formata números monetários no padrão brasileiro com vírgula', () => {
+      expect(formatCurrencyBRLManual(500)).toBe('500,00')
+      expect(formatCurrencyBRLManual(1234.5)).toBe('1234,50')
+      expect(formatCurrencyBRLManual(0)).toBe('0,00')
+      expect(formatCurrencyBRLManual(null)).toBe('0,00')
+      expect(formatCurrencyBRLManual(undefined)).toBe('0,00')
+      expect(formatCurrencyBRLManual('250.75')).toBe('250,75')
+    })
+
+    it('formatDateTimeBRManual formata ISO para data e hora em Brasília (UTC-3)', () => {
+      // 2026-10-19T14:30:00.000Z em UTC corresponde a 11:30 em Brasília (UTC-3)
+      const res = formatDateTimeBRManual('2026-10-19T14:30:00.000Z')
+      expect(res).toBe('19/10/2026 às 11:30')
+      expect(formatDateTimeBRManual('')).toBe('')
+      expect(formatDateTimeBRManual(null)).toBe('')
+    })
+  })
+
   describe('buildIcsEvent', () => {
     it('monta evento com título Retorno: {empresa} — {contato}, alarme VALARM de 30m e descrição detalhada', () => {
       const opp = {
@@ -68,6 +90,10 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
       expect(eventIcs).toContain(
         'SUMMARY:Retorno: Restaurante & Bar Bela Vista\\, Ltda. — Dona Maria\\; Gerente',
       )
+      // Formatação de valor em R$
+      expect(eventIcs).toContain('Valor: R$ 1500,00')
+      // Horário agendado no fuso BR (17:00 UTC = 14:00 BRT)
+      expect(eventIcs).toContain('Horário agendado: 20/10/2026 às 14:00')
       // Alarme VALARM 30 minutos antes
       expect(eventIcs).toContain('BEGIN:VALARM')
       expect(eventIcs).toContain('TRIGGER:-PT30M')
@@ -115,11 +141,29 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
   })
 
   describe('resolveCalendarBaseUrl e buildCalendarFeedUrls', () => {
-    it('força protocolo https mesmo se fornecido http ou sem protocolo', () => {
-      const urls = buildCalendarFeedUrls('my-token-123', 'http://meusite.com.br')
-      expect(urls.httpsFeedUrl).toBe('https://meusite.com.br/backend/v1/calendar/feed/my-token-123')
+    it('usa sempre o domínio oficial bitcrm.lbertanha.com por padrão sem override', () => {
+      expect(CALENDAR_BASE_URL).toBe('https://bitcrm.lbertanha.com')
+      expect(resolveCalendarBaseUrl()).toBe('https://bitcrm.lbertanha.com')
+      const urls = buildCalendarFeedUrls('my-token-123')
+      expect(urls.httpsFeedUrl).toBe(
+        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/my-token-123',
+      )
       expect(urls.webcalFeedUrl).toBe(
-        'webcal://meusite.com.br/backend/v1/calendar/feed/my-token-123',
+        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/my-token-123',
+      )
+    })
+
+    it('bloqueia vazamento de domínio de preview goskip.app e usa SEMPRE bitcrm.lbertanha.com', () => {
+      // Cenário do bug reportado: crm-de-vendas-comercial-ba27a--preview.goskip.app
+      const urlsPreview = buildCalendarFeedUrls(
+        'GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
+        'https://crm-de-vendas-comercial-ba27a--preview.goskip.app',
+      )
+      expect(urlsPreview.httpsFeedUrl).toBe(
+        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
+      )
+      expect(urlsPreview.webcalFeedUrl).toBe(
+        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
       )
     })
 

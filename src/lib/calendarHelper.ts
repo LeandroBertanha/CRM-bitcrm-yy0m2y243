@@ -57,6 +57,30 @@ export function buildIcsDates(returnAtIso: string): { dtStart: string; dtEnd: st
 /**
  * Gera string de VEVENT com alarme (VALARM) de 30 minutos antes e campos exigidos
  */
+export function formatCurrencyBRLManual(value: number | string | null | undefined): string {
+  const num = Number(value)
+  const safeNum = typeof num === 'number' && !isNaN(num) ? num : 0
+  return safeNum.toFixed(2).replace('.', ',')
+}
+
+export function formatDateTimeBRManual(isoStr: string | null | undefined): string {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
+  // Fuso de Brasília UTC-3
+  const brDate = new Date(d.getTime() - 3 * 60 * 60 * 1000)
+  const day = pad(brDate.getUTCDate())
+  const month = pad(brDate.getUTCMonth() + 1)
+  const year = brDate.getUTCFullYear()
+  const hours = pad(brDate.getUTCHours())
+  const mins = pad(brDate.getUTCMinutes())
+  return `${day}/${month}/${year} às ${hours}:${mins}`
+}
+
+/**
+ * Gera string de VEVENT com alarme (VALARM) de 30 minutos antes e campos exigidos
+ */
 export function buildIcsEvent(opp: CalendarEventData, stampDate: Date = new Date()): string {
   const { dtStart, dtEnd } = buildIcsDates(opp.return_at)
   const dtStamp = formatIcsUtcDate(stampDate)
@@ -67,11 +91,15 @@ export function buildIcsEvent(opp: CalendarEventData, stampDate: Date = new Date
   }
   const summary = titleParts.join(' — ')
 
+  const formattedScheduled = formatDateTimeBRManual(opp.return_at)
+  const formattedVal = formatCurrencyBRLManual(opp.value)
+
   const descLines: string[] = [
     `Empresa: ${opp.company || 'Empresa'}`,
     `Estágio: ${opp.stage || 'Novo'}`,
-    `Valor: R$ ${(Number(opp.value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    `Valor: R$ ${formattedVal}`,
   ]
+  if (formattedScheduled) descLines.push(`Horário agendado: ${formattedScheduled}`)
   if (opp.contact_name) descLines.push(`Contato: ${opp.contact_name}`)
   if (opp.contact_phone) descLines.push(`Telefone: ${opp.contact_phone}`)
   if (opp.message) descLines.push(`Observações: ${opp.message}`)
@@ -134,39 +162,32 @@ export function convertToWebcalUrl(httpUrl: string): string {
 }
 
 export const PRODUCTION_DEFAULT_DOMAIN = 'bitcrm.lbertanha.com'
+export const CALENDAR_BASE_URL = `https://${PRODUCTION_DEFAULT_DOMAIN}`
 
 /**
  * Normaliza e resolve o host base para endpoints públicos do feed ICS.
- * - Força HTTPS em qualquer situação.
- * - Se estiver rodando em ambiente local/preview interno (localhost, 127.0.0.1, goskip.dev, etc.),
- *   ou se fornecido fallback explícito, garante que o domínio de produção seja usado
- *   quando a página estiver em contexto interno ou se window.location.origin não for um domínio público próprio.
- * - Permite passar o baseUrl explicitamente para testes ou override (ex: import.meta.env.VITE_POCKETBASE_URL).
+ * - O feed de agenda do bitCRM deve ser SEMPRE o domínio oficial de produção https://bitcrm.lbertanha.com,
+ *   nunca domínios de preview (*.goskip.app), localhost ou ambientes internos.
+ * - Permite passar um customBaseUrl explícito (ex.: em testes unitários para verificação de formatos).
  */
 export function resolveCalendarBaseUrl(customBaseUrl?: string): string {
-  let rawUrl = (customBaseUrl || '').trim()
+  const rawUrl = (customBaseUrl || '').trim()
 
-  // Se não foi passado customBaseUrl, tenta ler a origem do navegador
-  if (!rawUrl && typeof window !== 'undefined' && window.location?.origin) {
-    rawUrl = window.location.origin
-  }
-
+  // Se nenhum override explícito foi fornecido, utiliza SEMPRE a URL oficial de produção
   if (!rawUrl) {
-    return `https://${PRODUCTION_DEFAULT_DOMAIN}`
+    return CALENDAR_BASE_URL
   }
 
-  // Se o host contiver indicador de localhost ou ambiente interno de desenvolvimento Skip
-  // (ex: shrd00.internal.goskip.dev ou localhost:5173), ou se a URL indicar preview interno:
-  const isInternalOrDev =
-    /localhost|127\.0\.0\.1|internal\.goskip\.dev|webcontainer|\.local\b/i.test(rawUrl)
+  // Se o override contiver localhost, goskip.app (previews), goskip.dev ou domínios de teste,
+  // força de forma rígida o domínio oficial de produção
+  const isDevOrPreview =
+    /localhost|127\.0\.0\.1|goskip\.app|internal\.goskip\.dev|webcontainer|\.local\b/i.test(rawUrl)
 
-  if (isInternalOrDev) {
-    // Quando a página ou backend estiver em contexto interno, usa o fallback de produção https://bitcrm.lbertanha.com
-    return `https://${PRODUCTION_DEFAULT_DOMAIN}`
+  if (isDevOrPreview) {
+    return CALENDAR_BASE_URL
   }
 
-  // Para qualquer outro domínio (ex: lbertanha.com ou outro custom domain configurado pelo cliente):
-  // Garante SEMPRE protocolo https://, nunca http://
+  // Para um domínio explicitamente customizado e válido, garante HTTPS
   const withoutProtocol = rawUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
   return `https://${withoutProtocol}`
 }
