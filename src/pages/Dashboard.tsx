@@ -57,8 +57,10 @@ import {
   RefreshCw,
   Clock,
   AlertTriangle,
+  AlertCircle,
   CalendarCheck,
   Bell,
+  ShieldCheck,
   Edit2,
   Trash2,
   XCircle,
@@ -71,6 +73,7 @@ export default function Dashboard() {
   const { toast } = useToast()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Estado para abrir modal de edição direta pelo clique no alerta de retorno
@@ -109,15 +112,25 @@ export default function Dashboard() {
     return_time: '',
   })
 
-  const fetchOpportunities = useCallback(async () => {
+  const fetchOpportunities = useCallback(async (isRetry = false) => {
     try {
+      setError(null)
       const records = await pb.collection('opportunities').getFullList<Opportunity>({
         sort: '-created',
         expand: 'seller',
       })
       setOpportunities(records)
+      setError(null)
     } catch (err) {
       console.error('Erro ao carregar oportunidades:', err)
+      if (!isRetry) {
+        // 1 retry automático após ~1,5s
+        setTimeout(() => {
+          fetchOpportunities(true)
+        }, 1500)
+        return
+      }
+      setError('Não foi possível carregar as oportunidades. Verifique sua conexão.')
     } finally {
       setLoading(false)
       setIsRefreshing(false)
@@ -280,12 +293,49 @@ export default function Dashboard() {
   }
 
   // Filtragem e Métricas
-  const myOpps = useMemo(() => {
+  const personalOpps = useMemo(() => {
     if (!user) return []
     return opportunities.filter(
       (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
     )
   }, [opportunities, user])
+
+  // Fallback para admin: se for admin e a carteira pessoal der 0 enquanto existem oportunidades no banco,
+  // exibe as oportunidades de toda a equipe na visão admin
+  const isUsingAdminFallback = Boolean(
+    isAdmin && personalOpps.length === 0 && opportunities.length > 0,
+  )
+
+  const myOpps = useMemo(() => {
+    if (isUsingAdminFallback) {
+      return opportunities
+    }
+    return personalOpps
+  }, [isUsingAdminFallback, opportunities, personalOpps])
+
+  // Log de sanidade: quando a consulta retornar 0 registros para um admin com dados existentes no sistema
+  useEffect(() => {
+    if (
+      isAdmin &&
+      user &&
+      myOpps.length === 0 &&
+      opportunities.length === 0 &&
+      !loading &&
+      !error
+    ) {
+      console.warn('[bitCRM Sanity Check] Dashboard retornou 0 oportunidades para Admin:', {
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        role: user.role,
+        filtersUsed: {
+          sellerFilter: user.id,
+          isAdmin,
+        },
+        totalBaseOpportunities: opportunities.length,
+      })
+    }
+  }, [isAdmin, user, myOpps.length, opportunities.length, loading, error])
 
   // Separar retornos:
   // "vendedor vê só o dele; admin vê de todos (mas o Painel de retornos deve focar nas oportunidades do usuário logado, com o admin podendo ver as de todos — se for mais simples, admin vê todas)."
@@ -447,10 +497,10 @@ export default function Dashboard() {
 
   const cardsData = [
     {
-      title: 'Minhas Oportunidades',
+      title: isUsingAdminFallback ? 'Oportunidades (Equipe)' : 'Minhas Oportunidades',
       value: totalOppsCount.toString(),
       fullValue: `${totalOppsCount} oportunidades no total`,
-      description: 'Total em carteira',
+      description: isUsingAdminFallback ? 'Carteira geral da equipe' : 'Total em carteira',
       icon: Briefcase,
       color: 'from-blue-500/20 to-indigo-500/10',
       borderColor: 'border-blue-500/30',
@@ -522,7 +572,7 @@ export default function Dashboard() {
       {/* Cabeçalho da Página */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#262A33]">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Painel Comercial
             </h1>
@@ -535,10 +585,21 @@ export default function Dashboard() {
                 Administrador
               </span>
             )}
+            {isUsingAdminFallback && (
+              <span
+                data-testid="admin-team-scope-badge"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-900/40 text-indigo-300 border border-indigo-500/40 shadow-sm"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                Exibindo oportunidades de toda a equipe (Visão Admin)
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-400 mt-1">
             Olá, <span className="text-white font-medium">{user?.name || user?.email}</span>.
-            Acompanhe seus números e novos leads capturados da sua carteira comercial.
+            {isUsingAdminFallback
+              ? ' Você não possui oportunidades atribuídas diretamente à sua conta pessoal no momento. Exibindo a carteira geral da equipe para acompanhamento gerencial.'
+              : ' Acompanhe seus números e novos leads capturados da sua carteira comercial.'}
           </p>
         </div>
 
@@ -566,6 +627,68 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Banner de Erro Explícito com Retry */}
+      {error && (
+        <div
+          data-testid="dashboard-error-banner"
+          className="p-4 rounded-2xl border border-indigo-500/40 bg-gradient-to-r from-[#171529] via-[#121422] to-[#12141A] shadow-xl text-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 shrink-0">
+              <AlertCircle className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>Falha na sincronização dos dados</span>
+              </h3>
+              <p className="text-xs text-gray-300 mt-0.5">{error}</p>
+            </div>
+          </div>
+          <Button
+            data-testid="dashboard-retry-button"
+            size="sm"
+            onClick={() => {
+              setLoading(true)
+              fetchOpportunities(true)
+            }}
+            disabled={loading}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 px-4 text-xs font-semibold shrink-0 shadow-md shadow-indigo-600/20 border border-indigo-400/30"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {/* Banner Informativo quando em Fallback Admin */}
+      {isUsingAdminFallback && (
+        <div
+          data-testid="admin-fallback-banner"
+          className="p-3.5 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-[#161928] to-[#12141A] text-indigo-200 flex items-center justify-between gap-3 text-xs shadow-md"
+        >
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span>
+              <strong className="text-white font-semibold">Visão Administrativa Ativa:</strong> Como
+              você não possui oportunidades próprias cadastradas neste momento, os indicadores
+              abaixo refletem a <strong>carteira completa da equipe</strong> ({opportunities.length}{' '}
+              oportunidades no total).
+            </span>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="ghost"
+            className="text-xs text-indigo-300 hover:text-white hover:bg-indigo-500/20 shrink-0 h-7 px-2"
+          >
+            <Link to="/oportunidades">
+              Ver Pipeline
+              <ArrowRight className="w-3 h-3 ml-1" />
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Aviso / Notificação no Topo do Painel sobre Retornos */}
       {totalActionableAlerts > 0 && (

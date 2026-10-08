@@ -58,16 +58,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   useEffect(() => {
+    let isMounted = true
+
+    // Sincroniza estado inicial do store
     setUser((pb.authStore.record as unknown as AuthUser) || null)
     setToken(pb.authStore.token || null)
-    setIsLoading(false)
+
+    const validateSession = async () => {
+      if (pb.authStore.isValid && pb.authStore.token) {
+        try {
+          // Validação/refresh da sessão contra o backend PocketBase
+          const refreshed = await pb.collection('users').authRefresh()
+          if (!isMounted) return
+          const authUser = refreshed.record as unknown as AuthUser
+          setUser(authUser)
+          setToken(refreshed.token)
+        } catch (err: unknown) {
+          // Se o token estiver inválido, expirado ou o usuário não existir mais no backend
+          console.warn('Sessão inválida ou expirada detectada no backend, limpando sessão:', err)
+          if (!isMounted) return
+          pb.authStore.clear()
+          setUser(null)
+          setToken(null)
+          updateTempLoginPassword(null)
+        }
+      }
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    validateSession()
 
     const unsubscribe = pb.authStore.onChange((newToken, record) => {
+      if (!isMounted) return
       setToken(newToken)
       setUser((record as unknown as AuthUser) || null)
     })
 
     return () => {
+      isMounted = false
       unsubscribe()
     }
   }, [])
