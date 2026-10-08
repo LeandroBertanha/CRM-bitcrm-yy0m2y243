@@ -18,7 +18,13 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
     return e.string(301, 'Redirecionando para HTTPS...')
   }
 
-  const token = (e.request.pathValue('token') || '').trim()
+  let rawToken = (e.request.pathValue('token') || '').trim()
+  // Normaliza caso venha com extensão .ics (ex.: feed/{token}.ics comum em clientes como Google Calendar / macOS)
+  if (rawToken.toLowerCase().endsWith('.ics')) {
+    rawToken = rawToken.slice(0, -4)
+  }
+  const token = rawToken.trim()
+
   if (!token || token.length < 10) {
     return e.string(404, 'Feed de agenda não encontrado.')
   }

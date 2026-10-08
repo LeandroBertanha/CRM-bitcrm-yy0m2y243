@@ -161,29 +161,40 @@ export function convertToWebcalUrl(httpUrl: string): string {
   return httpUrl.replace(/^https?:\/\//i, 'webcal://')
 }
 
-export const PRODUCTION_DEFAULT_DOMAIN = 'bitcrm.lbertanha.com'
-export const CALENDAR_BASE_URL = `https://${PRODUCTION_DEFAULT_DOMAIN}`
+// Host oficial onde o PocketBase / Skip Cloud atende as rotas /backend/v1/* de forma nativa e sem proxy SPA.
+// O domínio bitcrm.lbertanha.com hospeda apenas o SPA estático (retornando 404 HTML para rotas de backend).
+// Portanto, para que clientes como Apple Calendar (macOS/iOS) e Google Calendar leiam o ICS text/calendar
+// com sucesso absoluto, o feed deve apontar diretamente para a instância do PocketBase.
+export const SKIP_CLOUD_BACKEND_URL = (
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_POCKETBASE_URL
+    ? import.meta.env.VITE_POCKETBASE_URL
+    : 'https://crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev'
+).replace(/\/+$/, '')
+
+export const PRODUCTION_DEFAULT_DOMAIN = 'crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev'
+export const CALENDAR_BASE_URL = SKIP_CLOUD_BACKEND_URL
 
 /**
  * Normaliza e resolve o host base para endpoints públicos do feed ICS.
- * - O feed de agenda do bitCRM deve ser SEMPRE o domínio oficial de produção https://bitcrm.lbertanha.com,
- *   nunca domínios de preview (*.goskip.app), localhost ou ambientes internos.
+ * - O feed de agenda do bitCRM aponta diretamente para o backend PocketBase onde a rota /backend/v1/calendar/feed/{token}
+ *   está registrada e responde com text/calendar (status 200).
+ * - O domínio frontend bitcrm.lbertanha.com ou previews goskip.app entregam o SPA React, que não roteia /backend/*.
  * - Permite passar um customBaseUrl explícito (ex.: em testes unitários para verificação de formatos).
  */
 export function resolveCalendarBaseUrl(customBaseUrl?: string): string {
   const rawUrl = (customBaseUrl || '').trim()
 
-  // Se nenhum override explícito foi fornecido, utiliza SEMPRE a URL oficial de produção
+  // Se nenhum override explícito foi fornecido, utiliza o backend oficial do PocketBase
   if (!rawUrl) {
     return CALENDAR_BASE_URL
   }
 
-  // Se o override contiver localhost, goskip.app (previews), goskip.dev ou domínios de teste,
-  // força de forma rígida o domínio oficial de produção
-  const isDevOrPreview =
-    /localhost|127\.0\.0\.1|goskip\.app|internal\.goskip\.dev|webcontainer|\.local\b/i.test(rawUrl)
+  // Se o override contiver domínios do frontend (bitcrm.lbertanha.com, *.goskip.app) ou localhost,
+  // substitui pelo endpoint real do backend Skip Cloud onde o PocketBase responde
+  const isFrontendHost =
+    /bitcrm\.lbertanha\.com|goskip\.app|localhost|127\.0\.0\.1|webcontainer|\.local\b/i.test(rawUrl)
 
-  if (isDevOrPreview) {
+  if (isFrontendHost) {
     return CALENDAR_BASE_URL
   }
 

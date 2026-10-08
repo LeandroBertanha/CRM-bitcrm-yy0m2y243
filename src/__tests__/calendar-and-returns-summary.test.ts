@@ -141,52 +141,45 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
   })
 
   describe('resolveCalendarBaseUrl e buildCalendarFeedUrls', () => {
-    it('usa sempre o domínio oficial bitcrm.lbertanha.com por padrão sem override', () => {
-      expect(CALENDAR_BASE_URL).toBe('https://bitcrm.lbertanha.com')
-      expect(resolveCalendarBaseUrl()).toBe('https://bitcrm.lbertanha.com')
-      const urls = buildCalendarFeedUrls('my-token-123')
-      expect(urls.httpsFeedUrl).toBe(
-        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/my-token-123',
+    it('aponta para o endpoint real do backend PocketBase onde /backend/v1/* responde', () => {
+      expect(CALENDAR_BASE_URL).toContain(
+        'crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev',
       )
+      expect(resolveCalendarBaseUrl()).toBe(CALENDAR_BASE_URL)
+      const urls = buildCalendarFeedUrls('my-token-123')
+      expect(urls.httpsFeedUrl).toBe(`${CALENDAR_BASE_URL}/backend/v1/calendar/feed/my-token-123`)
       expect(urls.webcalFeedUrl).toBe(
-        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/my-token-123',
+        `webcal://${CALENDAR_BASE_URL.replace(/^https?:\/\//, '')}/backend/v1/calendar/feed/my-token-123`,
       )
     })
 
-    it('bloqueia vazamento de domínio de preview goskip.app e usa SEMPRE bitcrm.lbertanha.com', () => {
-      // Cenário do bug reportado: crm-de-vendas-comercial-ba27a--preview.goskip.app
+    it('evita que domínios de frontend (SPA bitcrm.lbertanha.com e goskip.app) causem 404', () => {
+      // Cenário: o frontend SPA não roteia /backend/*, logo deve redirecionar para a URL que realmente responde
       const urlsPreview = buildCalendarFeedUrls(
         'GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
         'https://crm-de-vendas-comercial-ba27a--preview.goskip.app',
       )
       expect(urlsPreview.httpsFeedUrl).toBe(
-        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
+        `${CALENDAR_BASE_URL}/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF`,
       )
       expect(urlsPreview.webcalFeedUrl).toBe(
-        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
+        `webcal://${CALENDAR_BASE_URL.replace(/^https?:\/\//, '')}/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF`,
+      )
+
+      const urlsDomain = buildCalendarFeedUrls(
+        'GoiARQbLO3bzhw65C5L8kNFWiW2XlosF',
+        'https://bitcrm.lbertanha.com',
+      )
+      expect(urlsDomain.httpsFeedUrl).toBe(
+        `${CALENDAR_BASE_URL}/backend/v1/calendar/feed/GoiARQbLO3bzhw65C5L8kNFWiW2XlosF`,
       )
     })
 
-    it('redireciona para o domínio de produção oficial quando em contexto de desenvolvimento interno ou localhost', () => {
-      // Cenário com localhost
+    it('redireciona para o domínio de backend real quando em contexto de desenvolvimento localhost', () => {
       const urlsLocal = buildCalendarFeedUrls('tok456', 'http://localhost:5173')
-      expect(urlsLocal.httpsFeedUrl).toBe(
-        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok456',
-      )
+      expect(urlsLocal.httpsFeedUrl).toBe(`${CALENDAR_BASE_URL}/backend/v1/calendar/feed/tok456`)
       expect(urlsLocal.webcalFeedUrl).toBe(
-        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok456',
-      )
-
-      // Cenário com domínio interno Skip
-      const urlsInternal = buildCalendarFeedUrls(
-        'tok789',
-        'https://crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev',
-      )
-      expect(urlsInternal.httpsFeedUrl).toBe(
-        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok789',
-      )
-      expect(urlsInternal.webcalFeedUrl).toBe(
-        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok789',
+        `webcal://${CALENDAR_BASE_URL.replace(/^https?:\/\//, '')}/backend/v1/calendar/feed/tok456`,
       )
     })
 
@@ -196,13 +189,13 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
       expect(buildCalendarFeedUrls(undefined)).toEqual({ httpsFeedUrl: '', webcalFeedUrl: '' })
     })
 
-    it('preserva domínio público de produção customizado garantindo sempre HTTPS', () => {
-      const urls = buildCalendarFeedUrls('token-abc', 'https://bitcrm.lbertanha.com')
+    it('preserva customBaseUrl explícito de backend garantindo HTTPS', () => {
+      const urls = buildCalendarFeedUrls('token-abc', 'https://api.crm.lbertanha.com')
       expect(urls.httpsFeedUrl).toBe(
-        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/token-abc',
+        'https://api.crm.lbertanha.com/backend/v1/calendar/feed/token-abc',
       )
       expect(urls.webcalFeedUrl).toBe(
-        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/token-abc',
+        'webcal://api.crm.lbertanha.com/backend/v1/calendar/feed/token-abc',
       )
     })
   })
