@@ -37,7 +37,20 @@ routerAdd(
     const isMainAdminTarget = currentTargetEmail === 'leandro.bertanha@lbertanha.com'
     const isSelfTarget = authRecord.id === targetUser.id
 
-    // 3. Regra de segurança: Não permitir que o admin principal seja rebaixado para vendedor
+    // 3. Regra de segurança: Não permitir desativar ou rebaixar o Administrador Principal
+    if (isMainAdminTarget && data.disabled === true) {
+      return e.json(400, {
+        error:
+          'O Administrador Principal (leandro.bertanha@lbertanha.com) não pode ser desativado.',
+      })
+    }
+
+    if (isSelfTarget && data.disabled === true) {
+      return e.json(400, {
+        error: 'Você não pode desativar a sua própria conta de acesso.',
+      })
+    }
+
     if (isMainAdminTarget && targetRole && targetRole !== 'admin') {
       return e.json(400, {
         error:
@@ -86,6 +99,11 @@ routerAdd(
       targetUser.set('role', targetRole)
     }
 
+    // 6.1 Atualizar status disabled se fornecido
+    if (data.disabled !== undefined && !isMainAdminTarget && !isSelfTarget) {
+      targetUser.set('disabled', Boolean(data.disabled))
+    }
+
     // 7. Redefinir senha se fornecida
     if (targetPassword) {
       if (targetPassword.length < 8) {
@@ -121,6 +139,7 @@ routerAdd(
         name: targetUser.getString('name'),
         role: targetUser.getString('role'),
         mustChangePassword: targetUser.getBool('mustChangePassword'),
+        disabled: targetUser.getBool('disabled'),
         updated: targetUser.getString('updated'),
       },
       passwordUpdated: Boolean(targetPassword),

@@ -78,6 +78,10 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />
   }
 
+  if (user.disabled) {
+    return <Navigate to="/login" replace />
+  }
+
   if (mustChangePassword) {
     return <Navigate to="/definir-senha" replace />
   }
@@ -105,6 +109,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />
   }
 
+  if (user.disabled) {
+    return <Navigate to="/login" replace />
+  }
+
   // Se o usuário precisa definir nova senha no primeiro acesso, bloqueia navegação para o CRM
   if (mustChangePassword) {
     return <Navigate to="/definir-senha" replace />
@@ -126,6 +134,9 @@ const UnauthenticatedOnly = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (user) {
+    if (user.disabled) {
+      return <Navigate to="/login" replace />
+    }
     if (mustChangePassword) {
       return <Navigate to="/definir-senha" replace />
     }

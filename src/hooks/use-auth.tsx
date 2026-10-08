@@ -8,6 +8,7 @@ export interface AuthUser extends RecordModel {
   avatar?: string
   role?: 'admin' | 'seller' | string
   mustChangePassword?: boolean
+  disabled?: boolean
   terms_accepted_version?: string
   terms_accepted_at?: string
 }
@@ -71,8 +72,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const refreshed = await pb.collection('users').authRefresh()
           if (!isMounted) return
           const authUser = refreshed.record as unknown as AuthUser
-          setUser(authUser)
-          setToken(refreshed.token)
+
+          if (authUser?.disabled) {
+            console.warn('Conta desativada detectada durante authRefresh, deslogando usuário')
+            pb.authStore.clear()
+            setUser(null)
+            setToken(null)
+            updateTempLoginPassword(null)
+          } else {
+            setUser(authUser)
+            setToken(refreshed.token)
+          }
         } catch (err: unknown) {
           // Se o token estiver inválido, expirado ou o usuário não existir mais no backend
           console.warn('Sessão inválida ou expirada detectada no backend, limpando sessão:', err)
@@ -106,6 +116,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await pb.collection('users').authWithPassword(email, pass)
       const authUser = res.record as unknown as AuthUser
+
+      // Bloqueio imediato de contas desativadas
+      if (authUser?.disabled) {
+        pb.authStore.clear()
+        setUser(null)
+        setToken(null)
+        updateTempLoginPassword(null)
+        return {
+          error: new Error('Esta conta foi desativada. Fale com o administrador.'),
+        }
+      }
+
       setUser(authUser)
       setToken(res.token)
       if (authUser?.mustChangePassword) {

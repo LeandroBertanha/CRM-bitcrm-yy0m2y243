@@ -60,7 +60,9 @@ export default function Login() {
       const { error, user: loggedUser } = await signIn(email.trim(), password)
       if (error) {
         const errorText = error.message || ''
-        if (
+        if (errorText.toLowerCase().includes('desativada')) {
+          setErrorMessage('Esta conta foi desativada. Fale com o administrador.')
+        } else if (
           errorText.toLowerCase().includes('autenticar') ||
           errorText.toLowerCase().includes('failed to authenticate')
         ) {

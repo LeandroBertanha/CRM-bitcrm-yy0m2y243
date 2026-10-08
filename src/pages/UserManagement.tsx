@@ -48,6 +48,7 @@ interface UserRecord {
   updated?: string
   verified?: boolean
   mustChangePassword?: boolean
+  disabled?: boolean
 }
 
 export default function UserManagement() {
@@ -85,6 +86,7 @@ export default function UserManagement() {
   const [editRole, setEditRole] = useState<'seller' | 'admin'>('seller')
   const [editPassword, setEditPassword] = useState('')
   const [editMustChangePassword, setEditMustChangePassword] = useState(false)
+  const [editDisabled, setEditDisabled] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
@@ -121,6 +123,7 @@ export default function UserManagement() {
     setEditRole(user.role === 'admin' ? 'admin' : 'seller')
     setEditPassword('')
     setEditMustChangePassword(Boolean(user.mustChangePassword))
+    setEditDisabled(Boolean(user.disabled))
     setEditError(null)
     setEditModalOpen(true)
   }
@@ -174,6 +177,7 @@ export default function UserManagement() {
           role: editRole,
           password: cleanPassword || undefined,
           mustChangePassword: editMustChangePassword,
+          disabled: editDisabled,
         },
       })
 
@@ -491,14 +495,23 @@ export default function UserManagement() {
 
                       <td className="py-3.5 px-4">
                         <div className="flex flex-col gap-1 items-start">
-                          <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Ativo
-                          </span>
-                          {u.mustChangePassword && !isMainAdmin && (
-                            <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                              1º acesso pendente
+                          {u.disabled ? (
+                            <span className="inline-flex items-center gap-1 text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Desativado
                             </span>
+                          ) : (
+                            <>
+                              <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Ativo
+                              </span>
+                              {u.mustChangePassword && !isMainAdmin && (
+                                <span className="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                  1º acesso pendente
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
@@ -636,6 +649,33 @@ export default function UserManagement() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Status da Conta (Ativa / Desativada) */}
+            {!(
+              editingUser?.email?.toLowerCase() === 'leandro.bertanha@lbertanha.com' ||
+              editingUser?.id === currentUser?.id
+            ) && (
+              <div className="space-y-1.5 pt-1">
+                <Label className="text-xs text-gray-300">Status do Acesso</Label>
+                <Select
+                  value={editDisabled ? 'disabled' : 'active'}
+                  onValueChange={(val) => setEditDisabled(val === 'disabled')}
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    <SelectItem value="active">Conta Ativa (Pode fazer login)</SelectItem>
+                    <SelectItem value="disabled">Conta Desativada (Login bloqueado)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {editDisabled && (
+                  <p className="text-[11px] text-red-400/90 pt-0.5">
+                    O usuário não conseguirá acessar o sistema enquanto estiver desativado.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between">

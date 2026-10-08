@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T14:51:05.420Z",
+  "generatedAt": "2026-10-08T15:18:45.573Z",
   "collections": [
     {
       "name": "users",
@@ -60,6 +60,12 @@
         {
           "name": "terms_accepted_at",
           "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "disabled",
+          "type": "bool",
           "required": false,
           "system": false
         }
