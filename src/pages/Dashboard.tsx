@@ -66,6 +66,7 @@ import {
   XCircle,
   Calendar,
   Filter,
+  Loader2,
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -294,24 +295,31 @@ export default function Dashboard() {
 
   // Filtragem e Métricas
   const personalOpps = useMemo(() => {
-    if (!user) return []
+    if (!user) {
+      // Se user estiver temporariamente nulo (ex: transição de token), mas há oportunidades carregadas,
+      // não retorna vazio silenciosamente se for visão geral
+      return []
+    }
     return opportunities.filter(
       (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
     )
   }, [opportunities, user])
 
-  // Fallback para admin: se for admin e a carteira pessoal der 0 enquanto existem oportunidades no banco,
-  // exibe as oportunidades de toda a equipe na visão admin
+  // Fallback para admin: se for admin (ou se não houver user definido mas dados existirem) e a carteira pessoal der 0
+  // enquanto existem oportunidades no banco, exibe as oportunidades de toda a equipe na visão admin
   const isUsingAdminFallback = Boolean(
-    isAdmin && personalOpps.length === 0 && opportunities.length > 0,
+    (isAdmin || !user) && personalOpps.length === 0 && opportunities.length > 0,
   )
 
   const myOpps = useMemo(() => {
     if (isUsingAdminFallback) {
       return opportunities
     }
+    if (!user && opportunities.length > 0) {
+      return opportunities
+    }
     return personalOpps
-  }, [isUsingAdminFallback, opportunities, personalOpps])
+  }, [isUsingAdminFallback, opportunities, personalOpps, user])
 
   // Log de sanidade: quando a consulta retornar 0 registros para um admin com dados existentes no sistema
   useEffect(() => {
@@ -567,6 +575,22 @@ export default function Dashboard() {
     },
   ]
 
+  // Se o usuário não está disponível mas a página está aberta, exibimos estado de restauração de sessão
+  // em vez de indicadores zerados em silêncio
+  if (!user && loading) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center p-8 text-center space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-white">Restaurando sessão...</p>
+          <p className="text-xs text-gray-400">
+            Verificando credenciais e sincronizando oportunidades.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 animate-fadeInUp">
       {/* Cabeçalho da Página */}
@@ -596,9 +620,13 @@ export default function Dashboard() {
             )}
           </div>
           <p className="text-sm text-gray-400 mt-1">
-            Olá, <span className="text-white font-medium">{user?.name || user?.email}</span>.
+            Olá,{' '}
+            <span className="text-white font-medium">
+              {user?.name || user?.email || 'Administrador'}
+            </span>
+            .
             {isUsingAdminFallback
-              ? ' Você não possui oportunidades atribuídas diretamente à sua conta pessoal no momento. Exibindo a carteira geral da equipe para acompanhamento gerencial.'
+              ? ' Exibindo a carteira geral da equipe para acompanhamento comercial gerencial.'
               : ' Acompanhe seus números e novos leads capturados da sua carteira comercial.'}
           </p>
         </div>

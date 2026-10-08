@@ -62,9 +62,18 @@ routerAdd('POST', '/backend/v1/auth/set-first-password', (e) => {
     return e.json(400, { error: 'Erro ao salvar a nova senha: ' + msg })
   }
 
+  // Gera novo token se suportado pelo runtime PocketBase
+  let newToken = ''
+  try {
+    if (typeof targetUser.newAuthToken === 'function') {
+      newToken = targetUser.newAuthToken()
+    }
+  } catch (_) {}
+
   return e.json(200, {
     success: true,
     message: 'Senha definida com sucesso!',
+    token: newToken || undefined,
     user: {
       id: targetUser.id,
       email: targetUser.getString('email'),

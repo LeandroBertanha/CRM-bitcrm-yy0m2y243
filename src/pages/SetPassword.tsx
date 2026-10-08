@@ -95,7 +95,21 @@ export default function SetPassword() {
 
     setLoading(true)
     try {
-      const { error } = await setFirstPassword(
+      // Registra consentimento antes ou junto do submit
+      try {
+        localStorage.setItem(STORAGE_KEY_ACCEPTED_VERSION, CURRENT_TERMS_VERSION)
+        localStorage.setItem('bitcrm_terms_accepted_at', new Date().toISOString())
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        await recordTermsConsent(CURRENT_TERMS_VERSION)
+      } catch {
+        /* ignore */
+      }
+
+      const { error, sessionTerminated } = await setFirstPassword(
         password.trim(),
         confirmPassword.trim(),
         currentPassword.trim() || undefined,
@@ -103,25 +117,18 @@ export default function SetPassword() {
       if (error) {
         setErrorMessage(error.message || 'Erro ao definir nova senha. Tente novamente.')
       } else {
-        // Registra consentimento no localStorage e banco
-        try {
-          localStorage.setItem(STORAGE_KEY_ACCEPTED_VERSION, CURRENT_TERMS_VERSION)
-          localStorage.setItem('bitcrm_terms_accepted_at', new Date().toISOString())
-        } catch {
-          /* ignore */
-        }
-
-        try {
-          await recordTermsConsent(CURRENT_TERMS_VERSION)
-        } catch {
-          /* ignore */
-        }
-
         toast({
           title: 'Senha definida com sucesso!',
-          description: 'Seu primeiro acesso foi concluído com sucesso. Bem-vindo ao bitCRM!',
+          description: sessionTerminated
+            ? 'Entre com sua nova senha para acessar o painel.'
+            : 'Seu primeiro acesso foi concluído com sucesso. Bem-vindo ao bitCRM!',
         })
-        navigate('/painel', { replace: true })
+
+        if (sessionTerminated) {
+          navigate('/login', { replace: true })
+        } else {
+          navigate('/painel', { replace: true })
+        }
       }
     } catch {
       setErrorMessage('Erro ao conectar ao servidor. Tente novamente.')

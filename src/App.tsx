@@ -95,7 +95,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Componente para proteger rotas autenticadas comuns
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, mustChangePassword, isLoading } = useAuth()
+  const { user, mustChangePassword, isLoading, isSessionExpired } = useAuth()
 
   if (isLoading) {
     return (
@@ -105,7 +105,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  if (!user) {
+  if (isSessionExpired || !user) {
     return <Navigate to="/login" replace />
   }
 

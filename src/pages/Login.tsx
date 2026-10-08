@@ -21,16 +21,27 @@ export default function Login() {
   const [termsModalTab, setTermsModalTab] = useState<'termos' | 'privacidade'>('termos')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   const { signIn, recordTermsConsent } = useAuth()
   const navigate = useNavigate()
 
-  // Verifica se o usuário já aceitou a versão vigente dos termos neste navegador
+  // Verifica se há aviso de logout limpo (ex: após troca de senha bem-sucedida) ou termos já aceitos
   useEffect(() => {
     try {
       const storedVersion = localStorage.getItem(STORAGE_KEY_ACCEPTED_VERSION)
       if (storedVersion === CURRENT_TERMS_VERSION) {
         setAcceptedTerms(true)
+      }
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const notice = sessionStorage.getItem('bitcrm_logout_notice')
+      if (notice) {
+        setInfoMessage(notice)
+        sessionStorage.removeItem('bitcrm_logout_notice')
       }
     } catch {
       /* ignore */
@@ -127,6 +138,16 @@ export default function Login() {
         {/* Card de Formulário */}
         <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-7 shadow-2xl backdrop-blur-sm relative">
           <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+
+          {infoMessage && (
+            <div
+              data-testid="login-info-banner"
+              className="mb-5 flex items-center gap-2.5 p-3.5 text-xs text-emerald-300 bg-emerald-950/50 border border-emerald-700/60 rounded-xl animate-fadeIn"
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="font-medium">{infoMessage}</span>
+            </div>
+          )}
 
           {errorMessage && (
             <div className="mb-5 flex items-center gap-2 p-3 text-sm text-red-300 bg-red-950/40 border border-red-800/60 rounded-xl">

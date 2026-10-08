@@ -50,23 +50,21 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
     isAdmin: boolean
     opportunities: Opportunity[]
   }) {
-    if (!user) {
-      return {
-        personalOpps: [],
-        isUsingAdminFallback: false,
-        myOpps: [],
-      }
-    }
-
-    const personalOpps = opportunities.filter(
-      (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
-    )
+    const personalOpps = !user
+      ? []
+      : opportunities.filter(
+          (opp) => !opp.seller || opp.seller === user.id || opp.expand?.seller?.id === user.id,
+        )
 
     const isUsingAdminFallback = Boolean(
-      isAdmin && personalOpps.length === 0 && opportunities.length > 0,
+      (isAdmin || !user) && personalOpps.length === 0 && opportunities.length > 0,
     )
 
-    const myOpps = isUsingAdminFallback ? opportunities : personalOpps
+    const myOpps = isUsingAdminFallback
+      ? opportunities
+      : !user && opportunities.length > 0
+        ? opportunities
+        : personalOpps
 
     return {
       personalOpps,
@@ -150,6 +148,18 @@ describe('Dashboard - Fallback Admin e Tratamento de Erros', () => {
     expect(result.personalOpps).toHaveLength(0)
     expect(result.isUsingAdminFallback).toBe(false)
     expect(result.myOpps).toHaveLength(0)
+  })
+
+  it('quando o user estiver nulo temporariamente mas houver dados, ativa fallback em vez de zerar em silêncio', () => {
+    const result = calculateDashboardScope({
+      user: null,
+      isAdmin: false,
+      opportunities: teamOpportunities,
+    })
+
+    expect(result.personalOpps).toHaveLength(0)
+    expect(result.isUsingAdminFallback).toBe(true)
+    expect(result.myOpps).toHaveLength(3)
   })
 
   it('(c) falha de rede dispara retry automático e, persistindo, define mensagem de erro explícita', async () => {

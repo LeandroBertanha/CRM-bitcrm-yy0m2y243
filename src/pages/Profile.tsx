@@ -101,7 +101,11 @@ export default function Profile() {
 
     setChangingPassword(true)
     try {
-      const { error } = await changePassword(currentPassword, newPassword, confirmPassword)
+      const { error, sessionTerminated } = await changePassword(
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      )
       if (error) {
         const msg = error.message || ''
         if (
@@ -116,11 +120,18 @@ export default function Profile() {
       } else {
         toast({
           title: 'Senha atualizada com sucesso!',
-          description: 'Sua senha foi redefinida com segurança.',
+          description: sessionTerminated
+            ? 'Sua sessão foi encerrada. Entre com sua nova senha.'
+            : 'Sua senha foi redefinida com segurança.',
         })
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
+
+        if (sessionTerminated) {
+          // O próprio signOut já redirecionará pela rota protegida ou podemos forçar
+          window.location.href = '/login'
+        }
       }
     } catch {
       setPasswordError('Erro ao conectar ao servidor. Tente novamente.')

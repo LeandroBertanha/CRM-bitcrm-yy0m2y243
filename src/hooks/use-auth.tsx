@@ -19,8 +19,9 @@ interface AuthContextType {
   isLoading: boolean
   isAdmin: boolean
   mustChangePassword: boolean
+  isSessionExpired: boolean
   signIn: (email: string, pass: string) => Promise<{ error: Error | null; user?: AuthUser }>
-  signOut: () => void
+  signOut: (message?: string) => void
   requestPasswordReset: (email: string) => Promise<{ error: Error | null }>
   confirmPasswordReset: (token: string, password: string) => Promise<{ error: Error | null }>
   requestEmailChange: (newEmail: string) => Promise<{ error: Error | null }>
@@ -30,16 +31,16 @@ interface AuthContextType {
     oldPassword: string,
     newPassword: string,
     passwordConfirm: string,
-  ) => Promise<{ error: Error | null; record?: AuthUser }>
+  ) => Promise<{ error: Error | null; record?: AuthUser; sessionTerminated?: boolean }>
   setFirstPassword: (
     newPassword: string,
     passwordConfirm: string,
     oldPassword?: string,
-  ) => Promise<{ error: Error | null; record?: AuthUser }>
+  ) => Promise<{ error: Error | null; record?: AuthUser; sessionTerminated?: boolean }>
   recordTermsConsent: (version: string) => Promise<{ error: Error | null; record?: AuthUser }>
   tempLoginPassword: string | null
   setTempLoginPassword: (pass: string | null) => void
-  refreshAuth: () => Promise<void>
+  refreshAuth: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -57,6 +58,126 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   })
   const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isSessionExpired, setIsSessionExpired] = useState<boolean>(false)
+
+  // Guard contra chamadas concorrentes de refresh
+  const activeRefreshPromiseRef = React.useRef<Promise<boolean> | null>(null)
+
+  // Executa refresh resiliente com retry em caso de 401 e tolerância a erros de rede/5xx
+  const executeResilientRefresh = React.useCallback(async (): Promise<boolean> => {
+    if (!pb.authStore.isValid || !pb.authStore.token) {
+      return false
+    }
+
+    // Se já houver um refresh em andamento, retorna a promessa ativa para evitar corrida
+    if (activeRefreshPromiseRef.current) {
+      return activeRefreshPromiseRef.current
+    }
+
+    const refreshTask = (async (): Promise<boolean> => {
+      const attemptRefresh = async (): Promise<{ success: boolean; isPermanent401: boolean }> => {
+        try {
+          const refreshed = await pb.collection('users').authRefresh()
+          const authUser = refreshed.record as unknown as AuthUser
+
+          if (authUser?.disabled) {
+            console.warn('[bitCRM Auth] Conta desativada detectada no authRefresh')
+            pb.authStore.clear()
+            setUser(null)
+            setToken(null)
+            updateTempLoginPassword(null)
+            setIsSessionExpired(true)
+            return { success: false, isPermanent401: true }
+          }
+
+          setUser(authUser)
+          setToken(refreshed.token)
+          setIsSessionExpired(false)
+          return { success: true, isPermanent401: false }
+        } catch (err: unknown) {
+          const status =
+            err && typeof err === 'object' && 'status' in err
+              ? Number((err as { status?: number }).status)
+              : 0
+          const msg =
+            err && typeof err === 'object' && 'message' in err
+              ? String((err as { message?: string }).message)
+              : ''
+          const is401 =
+            status === 401 ||
+            msg.toLowerCase().includes('requires valid record authorization token') ||
+            msg.toLowerCase().includes('failed to authenticate')
+
+          // Erros de rede (status 0, timeout, fetch failed, 5xx): NUNCA deslogam
+          if (!is401) {
+            console.warn(
+              '[bitCRM Auth] Falha temporária de rede/servidor no authRefresh (sessão preservada):',
+              err,
+            )
+            return { success: false, isPermanent401: false }
+          }
+
+          return { success: false, isPermanent401: true }
+        }
+      }
+
+      // Tentativa 1
+      const firstTry = await attemptRefresh()
+      if (firstTry.success) return true
+
+      // Se falhou por motivo de rede/5xx (não 401), preservamos a sessão local intacta
+      if (!firstTry.isPermanent401) {
+        return false
+      }
+
+      // Se deu 401: aguarda pequeno delay (350ms) e tenta mais 1 vez
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      const secondTry = await attemptRefresh()
+      if (secondTry.success) return true
+
+      if (!secondTry.isPermanent401) {
+        // O retry falhou por rede, mantemos a sessão
+        return false
+      }
+
+      // Se o retry também deu 401, fazemos checagem confirmatória contra uma query real de dados
+      // para garantir que o token foi definitivamente revogado pelo servidor
+      try {
+        await pb.collection('opportunities').getList(1, 1, {
+          fields: 'id',
+          requestKey: null,
+        })
+        // Se a query de dados passou, o token ainda tem validade no banco! Não deslogamos.
+        console.info('[bitCRM Auth] Query de dados confirmou token válido após falha de refresh')
+        return false
+      } catch (dataErr: unknown) {
+        const dataStatus =
+          dataErr && typeof dataErr === 'object' && 'status' in dataErr
+            ? Number((dataErr as { status?: number }).status)
+            : 0
+
+        if (dataStatus === 401 || dataStatus === 403) {
+          console.warn(
+            '[bitCRM Auth] Token definitivamente revogado no backend (confirmado por query de dados). Limpando sessão.',
+          )
+          pb.authStore.clear()
+          setUser(null)
+          setToken(null)
+          updateTempLoginPassword(null)
+          setIsSessionExpired(true)
+          return false
+        }
+
+        // Erro de rede na checagem: preserva sessão
+        return false
+      }
+    })().finally(() => {
+      activeRefreshPromiseRef.current = null
+    })
+
+    activeRefreshPromiseRef.current = refreshTask
+    return refreshTask
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -68,29 +189,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const validateSession = async () => {
       if (pb.authStore.isValid && pb.authStore.token) {
         try {
-          // Validação/refresh da sessão contra o backend PocketBase
-          const refreshed = await pb.collection('users').authRefresh()
-          if (!isMounted) return
-          const authUser = refreshed.record as unknown as AuthUser
-
-          if (authUser?.disabled) {
-            console.warn('Conta desativada detectada durante authRefresh, deslogando usuário')
-            pb.authStore.clear()
-            setUser(null)
-            setToken(null)
-            updateTempLoginPassword(null)
-          } else {
-            setUser(authUser)
-            setToken(refreshed.token)
-          }
-        } catch (err: unknown) {
-          // Se o token estiver inválido, expirado ou o usuário não existir mais no backend
-          console.warn('Sessão inválida ou expirada detectada no backend, limpando sessão:', err)
-          if (!isMounted) return
-          pb.authStore.clear()
-          setUser(null)
-          setToken(null)
-          updateTempLoginPassword(null)
+          await executeResilientRefresh()
+        } catch {
+          /* erro suprimido na inicialização */
         }
       }
       if (isMounted) {
@@ -110,7 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false
       unsubscribe()
     }
-  }, [])
+  }, [executeResilientRefresh])
 
   const signIn = async (email: string, pass: string) => {
     try {
@@ -154,11 +255,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const signOut = () => {
+  const signOut = (message?: string) => {
     pb.authStore.clear()
     setUser(null)
     setToken(null)
     updateTempLoginPassword(null)
+    if (message) {
+      try {
+        sessionStorage.setItem('bitcrm_logout_notice', message)
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   const requestPasswordReset = async (email: string) => {
@@ -200,16 +308,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const refreshAuth = async () => {
+  const refreshAuth = async (): Promise<boolean> => {
     try {
-      if (pb.authStore.isValid) {
-        const refreshed = await pb.collection('users').authRefresh()
-        const authUser = refreshed.record as unknown as AuthUser
-        setUser(authUser)
-        setToken(refreshed.token)
-      }
+      return await executeResilientRefresh()
     } catch (err) {
-      console.warn('Erro ao atualizar sessão:', err)
+      console.warn('[bitCRM Auth] Erro ao atualizar sessão:', err)
+      return false
     }
   }
 
@@ -254,7 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     oldPassword: string,
     newPassword: string,
     passwordConfirm: string,
-  ) => {
+  ): Promise<{ error: Error | null; record?: AuthUser; sessionTerminated?: boolean }> => {
     const activeUserId = pb.authStore.record?.id || user?.id
     const activeEmail = (pb.authStore.record as unknown as AuthUser)?.email || user?.email
 
@@ -263,9 +367,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 1. Tentar primeiro via hook customizado
+    let endpointSuccess = false
+    let returnedToken: string | undefined
+    let returnedUser: AuthUser | undefined
+
     try {
       const res = await pb.send<{
         success: boolean
+        token?: string
         user?: AuthUser
         error?: string
       }>('/backend/v1/auth/set-first-password', {
@@ -279,12 +388,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       })
       if (res && res.success) {
-        try {
-          await refreshAuth()
-        } catch {
-          /* intentionally ignored */
-        }
-        return { error: null, record: (pb.authStore.record as unknown as AuthUser) || undefined }
+        endpointSuccess = true
+        returnedToken = res.token
+        returnedUser = res.user
       }
     } catch (hookErr: unknown) {
       const hookMsg =
@@ -301,26 +407,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // 2. Fallback via SDK padrão do PocketBase
-    try {
-      const updated = await pb.collection('users').update(activeUserId, {
-        oldPassword,
-        password: newPassword,
-        passwordConfirm,
-        mustChangePassword: false,
-      })
-      const authUser = updated as unknown as AuthUser
-      setUser(authUser)
-      return { error: null, record: authUser }
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'data' in err
-          ? String((err as { data?: { message?: string } }).data?.message || '')
-          : err instanceof Error
-            ? err.message
-            : String(err)
-      return { error: new Error(msg || 'Erro ao alterar a senha.') }
+    // 2. Se o hook falhou, tenta fallback via SDK padrão do PocketBase
+    if (!endpointSuccess) {
+      try {
+        const updated = await pb.collection('users').update(activeUserId, {
+          oldPassword,
+          password: newPassword,
+          passwordConfirm,
+          mustChangePassword: false,
+        })
+        returnedUser = updated as unknown as AuthUser
+        endpointSuccess = true
+      } catch (err: unknown) {
+        const msg =
+          err && typeof err === 'object' && 'data' in err
+            ? String((err as { data?: { message?: string } }).data?.message || '')
+            : err instanceof Error
+              ? err.message
+              : String(err)
+        return { error: new Error(msg || 'Erro ao alterar a senha.') }
+      }
     }
+
+    // 3. Sucesso na alteração da senha:
+    // Se o backend devolveu token novo válido, salva e atualiza a sessão imediatamente
+    if (returnedToken) {
+      pb.authStore.save(returnedToken, returnedUser || pb.authStore.record)
+      setToken(returnedToken)
+      if (returnedUser) setUser(returnedUser)
+      return { error: null, record: returnedUser || (pb.authStore.record as unknown as AuthUser) }
+    }
+
+    // Se o backend NÃO devolve token novo (comportamento padrão do PB: trocar senha invalida os tokens antigos)
+    // Encerra a sessão de forma LIMPA e EXPLÍCITA com mensagem amigável, nunca deixando em tela vazia
+    signOut('Senha alterada com sucesso. Entre com sua nova senha.')
+    return { error: null, sessionTerminated: true }
   }
 
   // Definição de nova senha no primeiro acesso (quando mustChangePassword == true)
@@ -328,7 +449,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newPassword: string,
     passwordConfirm: string,
     oldPassword?: string,
-  ) => {
+  ): Promise<{ error: Error | null; record?: AuthUser; sessionTerminated?: boolean }> => {
     const activeUserId = pb.authStore.record?.id || user?.id
     const activeEmail = (pb.authStore.record as unknown as AuthUser)?.email || user?.email
 
@@ -341,9 +462,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const effectiveOldPassword = oldPassword || tempLoginPassword || undefined
 
     // 1. Tentar primeiro via hook customizado seguro que aceita e valida a senha
+    let endpointSuccess = false
+    let returnedToken: string | undefined
+    let returnedUser: AuthUser | undefined
+
     try {
       const res = await pb.send<{
         success: boolean
+        token?: string
         user?: AuthUser
         error?: string
       }>('/backend/v1/auth/set-first-password', {
@@ -358,29 +484,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
 
       if (res && res.success) {
-        // Atualiza a sessão local
-        updateTempLoginPassword(null)
-        try {
-          await refreshAuth()
-        } catch {
-          /* intentionally ignored */
-        }
-
-        // Se o record em authStore ainda tiver mustChangePassword=true, força atualização local
-        if (pb.authStore.record) {
-          try {
-            const currentRec = pb.authStore.record
-            currentRec.mustChangePassword = false
-            setUser({ ...(currentRec as unknown as AuthUser), mustChangePassword: false })
-          } catch {
-            /* intentionally ignored */
-          }
-        }
-
-        return { error: null, record: (pb.authStore.record as unknown as AuthUser) || undefined }
+        endpointSuccess = true
+        returnedToken = res.token
+        returnedUser = res.user
       }
     } catch (hookErr: unknown) {
-      // Se o erro do hook for uma validação explícita de senha incorreta ou formato, repassa imediatamente
       const hookMsg =
         hookErr && typeof hookErr === 'object' && 'data' in hookErr
           ? String((hookErr as { data?: { error?: string } }).data?.error || '')
@@ -396,39 +504,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // 2. Fallback via SDK padrão do PocketBase
-    try {
-      const payload: Record<string, unknown> = {
-        password: newPassword,
-        passwordConfirm,
-        mustChangePassword: false,
-      }
-      if (effectiveOldPassword) {
-        payload.oldPassword = effectiveOldPassword
-      }
-
-      const updated = await pb.collection('users').update(activeUserId, payload)
-      const authUser = updated as unknown as AuthUser
-      setUser(authUser)
-      updateTempLoginPassword(null)
-      return { error: null, record: authUser }
-    } catch (err: unknown) {
-      const dataObj =
-        err && typeof err === 'object' && 'data' in err
-          ? (err as { data?: Record<string, unknown> }).data
-          : null
-      const dataMsg = dataObj?.message ? String(dataObj.message) : ''
-      const msg = dataMsg || (err instanceof Error ? err.message : String(err))
-
-      if (msg.includes("wasn't found") || msg.includes('404')) {
-        return {
-          error: new Error(
-            'Não foi possível atualizar o usuário. Sua sessão pode ter sido alterada. Por favor, saia e entre novamente com seu e-mail.',
-          ),
+    if (!endpointSuccess) {
+      try {
+        const payload: Record<string, unknown> = {
+          password: newPassword,
+          passwordConfirm,
+          mustChangePassword: false,
         }
-      }
+        if (effectiveOldPassword) {
+          payload.oldPassword = effectiveOldPassword
+        }
 
-      return { error: new Error(msg || 'Erro ao definir nova senha.') }
+        const updated = await pb.collection('users').update(activeUserId, payload)
+        returnedUser = updated as unknown as AuthUser
+        endpointSuccess = true
+      } catch (err: unknown) {
+        const dataObj =
+          err && typeof err === 'object' && 'data' in err
+            ? (err as { data?: Record<string, unknown> }).data
+            : null
+        const dataMsg = dataObj?.message ? String(dataObj.message) : ''
+        const msg = dataMsg || (err instanceof Error ? err.message : String(err))
+
+        if (msg.includes("wasn't found") || msg.includes('404')) {
+          return {
+            error: new Error(
+              'Não foi possível atualizar o usuário. Sua sessão pode ter sido alterada. Por favor, saia e entre novamente com seu e-mail.',
+            ),
+          }
+        }
+
+        return { error: new Error(msg || 'Erro ao definir nova senha.') }
+      }
     }
+
+    updateTempLoginPassword(null)
+
+    // 3. Se tiver token novo retornado pelo servidor, absorve
+    if (returnedToken) {
+      pb.authStore.save(returnedToken, returnedUser || pb.authStore.record)
+      setToken(returnedToken)
+      if (returnedUser) setUser(returnedUser)
+      return { error: null, record: returnedUser || (pb.authStore.record as unknown as AuthUser) }
+    }
+
+    // Se o backend não devolve novo token, encerra sessão de forma LIMPA e EXPLÍCITA
+    signOut('Senha definida com sucesso! Entre com sua nova senha.')
+    return { error: null, sessionTerminated: true }
   }
 
   const isAdmin = Boolean(
@@ -447,6 +569,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isAdmin,
         mustChangePassword,
+        isSessionExpired,
         signIn,
         signOut,
         requestPasswordReset,
