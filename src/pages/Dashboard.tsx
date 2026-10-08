@@ -73,6 +73,7 @@ export default function Dashboard() {
   const { user, isAdmin } = useAuth()
   const { toast } = useToast()
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -291,6 +292,60 @@ export default function Dashboard() {
   const handleManualRefresh = () => {
     setIsRefreshing(true)
     fetchOpportunities()
+  }
+
+  // URL webcal para assinatura direta de agenda
+  const rawBackendUrl = (import.meta.env.VITE_POCKETBASE_URL || window.location.origin).replace(
+    /\/$/,
+    '',
+  )
+  const calendarToken = user?.calendar_token
+  const icsFeedUrl = calendarToken
+    ? `${rawBackendUrl}/backend/v1/calendar/feed/${calendarToken}`
+    : ''
+  const webcalLink = icsFeedUrl ? icsFeedUrl.replace(/^https?:\/\//i, 'webcal://') : '#'
+
+  // Envio imediato do resumo diário para o e-mail do usuário (para teste)
+  const handleSendTestDailySummary = async () => {
+    setIsSendingTestEmail(true)
+    try {
+      const res = await pb.send<{
+        sent: boolean
+        email?: string
+        totalOwnReturns?: number
+        totalTeamReturns?: number
+        message?: string
+        error?: string
+      }>('/backend/v1/returns/send-daily-summary', {
+        method: 'POST',
+      })
+
+      if (res && res.sent) {
+        toast({
+          title: 'Resumo enviado com sucesso!',
+          description: `Verifique a caixa de entrada de ${res.email || user?.alert_email || user?.email}.`,
+        })
+      } else {
+        toast({
+          title: 'Resumo não enviado',
+          description: res?.message || 'Nenhum retorno pendente ou e-mail não configurado.',
+        })
+      }
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'data' in err
+          ? String((err as { data?: { error?: string } }).data?.error || '')
+          : err instanceof Error
+            ? err.message
+            : ''
+      toast({
+        title: 'Erro ao enviar resumo',
+        description: msg || 'Não foi possível disparar o e-mail no momento.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSendingTestEmail(false)
+    }
   }
 
   // Filtragem e Métricas
@@ -873,12 +928,56 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Botão: Adicionar à minha agenda (abre o link webcal do usuário logado) */}
+            {user?.calendar_token ? (
+              <a
+                href={webcalLink}
+                title="Inscrever-se na agenda do celular ou Google/Outlook"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white border border-indigo-500/30 transition-all shadow-sm"
+              >
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                Adicionar à minha agenda
+              </a>
+            ) : (
+              <Link
+                to="/perfil"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#171A24] text-gray-300 hover:text-white border border-[#262A33] transition-all"
+                title="Configurar agenda em Meu Perfil"
+              >
+                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                Ativar Agenda
+              </Link>
+            )}
+
+            {/* Botão: Receber resumo por e-mail (envio imediato do resumo para teste) */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSendTestDailySummary}
+              disabled={isSendingTestEmail}
+              className="border-[#262A33] bg-[#171A24] text-gray-300 hover:text-white hover:bg-[#202533] rounded-xl h-8 text-xs font-semibold shadow-sm"
+              title="Disparar agora o envio do resumo de retornos para seu e-mail"
+            >
+              {isSendingTestEmail ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-amber-400" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                  Receber resumo por e-mail
+                </>
+              )}
+            </Button>
+
             <Link
               to="/abordagem"
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group"
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1 group ml-1"
             >
-              Guia de Abordagem
+              Guia
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <Link

@@ -11,6 +11,8 @@ export interface AuthUser extends RecordModel {
   disabled?: boolean
   terms_accepted_version?: string
   terms_accepted_at?: string
+  calendar_token?: string
+  alert_email?: string
 }
 
 interface AuthContextType {
@@ -26,7 +28,10 @@ interface AuthContextType {
   confirmPasswordReset: (token: string, password: string) => Promise<{ error: Error | null }>
   requestEmailChange: (newEmail: string) => Promise<{ error: Error | null }>
   confirmEmailChange: (token: string, password: string) => Promise<{ error: Error | null }>
-  updateProfile: (data: { name?: string }) => Promise<{ error: Error | null; record?: AuthUser }>
+  updateProfile: (data: {
+    name?: string
+    alert_email?: string
+  }) => Promise<{ error: Error | null; record?: AuthUser }>
   changePassword: (
     oldPassword: string,
     newPassword: string,

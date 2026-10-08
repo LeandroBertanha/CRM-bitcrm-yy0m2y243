@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T15:24:53.810Z",
+  "generatedAt": "2026-10-08T16:51:56.748Z",
   "collections": [
     {
       "name": "users",
@@ -66,6 +66,18 @@
         {
           "name": "disabled",
           "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "calendar_token",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "alert_email",
+          "type": "email",
           "required": false,
           "system": false
         }

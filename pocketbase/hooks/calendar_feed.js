@@ -1,0 +1,143 @@
+routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
+  const token = (e.request.pathValue('token') || '').trim()
+  if (!token || token.length < 10) {
+    return e.string(404, 'Feed de agenda não encontrado.')
+  }
+
+  let user = null
+  try {
+    user = $app.findFirstRecordByData('users', 'calendar_token', token)
+  } catch (_) {}
+
+  if (!user || user.getBool('disabled')) {
+    return e.string(404, 'Feed de agenda inválido ou usuário inativo.')
+  }
+
+  const userId = user.id
+  const userName = user.getString('name') || user.getString('email')
+  const userRole = user.getString('role') || 'seller'
+  const userEmail = (user.getString('email') || '').toLowerCase()
+  const isAdmin = userRole === 'admin' || userEmail === 'leandro.bertanha@lbertanha.com'
+
+  let opps = []
+  if (isAdmin) {
+    // Admin tem seu próprio feed: oportunidades próprias ou toda a equipe se não tiver próprias (mesmo fallback do painel)
+    const ownOpps = $app.findRecordsByFilter(
+      'opportunities',
+      `seller = '${userId}' && return_at != ''`,
+      '-return_at',
+      500,
+      0,
+    )
+    if (ownOpps && ownOpps.length > 0) {
+      opps = ownOpps
+    } else {
+      opps = $app.findRecordsByFilter('opportunities', "return_at != ''", '-return_at', 500, 0)
+    }
+  } else {
+    // Vendedor recebe apenas os retornos dele
+    opps = $app.findRecordsByFilter(
+      'opportunities',
+      `seller = '${userId}' && return_at != ''`,
+      '-return_at',
+      500,
+      0,
+    )
+  }
+
+  const escapeIcs = (val) => {
+    if (!val) return ''
+    return String(val)
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\r?\n/g, '\\n')
+  }
+
+  const formatUtcDate = (d) => {
+    const pad = (n) => (n < 10 ? '0' + n : '' + n)
+    const year = d.getUTCFullYear()
+    const month = pad(d.getUTCMonth() + 1)
+    const day = pad(d.getUTCDate())
+    const hours = pad(d.getUTCHours())
+    const mins = pad(d.getUTCMinutes())
+    const secs = pad(d.getUTCSeconds())
+    return `${year}${month}${day}T${hours}${mins}${secs}Z`
+  }
+
+  const now = new Date()
+  const dtStamp = formatUtcDate(now)
+
+  let lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//bit Consulting//bitCRM Calendar//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeIcs('bitCRM Retornos - ' + userName)}`,
+    'X-WR-TIMEZONE:America/Sao_Paulo',
+    'X-WR-CALDESC:Retornos agendados e follow-ups comerciais do bitCRM',
+  ]
+
+  for (let i = 0; i < opps.length; i++) {
+    const opp = opps[i]
+    const returnAtStr = opp.getString('return_at')
+    if (!returnAtStr) continue
+
+    const startDate = new Date(returnAtStr)
+    if (isNaN(startDate.getTime())) continue
+
+    // Evento padrão de 30 minutos de duração
+    const endDate = new Date(startDate.getTime() + 30 * 60 * 1000)
+
+    const company = opp.getString('company') || 'Empresa'
+    const contactName = opp.getString('contact_name') || ''
+    const contactPhone = opp.getString('contact_phone') || ''
+    const stage = opp.getString('stage') || 'Novo'
+    const value = opp.getInt('value') || 0
+    const message = opp.getString('message') || ''
+
+    const titleParts = ['Retorno: ' + company]
+    if (contactName) {
+      titleParts.push(contactName)
+    }
+    const summary = titleParts.join(' — ')
+
+    let descLines = [
+      `Empresa: ${company}`,
+      `Estágio: ${stage}`,
+      `Valor: R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    ]
+    if (contactName) descLines.push(`Contato: ${contactName}`)
+    if (contactPhone) descLines.push(`Telefone: ${contactPhone}`)
+    if (message) descLines.push(`Observações: ${message}`)
+    descLines.push('Origem: bitCRM Follow-up Comercial')
+
+    const description = descLines.join('\n')
+    const uid = `opp-${opp.id}@crm.lbertanha.com`
+
+    lines.push('BEGIN:VEVENT')
+    lines.push(`UID:${uid}`)
+    lines.push(`DTSTAMP:${dtStamp}`)
+    lines.push(`DTSTART:${formatUtcDate(startDate)}`)
+    lines.push(`DTEND:${formatUtcDate(endDate)}`)
+    lines.push(`SUMMARY:${escapeIcs(summary)}`)
+    lines.push(`DESCRIPTION:${escapeIcs(description)}`)
+    lines.push('STATUS:CONFIRMED')
+    lines.push('BEGIN:VALARM')
+    lines.push('TRIGGER:-PT30M')
+    lines.push('ACTION:DISPLAY')
+    lines.push(`DESCRIPTION:${escapeIcs('Lembrete de retorno bitCRM: ' + company)}`)
+    lines.push('END:VALARM')
+    lines.push('END:VEVENT')
+  }
+
+  lines.push('END:VCALENDAR')
+  const icsBody = lines.join('\r\n') + '\r\n'
+
+  e.response.header().set('Content-Type', 'text/calendar; charset=utf-8')
+  e.response.header().set('Content-Disposition', 'inline; filename="bitcrm-retornos.ics"')
+  e.response.header().set('Cache-Control', 'no-cache, no-store, must-revalidate')
+
+  return e.string(200, icsBody)
+})

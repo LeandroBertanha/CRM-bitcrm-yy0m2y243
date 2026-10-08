@@ -20,7 +20,13 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Calendar,
+  RefreshCw,
+  Bell,
+  Smartphone,
+  ExternalLink,
 } from 'lucide-react'
+import { convertToWebcalUrl } from '@/lib/calendarHelper'
 
 export default function Profile() {
   const { user, updateProfile, requestEmailChange, changePassword } = useAuth()
@@ -46,6 +52,13 @@ export default function Profile() {
   const [requestingEmailChange, setRequestingEmailChange] = useState(false)
   const [emailChangeSuccess, setEmailChangeSuccess] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+
+  // Agenda e Alertas
+  const [calendarToken, setCalendarToken] = useState(user?.calendar_token || '')
+  const [alertEmailInput, setAlertEmailInput] = useState(user?.alert_email || user?.email || '')
+  const [savingAlertEmail, setSavingAlertEmail] = useState(false)
+  const [regeneratingToken, setRegeneratingToken] = useState(false)
+  const [hasCopiedIcs, setHasCopiedIcs] = useState(false)
 
   // Scroll automático para #alterar-senha caso venha do link do Header
   useEffect(() => {
@@ -243,6 +256,103 @@ export default function Profile() {
       title: 'Senha temporária copiada!',
       description: 'Você pode enviar ao vendedor por mensagem segura.',
     })
+  }
+
+  // Atualiza dados locais quando o user é carregado ou alterado
+  useEffect(() => {
+    if (user?.calendar_token && !calendarToken) {
+      setCalendarToken(user.calendar_token)
+    }
+    if (user?.alert_email && !alertEmailInput) {
+      setAlertEmailInput(user.alert_email)
+    } else if (user?.email && !alertEmailInput) {
+      setAlertEmailInput(user.email)
+    }
+  }, [user, calendarToken, alertEmailInput])
+
+  // Montagem da URL completa do Feed ICS
+  const rawBackendUrl = (import.meta.env.VITE_POCKETBASE_URL || window.location.origin).replace(
+    /\/$/,
+    '',
+  )
+  const icsFeedUrl = calendarToken
+    ? `${rawBackendUrl}/backend/v1/calendar/feed/${calendarToken}`
+    : ''
+  const webcalFeedUrl = convertToWebcalUrl(icsFeedUrl)
+
+  const handleCopyCalendarLink = () => {
+    if (!icsFeedUrl) return
+    navigator.clipboard.writeText(icsFeedUrl)
+    setHasCopiedIcs(true)
+    setTimeout(() => setHasCopiedIcs(false), 3000)
+    toast({
+      title: 'Link da agenda copiado!',
+      description: 'Cole no Google Agenda, Outlook ou no calendário do seu celular.',
+    })
+  }
+
+  const handleRegenerateCalendarToken = async () => {
+    if (
+      !confirm(
+        'Deseja realmente gerar um novo link de agenda? O link anterior deixará de funcionar nas agendas já sincronizadas.',
+      )
+    ) {
+      return
+    }
+
+    setRegeneratingToken(true)
+    try {
+      const res = await pb.send<{ success: boolean; calendar_token: string }>(
+        '/backend/v1/calendar/regenerate-token',
+        { method: 'POST' },
+      )
+      if (res && res.calendar_token) {
+        setCalendarToken(res.calendar_token)
+        toast({
+          title: 'Novo link gerado com sucesso!',
+          description: 'Lembre-se de atualizar a inscrição nos seus calendários.',
+        })
+      }
+    } catch {
+      toast({
+        title: 'Erro ao regenerar link',
+        description: 'Não foi possível gerar novo token no momento.',
+        variant: 'destructive',
+      })
+    } finally {
+      setRegeneratingToken(false)
+    }
+  }
+
+  const handleSaveAlertEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!alertEmailInput.trim() || !alertEmailInput.includes('@')) {
+      toast({
+        title: 'E-mail inválido',
+        description: 'Por favor, informe um endereço de e-mail válido para alertas.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSavingAlertEmail(true)
+    try {
+      const { error } = await updateProfile({ alert_email: alertEmailInput.trim().toLowerCase() })
+      if (error) {
+        toast({
+          title: 'Erro ao salvar',
+          description: 'Não foi possível salvar o e-mail de alertas.',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'E-mail de alertas salvo!',
+          description: 'O resumo matinal diário de retornos será enviado para este endereço.',
+        })
+      }
+    } finally {
+      setSavingAlertEmail(false)
+    }
   }
 
   // Gera iniciais
@@ -569,6 +679,185 @@ export default function Profile() {
                 </Button>
               </form>
             )}
+          </div>
+        </div>
+      </div>
+      {/* Seção Nova: Agenda e Alertas (Requisito bitCRM) */}
+      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#262A33] gap-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-indigo-400" />
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span>Agenda e Alertas de Retorno</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                  Feed ICS & E-mail Diário
+                </span>
+              </h3>
+            </div>
+          </div>
+          <span className="text-xs text-gray-400">
+            Fuso horário padrão:{' '}
+            <strong className="text-gray-300">America/Sao_Paulo (UTC-3)</strong>
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-300">
+          Sincronize automaticamente os follow-ups e retornos agendados com o calendário do seu
+          e-mail ou celular (Google Calendar, Outlook, Apple Calendar) e receba o resumo matinal de
+          contatos prioritários.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Coluna 1: Link do Feed ICS */}
+          <div className="space-y-4 bg-[#0E1017] border border-[#262A33] p-4 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-indigo-400" />
+                Seu Feed de Agenda (webcal / ICS)
+              </span>
+              <button
+                type="button"
+                onClick={handleRegenerateCalendarToken}
+                disabled={regeneratingToken}
+                className="text-[11px] text-gray-400 hover:text-amber-400 flex items-center gap-1 transition-colors"
+                title="Gera um novo token caso queira revogar acessos antigos"
+              >
+                <RefreshCw className={`w-3 h-3 ${regeneratingToken ? 'animate-spin' : ''}`} />
+                Regenerar link
+              </button>
+            </div>
+
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Feed dinâmico que atualiza automaticamente seus retornos na sua agenda. Lembretes
+              (alarmes) são configurados 30 minutos antes de cada compromisso.
+            </p>
+
+            <div className="space-y-2">
+              <div className="p-2.5 rounded-lg bg-[#12141A] border border-[#262A33] flex items-center justify-between gap-2 overflow-hidden">
+                <code className="text-xs font-mono text-indigo-300 truncate select-all flex-1">
+                  {icsFeedUrl || 'Gerando token de agenda...'}
+                </code>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCopyCalendarLink}
+                  disabled={!icsFeedUrl}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl h-9 font-semibold flex-1"
+                >
+                  {hasCopiedIcs ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                      Link Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />
+                      Copiar link da agenda
+                    </>
+                  )}
+                </Button>
+
+                {webcalFeedUrl && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="border-[#262A33] text-gray-300 hover:text-white bg-[#171A24] text-xs rounded-xl h-9"
+                  >
+                    <a href={webcalFeedUrl} title="Abrir inscrição nativa do sistema">
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      Assinar direto
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Instruções curtas de como assinar */}
+            <div className="pt-2 border-t border-[#262A33]/80 space-y-2 text-[11px] text-gray-400">
+              <div className="font-semibold text-gray-300">Como assinar na sua agenda:</div>
+              <ul className="space-y-1 list-disc pl-4 text-gray-400">
+                <li>
+                  <strong className="text-gray-300">Agenda Google:</strong> No PC, clique em "Outras
+                  agendas (+)" &gt; "Do URL" e cole o link copiado.
+                </li>
+                <li>
+                  <strong className="text-gray-300">Outlook (Web ou App):</strong> Vá em Calendário
+                  &gt; "Adicionar calendário" &gt; "Inscrever-se na Web".
+                </li>
+                <li>
+                  <strong className="text-gray-300">iPhone / Mac:</strong> Toque no botão "Assinar
+                  direto" ou vá em Ajustes &gt; Calendário &gt; Contas &gt; Adicionar Conta &gt;
+                  Outra &gt; "Adicionar Calendário Assinado".
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Coluna 2: E-mail Diário de Retornos */}
+          <div className="space-y-4 bg-[#0E1017] border border-[#262A33] p-4 rounded-xl flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center gap-1.5">
+                <Bell className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-white">
+                  E-mail Diário de Retornos (07:30 BRT)
+                </span>
+              </div>
+
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Todas as manhãs às 07:30 (horário de Brasília), você recebe um e-mail com a lista
+                dos seus retornos atrasados e agendados para o dia, incluindo link direto para
+                contato no WhatsApp (wa.me).
+              </p>
+
+              <form onSubmit={handleSaveAlertEmail} className="space-y-3 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-300">E-mail para Receber os Alertas</Label>
+                  <Input
+                    type="email"
+                    required
+                    value={alertEmailInput}
+                    onChange={(e) => setAlertEmailInput(e.target.value)}
+                    placeholder="seu-email@lbertanha.com"
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl"
+                  />
+                  <p className="text-[11px] text-gray-500">
+                    Pré-preenchido com o e-mail da sua conta comercial. Pode ser ajustado conforme
+                    sua preferência.
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={savingAlertEmail}
+                  className="bg-amber-600 hover:bg-amber-500 text-white text-xs rounded-xl h-9 px-4 font-semibold"
+                >
+                  {savingAlertEmail ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 mr-2" />
+                      Salvar E-mail de Alertas
+                    </>
+                  )}
+                </Button>
+              </form>
+            </div>
+
+            <div className="p-3 rounded-lg bg-[#12141A] border border-[#262A33] text-[11px] text-gray-400 flex items-start gap-2 mt-3">
+              <Smartphone className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <span>
+                <strong>Dica:</strong> Se não houver retornos agendados para a sua carteira no dia
+                nem atrasados, o sistema não enviará e-mail para não poluir sua caixa de entrada.
+              </span>
+            </div>
           </div>
         </div>
       </div>
