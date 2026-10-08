@@ -1,4 +1,23 @@
 routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
+  // Redirecionamento 301 se a requisição chegar por HTTP puro em vez de HTTPS
+  // No PocketBase / proxies reversos, o cabeçalho X-Forwarded-Proto indica o protocolo do cliente
+  const reqProto = (
+    e.request.header.get('x-forwarded-proto') ||
+    e.request.header.get('x-forwarded-protocol') ||
+    ''
+  ).toLowerCase()
+  const reqHost = e.request.header.get('x-forwarded-host') || e.request.header.get('host') || ''
+
+  if (reqProto === 'http' && reqHost) {
+    const rawPath =
+      e.request.url.rawPath ||
+      e.request.url.path ||
+      '/backend/v1/calendar/feed/' + (e.request.pathValue('token') || '')
+    const httpsTarget = 'https://' + reqHost + rawPath
+    e.response.header().set('Location', httpsTarget)
+    return e.string(301, 'Redirecionando para HTTPS...')
+  }
+
   const token = (e.request.pathValue('token') || '').trim()
   if (!token || token.length < 10) {
     return e.string(404, 'Feed de agenda não encontrado.')
@@ -103,11 +122,8 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
     }
     const summary = titleParts.join(' — ')
 
-    let descLines = [
-      `Empresa: ${company}`,
-      `Estágio: ${stage}`,
-      `Valor: R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    ]
+    const formattedValue = (typeof value === 'number' ? value : 0).toFixed(2).replace('.', ',')
+    let descLines = [`Empresa: ${company}`, `Estágio: ${stage}`, `Valor: R$ ${formattedValue}`]
     if (contactName) descLines.push(`Contato: ${contactName}`)
     if (contactPhone) descLines.push(`Telefone: ${contactPhone}`)
     if (message) descLines.push(`Observações: ${message}`)
@@ -138,6 +154,7 @@ routerAdd('GET', '/backend/v1/calendar/feed/{token}', (e) => {
   e.response.header().set('Content-Type', 'text/calendar; charset=utf-8')
   e.response.header().set('Content-Disposition', 'inline; filename="bitcrm-retornos.ics"')
   e.response.header().set('Cache-Control', 'no-cache, no-store, must-revalidate')
+  e.response.header().set('Access-Control-Allow-Origin', '*')
 
   return e.string(200, icsBody)
 })

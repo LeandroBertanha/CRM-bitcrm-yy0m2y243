@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import pb from '@/lib/pocketbase/client'
@@ -26,7 +26,7 @@ import {
   Smartphone,
   ExternalLink,
 } from 'lucide-react'
-import { convertToWebcalUrl } from '@/lib/calendarHelper'
+import { buildCalendarFeedUrls } from '@/lib/calendarHelper'
 
 export default function Profile() {
   const { user, updateProfile, requestEmailChange, changePassword } = useAuth()
@@ -270,15 +270,10 @@ export default function Profile() {
     }
   }, [user, calendarToken, alertEmailInput])
 
-  // Montagem da URL completa do Feed ICS
-  const rawBackendUrl = (import.meta.env.VITE_POCKETBASE_URL || window.location.origin).replace(
-    /\/$/,
-    '',
-  )
-  const icsFeedUrl = calendarToken
-    ? `${rawBackendUrl}/backend/v1/calendar/feed/${calendarToken}`
-    : ''
-  const webcalFeedUrl = convertToWebcalUrl(icsFeedUrl)
+  // Montagem da URL completa do Feed ICS (HTTPS forçado e host público)
+  const { httpsFeedUrl: icsFeedUrl, webcalFeedUrl } = useMemo(() => {
+    return buildCalendarFeedUrls(calendarToken)
+  }, [calendarToken])
 
   const handleCopyCalendarLink = () => {
     if (!icsFeedUrl) return
@@ -780,19 +775,24 @@ export default function Profile() {
             {/* Instruções curtas de como assinar */}
             <div className="pt-2 border-t border-[#262A33]/80 space-y-2 text-[11px] text-gray-400">
               <div className="font-semibold text-gray-300">Como assinar na sua agenda:</div>
-              <ul className="space-y-1 list-disc pl-4 text-gray-400">
+              <ul className="space-y-1.5 list-disc pl-4 text-gray-400">
                 <li>
                   <strong className="text-gray-300">Agenda Google:</strong> No PC, clique em "Outras
-                  agendas (+)" &gt; "Do URL" e cole o link copiado.
+                  agendas (+)" &gt; "Do URL" e cole o link copiado (HTTPS).
                 </li>
                 <li>
                   <strong className="text-gray-300">Outlook (Web ou App):</strong> Vá em Calendário
-                  &gt; "Adicionar calendário" &gt; "Inscrever-se na Web".
+                  &gt; "Adicionar calendário" &gt; "Inscrever-se na Web" e cole o link HTTPS.
                 </li>
                 <li>
-                  <strong className="text-gray-300">iPhone / Mac:</strong> Toque no botão "Assinar
-                  direto" ou vá em Ajustes &gt; Calendário &gt; Contas &gt; Adicionar Conta &gt;
-                  Outra &gt; "Adicionar Calendário Assinado".
+                  <strong className="text-gray-300">iPhone / Mac (macOS):</strong> Toque no botão
+                  "Assinar direto". Se a Agenda do Mac exibir o aviso de conexão insegura, vá em{' '}
+                  <span className="text-indigo-300 font-medium">
+                    Arquivo &gt; Nova Assinatura de Calendário...
+                  </span>{' '}
+                  (ou em Ajustes &gt; Calendário &gt; Contas &gt; Adicionar Conta &gt; Outra &gt;
+                  Adicionar Calendário Inscrito) e cole diretamente a URL com{' '}
+                  <strong className="text-indigo-300 font-mono">https://</strong> copiada acima.
                 </li>
               </ul>
             </div>

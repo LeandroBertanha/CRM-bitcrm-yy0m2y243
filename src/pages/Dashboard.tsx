@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { OpportunityTimeline } from '@/components/OpportunityTimeline'
+import { buildCalendarFeedUrls } from '@/lib/calendarHelper'
 import {
   Briefcase,
   TrendingUp,
@@ -294,16 +295,12 @@ export default function Dashboard() {
     fetchOpportunities()
   }
 
-  // URL webcal para assinatura direta de agenda
-  const rawBackendUrl = (import.meta.env.VITE_POCKETBASE_URL || window.location.origin).replace(
-    /\/$/,
-    '',
-  )
+  // URL webcal para assinatura direta de agenda (HTTPS garantido e host público correto)
   const calendarToken = user?.calendar_token
-  const icsFeedUrl = calendarToken
-    ? `${rawBackendUrl}/backend/v1/calendar/feed/${calendarToken}`
-    : ''
-  const webcalLink = icsFeedUrl ? icsFeedUrl.replace(/^https?:\/\//i, 'webcal://') : '#'
+  const { webcalFeedUrl } = useMemo(() => {
+    return buildCalendarFeedUrls(calendarToken)
+  }, [calendarToken])
+  const webcalLink = webcalFeedUrl || '#'
 
   // Envio imediato do resumo diário para o e-mail do usuário (para teste)
   const handleSendTestDailySummary = async () => {

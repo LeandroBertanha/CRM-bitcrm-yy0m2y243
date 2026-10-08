@@ -133,6 +133,71 @@ export function convertToWebcalUrl(httpUrl: string): string {
   return httpUrl.replace(/^https?:\/\//i, 'webcal://')
 }
 
+export const PRODUCTION_DEFAULT_DOMAIN = 'bitcrm.lbertanha.com'
+
+/**
+ * Normaliza e resolve o host base para endpoints públicos do feed ICS.
+ * - Força HTTPS em qualquer situação.
+ * - Se estiver rodando em ambiente local/preview interno (localhost, 127.0.0.1, goskip.dev, etc.),
+ *   ou se fornecido fallback explícito, garante que o domínio de produção seja usado
+ *   quando a página estiver em contexto interno ou se window.location.origin não for um domínio público próprio.
+ * - Permite passar o baseUrl explicitamente para testes ou override (ex: import.meta.env.VITE_POCKETBASE_URL).
+ */
+export function resolveCalendarBaseUrl(customBaseUrl?: string): string {
+  let rawUrl = (customBaseUrl || '').trim()
+
+  // Se não foi passado customBaseUrl, tenta ler a origem do navegador
+  if (!rawUrl && typeof window !== 'undefined' && window.location?.origin) {
+    rawUrl = window.location.origin
+  }
+
+  if (!rawUrl) {
+    return `https://${PRODUCTION_DEFAULT_DOMAIN}`
+  }
+
+  // Se o host contiver indicador de localhost ou ambiente interno de desenvolvimento Skip
+  // (ex: shrd00.internal.goskip.dev ou localhost:5173), ou se a URL indicar preview interno:
+  const isInternalOrDev =
+    /localhost|127\.0\.0\.1|internal\.goskip\.dev|webcontainer|\.local\b/i.test(rawUrl)
+
+  if (isInternalOrDev) {
+    // Quando a página ou backend estiver em contexto interno, usa o fallback de produção https://bitcrm.lbertanha.com
+    return `https://${PRODUCTION_DEFAULT_DOMAIN}`
+  }
+
+  // Para qualquer outro domínio (ex: lbertanha.com ou outro custom domain configurado pelo cliente):
+  // Garante SEMPRE protocolo https://, nunca http://
+  const withoutProtocol = rawUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
+  return `https://${withoutProtocol}`
+}
+
+/**
+ * Monta as URLs completas de assinatura da agenda (HTTPS copiável e webcal:// nativo).
+ * Garante que NUNCA haja HTTP puro e que ambos usem o host público correto.
+ */
+export function buildCalendarFeedUrls(
+  calendarToken: string | null | undefined,
+  customBaseUrl?: string,
+): { httpsFeedUrl: string; webcalFeedUrl: string } {
+  const token = (calendarToken || '').trim()
+  if (!token) {
+    return {
+      httpsFeedUrl: '',
+      webcalFeedUrl: '',
+    }
+  }
+
+  const base = resolveCalendarBaseUrl(customBaseUrl)
+  const path = `/backend/v1/calendar/feed/${token}`
+  const httpsFeedUrl = `${base}${path}`
+  const webcalFeedUrl = convertToWebcalUrl(httpsFeedUrl)
+
+  return {
+    httpsFeedUrl,
+    webcalFeedUrl,
+  }
+}
+
 /**
  * Separa oportunidades entre atrasadas e de hoje, com respeito a escopo de vendedor vs admin
  */

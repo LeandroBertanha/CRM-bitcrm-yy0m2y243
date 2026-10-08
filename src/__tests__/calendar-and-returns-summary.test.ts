@@ -7,6 +7,8 @@ import {
   buildFullIcsCalendar,
   convertToWebcalUrl,
   partitionReturnsForSeller,
+  resolveCalendarBaseUrl,
+  buildCalendarFeedUrls,
 } from '@/lib/calendarHelper'
 
 describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
@@ -108,6 +110,55 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
       )
       expect(convertToWebcalUrl('http://crm.example.com/feed')).toBe(
         'webcal://crm.example.com/feed',
+      )
+    })
+  })
+
+  describe('resolveCalendarBaseUrl e buildCalendarFeedUrls', () => {
+    it('força protocolo https mesmo se fornecido http ou sem protocolo', () => {
+      const urls = buildCalendarFeedUrls('my-token-123', 'http://meusite.com.br')
+      expect(urls.httpsFeedUrl).toBe('https://meusite.com.br/backend/v1/calendar/feed/my-token-123')
+      expect(urls.webcalFeedUrl).toBe(
+        'webcal://meusite.com.br/backend/v1/calendar/feed/my-token-123',
+      )
+    })
+
+    it('redireciona para o domínio de produção oficial quando em contexto de desenvolvimento interno ou localhost', () => {
+      // Cenário com localhost
+      const urlsLocal = buildCalendarFeedUrls('tok456', 'http://localhost:5173')
+      expect(urlsLocal.httpsFeedUrl).toBe(
+        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok456',
+      )
+      expect(urlsLocal.webcalFeedUrl).toBe(
+        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok456',
+      )
+
+      // Cenário com domínio interno Skip
+      const urlsInternal = buildCalendarFeedUrls(
+        'tok789',
+        'https://crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev',
+      )
+      expect(urlsInternal.httpsFeedUrl).toBe(
+        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok789',
+      )
+      expect(urlsInternal.webcalFeedUrl).toBe(
+        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/tok789',
+      )
+    })
+
+    it('retorna strings vazias se o token for nulo, indefinido ou vazio', () => {
+      expect(buildCalendarFeedUrls('')).toEqual({ httpsFeedUrl: '', webcalFeedUrl: '' })
+      expect(buildCalendarFeedUrls(null)).toEqual({ httpsFeedUrl: '', webcalFeedUrl: '' })
+      expect(buildCalendarFeedUrls(undefined)).toEqual({ httpsFeedUrl: '', webcalFeedUrl: '' })
+    })
+
+    it('preserva domínio público de produção customizado garantindo sempre HTTPS', () => {
+      const urls = buildCalendarFeedUrls('token-abc', 'https://bitcrm.lbertanha.com')
+      expect(urls.httpsFeedUrl).toBe(
+        'https://bitcrm.lbertanha.com/backend/v1/calendar/feed/token-abc',
+      )
+      expect(urls.webcalFeedUrl).toBe(
+        'webcal://bitcrm.lbertanha.com/backend/v1/calendar/feed/token-abc',
       )
     })
   })
