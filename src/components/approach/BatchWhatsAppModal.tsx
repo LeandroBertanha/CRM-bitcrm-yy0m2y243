@@ -515,16 +515,16 @@ export function BatchWhatsAppModal({
                 <Clock className="w-4 h-4 text-amber-400" />
               </div>
 
-              <div className="p-2.5 rounded-xl bg-[#12141A] border border-indigo-500/30 bg-indigo-950/20 flex items-center justify-between">
+              <div className="p-2.5 rounded-xl bg-[#12141A] border border-blue-500/40 bg-blue-950/25 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-indigo-300 block uppercase font-medium">
+                  <span className="text-[10px] text-blue-300 block uppercase font-medium">
                     Enviadas na Sessão
                   </span>
-                  <span className="text-base font-bold text-indigo-200 tabular-nums">
+                  <span className="text-base font-bold text-blue-200 tabular-nums">
                     {stats.sentInSession}
                   </span>
                 </div>
-                <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                <CheckCircle2 className="w-4 h-4 text-blue-400" />
               </div>
             </div>
 
@@ -633,9 +633,11 @@ export function BatchWhatsAppModal({
                 return (
                   <div
                     key={item.opp.id}
+                    data-testid={`batch-item-${item.opp.id}`}
+                    data-status={isSent ? 'enviada' : isApproached ? 'abordada' : 'pendente'}
                     className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-150 space-y-3 ${
                       isSent
-                        ? 'bg-[#0E151A] border-emerald-500/40 shadow-sm'
+                        ? 'bg-[#0E1322] border-blue-500/40 shadow-sm shadow-blue-500/5'
                         : isApproached
                           ? 'bg-[#12141A] border-amber-500/30'
                           : 'bg-[#12141A] border-[#262A33] hover:border-indigo-500/50'
@@ -655,9 +657,12 @@ export function BatchWhatsAppModal({
 
                           {/* Badges de Status */}
                           {isSent && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Enviada nesta sessão
+                            <span
+                              data-testid={`status-badge-enviada-${item.opp.id}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 uppercase tracking-wide"
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-blue-400" />
+                              Enviada
                             </span>
                           )}
 
@@ -723,13 +728,14 @@ export function BatchWhatsAppModal({
                         <Button
                           type="button"
                           size="sm"
+                          data-testid={`btn-send-${item.opp.id}`}
                           disabled={!item.hasPhone || isCurrentSending}
                           onClick={() => handleItemSendClick(item)}
                           className={`h-8 text-xs font-semibold rounded-xl px-3.5 shadow-md transition-all ${
                             !item.hasPhone
                               ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
                               : isSent
-                                ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40'
+                                ? 'bg-blue-600/25 text-blue-200 hover:bg-blue-600/35 border border-blue-500/40 shadow-blue-500/10'
                                 : isApproached
                                   ? 'bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/40'
                                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
@@ -737,7 +743,9 @@ export function BatchWhatsAppModal({
                           title={
                             !item.hasPhone
                               ? 'Não é possível enviar sem telefone válido'
-                              : 'Abrir WhatsApp Web e registrar na timeline'
+                              : isSent
+                                ? 'Mensagem já enviada. Clique para reenviar.'
+                                : 'Abrir WhatsApp Web e registrar na timeline'
                           }
                         >
                           {isCurrentSending ? (
@@ -745,14 +753,20 @@ export function BatchWhatsAppModal({
                               <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                               Registrando...
                             </>
+                          ) : isSent ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-blue-300" />
+                              Enviada (Reenviar)
+                            </>
+                          ) : isApproached ? (
+                            <>
+                              <Send className="w-3.5 h-3.5 mr-1.5" />
+                              Reenviar (Já abordada)
+                            </>
                           ) : (
                             <>
                               <Send className="w-3.5 h-3.5 mr-1.5" />
-                              {isSent
-                                ? 'Reenviar'
-                                : isApproached
-                                  ? 'Reenviar (Já abordada)'
-                                  : 'Enviar'}
+                              Enviar
                             </>
                           )}
                         </Button>
