@@ -4,10 +4,10 @@
  * Rotas:
  * 1. GET /backend/v1/whatsapp/status
  *    - Verifica se os secrets WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID existem no ambiente via $os.getenv.
- *    - Retorna { configured: boolean, phoneNumberIdMasked: string | null, defaultSettings: { ... } }
+ *    - Retorna { configured: boolean, phoneNumberIdMasked: string | null, graphApiVersion: string, settings: { ... } }
  *
  * 2. POST /backend/v1/whatsapp/batch-send
- *    - Envia em lote as mensagens personalizadas usando a Meta Cloud API (graph.facebook.com/v21.0/{phone_number_id}/messages).
+ *    - Envia em lote as mensagens personalizadas usando a Meta Cloud API.
  *    - Lê token e phone_number_id dos secrets via $os.getenv.
  *    - Se não configurado, retorna 400 com "integração não configurada".
  *    - Valida permissões (escopo por usuário: vendedor só dispara para sua carteira, admin só para sua carteira).
@@ -29,6 +29,10 @@ routerAdd(
     const phoneNumberId = ($os.getenv('WHATSAPP_PHONE_NUMBER_ID') || '').trim()
 
     const configured = Boolean(token && phoneNumberId)
+    const configuredGraphApiVersion = ($os.getenv('WHATSAPP_GRAPH_API_VERSION') || '').trim()
+    const graphApiVersion = /^v\d+\.\d+$/.test(configuredGraphApiVersion)
+      ? configuredGraphApiVersion
+      : 'v26.0'
     let phoneNumberIdMasked = null
     if (phoneNumberId) {
       const len = phoneNumberId.length
@@ -65,6 +69,7 @@ routerAdd(
     return e.json(200, {
       configured,
       phoneNumberIdMasked,
+      graphApiVersion,
       settings: settings || {
         initialTemplateName: 'bit_abordagem_inicial',
         initialTemplateLanguage: 'pt_BR',
@@ -95,6 +100,10 @@ routerAdd(
 
     const token = ($os.getenv('WHATSAPP_TOKEN') || '').trim()
     const phoneNumberId = ($os.getenv('WHATSAPP_PHONE_NUMBER_ID') || '').trim()
+    const configuredGraphApiVersion = ($os.getenv('WHATSAPP_GRAPH_API_VERSION') || '').trim()
+    const graphApiVersion = /^v\d+\.\d+$/.test(configuredGraphApiVersion)
+      ? configuredGraphApiVersion
+      : 'v26.0'
 
     if (!token || !phoneNumberId) {
       return e.json(400, {
@@ -154,9 +163,12 @@ routerAdd(
     const effectiveTemplateName =
       requestedTemplateName || (actionType === 'initial' ? dbInitialTemplate : dbFollowupTemplate)
 
-    if (actionType === 'initial' && !effectiveTemplateName) {
+    if (!effectiveTemplateName) {
       return e.json(400, {
-        error: 'Abordagem Inicial exige template aprovado pela Meta configurado.',
+        error:
+          actionType === 'initial'
+            ? 'Abordagem Inicial exige template aprovado pela Meta configurado.'
+            : 'Follow-up exige template aprovado pela Meta enquanto não houver confirmação de mensagem recebida pelo webhook.',
         code: 'TEMPLATE_REQUIRED',
       })
     }
@@ -244,106 +256,51 @@ routerAdd(
       }
 
       const shortRef = generateShortRef(company, oppId)
-      const footer = '— ' + sellerName + ', bit Consulting · Ref. ' + shortRef
-
-      // Verifica janela de 24h para follow-up: se o cliente respondeu nas últimas 24h, pode ser texto livre
-      let canUseFreeText = false
-      if (actionType === 'followup') {
-        try {
-          const recentNotes = $app.findRecordsByFilter(
-            'opportunity_notes',
-            "opportunity = '" + oppId + "'",
-            '-created',
-            5,
-            0,
-          )
-          const nowMs = Date.now()
-          for (let nIdx = 0; nIdx < recentNotes.length; nIdx++) {
-            const note = recentNotes[nIdx]
-            const noteText = (note.getString('text') || '').toLowerCase()
-            const noteType = note.getString('type')
-            const isClientResponse =
-              noteText.includes('[resposta do cliente]') ||
-              noteText.includes('cliente respondeu') ||
-              noteType === 'ligacao' ||
-              noteText.includes('retorno do cliente')
-            if (isClientResponse) {
-              const noteDate = new Date(note.getString('created')).getTime()
-              if (nowMs - noteDate <= 24 * 60 * 60 * 1000) {
-                canUseFreeText = true
-                break
-              }
-            }
-          }
-        } catch (_) {}
-      }
 
       // Monta payload para Meta WhatsApp Cloud API
-      let metaPayload = {}
-      let messageSummaryForTimeline = ''
-
-      if (actionType === 'initial' || (!canUseFreeText && effectiveTemplateName)) {
-        // Envio via Template aprovado pela Meta
-        metaPayload = {
-          messaging_product: 'whatsapp',
-          to: phoneDigits,
-          type: 'template',
-          template: {
-            name: effectiveTemplateName,
-            language: { code: requestedLanguage },
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: contactName },
-                  { type: 'text', text: company },
-                  { type: 'text', text: city },
-                  { type: 'text', text: sellerName },
-                  { type: 'text', text: shortRef },
-                ],
-              },
-            ],
-          },
-        }
-        messageSummaryForTimeline =
-          'Template Meta: ' +
-          effectiveTemplateName +
-          ' (' +
-          requestedLanguage +
-          ')\nParâmetros: contato=' +
-          contactName +
-          ', empresa=' +
-          company +
-          ', cidade=' +
-          city +
-          ', vendedor=' +
-          sellerName +
-          ', ref=' +
-          shortRef
-      } else {
-        // Follow-up dentro da janela de 24h ou texto livre autorizado
-        const freeMessage =
-          'Olá, ' +
-          contactName +
-          '! Tudo bem? Aqui é o ' +
-          sellerName +
-          ' da Bit Consulting. Passando para retomar nossa conversa sobre o site da ' +
-          company +
-          ' em ' +
-          city +
-          '. Conseguiu avaliar o que conversamos?\n\n' +
-          footer
-        metaPayload = {
-          messaging_product: 'whatsapp',
-          to: phoneDigits,
-          type: 'text',
-          text: { body: freeMessage },
-        }
-        messageSummaryForTimeline = freeMessage
+      // Até o webhook registrar mensagens recebidas com data verificável, todos os
+      // disparos usam template aprovado. Anotações manuais e ligações não comprovam a
+      // janela de atendimento de 24 horas exigida pelo WhatsApp.
+      const metaPayload = {
+        messaging_product: 'whatsapp',
+        to: phoneDigits,
+        type: 'template',
+        template: {
+          name: effectiveTemplateName,
+          language: { code: requestedLanguage },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                { type: 'text', text: contactName },
+                { type: 'text', text: company },
+                { type: 'text', text: city },
+                { type: 'text', text: sellerName },
+                { type: 'text', text: shortRef },
+              ],
+            },
+          ],
+        },
       }
+      const messageSummaryForTimeline =
+        'Template Meta: ' +
+        effectiveTemplateName +
+        ' (' +
+        requestedLanguage +
+        ')\nParâmetros: contato=' +
+        contactName +
+        ', empresa=' +
+        company +
+        ', cidade=' +
+        city +
+        ', vendedor=' +
+        sellerName +
+        ', ref=' +
+        shortRef
 
       // Chamada HTTP à Meta Cloud API
-      const metaUrl = 'https://graph.facebook.com/v21.0/' + phoneNumberId + '/messages'
+      const metaUrl =
+        'https://graph.facebook.com/' + graphApiVersion + '/' + phoneNumberId + '/messages'
 
       let sendSuccess = false
       let metaErrorMsg = ''

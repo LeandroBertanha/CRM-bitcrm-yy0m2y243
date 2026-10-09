@@ -13,6 +13,7 @@ export interface WhatsAppCloudSettings {
 export interface WhatsAppCloudStatusResponse {
   configured: boolean
   phoneNumberIdMasked: string | null
+  graphApiVersion: string
   settings: WhatsAppCloudSettings
 }
 
@@ -47,6 +48,7 @@ export async function getWhatsAppCloudStatus(): Promise<WhatsAppCloudStatusRespo
     return {
       configured: false,
       phoneNumberIdMasked: null,
+      graphApiVersion: 'v26.0',
       settings: {
         initialTemplateName: 'bit_abordagem_inicial',
         initialTemplateLanguage: 'pt_BR',
