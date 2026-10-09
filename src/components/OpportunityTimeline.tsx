@@ -86,6 +86,9 @@ export function OpportunityTimeline({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showForm, setShowForm] = useState(true)
 
+  // Filtro de exibição na timeline
+  const [filterType, setFilterType] = useState<string>('todos')
+
   // Campos do formulário de novo registro
   const [type, setType] = useState<OpportunityNote['type']>('ligacao')
   const [text, setText] = useState('')
@@ -266,37 +269,81 @@ export function OpportunityTimeline({
     }
   }
 
+  // Notas filtradas conforme seleção de filtro
+  const filteredNotes = notes.filter((n) => {
+    if (filterType === 'todos') return true
+    if (filterType === 'whatsapp_inicial') {
+      const lower = (n.text || '').toLowerCase()
+      return (
+        n.type === 'whatsapp' &&
+        (lower.includes('[whatsapp inicial]') ||
+          lower.includes('mensagem inicial via whatsapp') ||
+          lower.includes('mensagem de abertura'))
+      )
+    }
+    if (filterType === 'whatsapp_followup') {
+      const lower = (n.text || '').toLowerCase()
+      return (
+        n.type === 'whatsapp' &&
+        (lower.includes('[whatsapp follow-up]') ||
+          lower.includes('follow-up via whatsapp') ||
+          lower.includes('continuação') ||
+          lower.includes('retomando'))
+      )
+    }
+    return n.type === filterType
+  })
+
   return (
     <div className="space-y-3 pt-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-400" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
             Timeline de Conversas & Interações
           </h4>
           <span className="text-[10px] text-gray-400 bg-[#181B24] px-2 py-0.5 rounded-full border border-[#262A33]">
-            {notes.length}
+            {filteredNotes.length}
+            {filteredNotes.length !== notes.length ? ` de ${notes.length}` : ''}
           </span>
         </div>
 
-        <Button
-          type="button"
-          size="sm"
-          variant={showForm ? 'secondary' : 'outline'}
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setShowForm(!showForm)
-          }}
-          className={`h-7 text-xs rounded-lg px-2.5 transition-all ${
-            showForm
-              ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/30'
-              : 'border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-600/20'
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          {showForm ? 'Ocultar Formulário' : 'Nova Interação'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Filtro por tipo de interação */}
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="h-7 text-[11px] bg-[#12141A] border-[#262A33] text-gray-200 rounded-lg w-[145px]">
+              <SelectValue placeholder="Filtrar por..." />
+            </SelectTrigger>
+            <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+              <SelectItem value="todos">Todos os registros</SelectItem>
+              <SelectItem value="whatsapp">💬 Todo WhatsApp</SelectItem>
+              <SelectItem value="whatsapp_inicial">🚀 WhatsApp Inicial</SelectItem>
+              <SelectItem value="whatsapp_followup">🔄 WhatsApp Follow-up</SelectItem>
+              <SelectItem value="ligacao">📞 Ligações</SelectItem>
+              <SelectItem value="reuniao">👥 Reuniões</SelectItem>
+              <SelectItem value="nota">📝 Anotações</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            type="button"
+            size="sm"
+            variant={showForm ? 'secondary' : 'outline'}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowForm(!showForm)
+            }}
+            className={`h-7 text-xs rounded-lg px-2.5 transition-all ${
+              showForm
+                ? 'bg-indigo-600/20 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/30'
+                : 'border-indigo-500/30 text-indigo-300 hover:text-white hover:bg-indigo-600/20'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            {showForm ? 'Ocultar Formulário' : 'Nova Interação'}
+          </Button>
+        </div>
       </div>
 
       {/* Formulário de Adição */}
@@ -406,9 +453,21 @@ export function OpportunityTimeline({
             este lead.
           </p>
         </div>
+      ) : filteredNotes.length === 0 ? (
+        <div className="py-6 text-center border border-dashed border-[#262A33] rounded-xl bg-[#0A0C11]/50 text-gray-400 text-xs space-y-1">
+          <Clock className="w-5 h-5 mx-auto text-gray-500 mb-1" />
+          <p>Nenhum registro encontrado com o filtro selecionado.</p>
+          <button
+            type="button"
+            onClick={() => setFilterType('todos')}
+            className="text-[11px] text-indigo-400 hover:underline pt-1"
+          >
+            Ver todos os registros ({notes.length})
+          </button>
+        </div>
       ) : (
         <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#262A33]">
-          {notes.map((item) => {
+          {filteredNotes.map((item) => {
             const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.outro
             const Icon = config.icon
             const effectiveUserId = currentUserId || pb.authStore.record?.id

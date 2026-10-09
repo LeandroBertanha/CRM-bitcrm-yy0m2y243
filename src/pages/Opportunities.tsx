@@ -54,8 +54,11 @@ import {
   Calendar,
   XCircle,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react'
 import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
+import { BatchWhatsAppModal } from '@/components/approach/BatchWhatsAppModal'
+import type { WhatsAppActionType } from '@/lib/whatsappApproachHelper'
 
 export default function Opportunities() {
   const { user, isAdmin } = useAuth()
@@ -78,6 +81,11 @@ export default function Opportunities() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
+
+  // Disparo assistido em lote via WhatsApp
+  const [batchWhatsAppModalOpen, setBatchWhatsAppModalOpen] = useState(false)
+  const [batchActionType, setBatchActionType] = useState<WhatsAppActionType>('initial')
+  const [batchStage, setBatchStage] = useState<'Novo' | 'Qualificado'>('Novo')
 
   // Formulário Estado
   // Drag and drop de cards de oportunidades
@@ -852,6 +860,21 @@ export default function Opportunities() {
               0,
             )
 
+            // Obter TODAS as oportunidades desta coluna no escopo do usuário (sem o filtro de busca local da barra superior)
+            // garantindo que o disparo em lote opere sobre a coluna inteira do escopo daquele usuário
+            const columnScopedOpps = opportunities.filter((opp) => {
+              if (opp.stage !== stage) return false
+              // Vendedor vê só as suas; admin vê as suas (ou filtradas pelo vendedor se selecionado)
+              if (!isAdmin) {
+                return !opp.seller || opp.seller === user?.id || opp.expand?.seller?.id === user?.id
+              } else if (sellerFilter !== 'all') {
+                return opp.seller === sellerFilter || opp.expand?.seller?.id === sellerFilter
+              } else {
+                // Admin sem filtro de vendedor específico: escopo próprio do usuário logado para disparo
+                return !opp.seller || opp.seller === user?.id || opp.expand?.seller?.id === user?.id
+              }
+            })
+
             return (
               <div
                 key={stage}
@@ -867,33 +890,69 @@ export default function Opportunities() {
               >
                 {/* Cabeçalho da Coluna */}
                 <div
-                  className={`p-2.5 border-b border-[#262A33] flex items-center justify-between gap-1.5 rounded-t-2xl min-w-0 ${stageStyle.bg}`}
+                  className={`p-2.5 border-b border-[#262A33] flex flex-col gap-1.5 rounded-t-2xl min-w-0 ${stageStyle.bg}`}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${stageStyle.dot}`} />
-                    <span
-                      title={stage}
-                      className={`text-[11px] xl:text-xs font-bold uppercase tracking-wider truncate ${stageStyle.color}`}
+                  <div className="flex items-center justify-between gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${stageStyle.dot}`} />
+                      <span
+                        title={stage}
+                        className={`text-[11px] xl:text-xs font-bold uppercase tracking-wider truncate ${stageStyle.color}`}
+                      >
+                        {stage}
+                      </span>
+                      <span
+                        title={`${stageOpps.length} ${stageOpps.length === 1 ? 'oportunidade' : 'oportunidades'}`}
+                        className="text-[10px] font-semibold text-gray-400 bg-[#12141A] px-1.5 py-0.5 rounded-full border border-[#262A33] shrink-0 min-w-[18px] text-center"
+                      >
+                        {stageOpps.length}
+                      </span>
+                    </div>
+                    <div
+                      title={`Total do estágio: ${formatBRL(stageTotalValue)}`}
+                      className="text-right shrink-0"
                     >
-                      {stage}
-                    </span>
-                    <span
-                      title={`${stageOpps.length} ${stageOpps.length === 1 ? 'oportunidade' : 'oportunidades'}`}
-                      className="text-[10px] font-semibold text-gray-400 bg-[#12141A] px-1.5 py-0.5 rounded-full border border-[#262A33] shrink-0 min-w-[18px] text-center"
+                      <span className="text-[10px] xl:text-[11px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
+                        {stageTotalValue >= 1000
+                          ? formatCompactBRL(stageTotalValue)
+                          : formatBRL(stageTotalValue)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Ação de disparo assistido WhatsApp na coluna Novo */}
+                  {stage === 'Novo' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBatchStage('Novo')
+                        setBatchActionType('initial')
+                        setBatchWhatsAppModalOpen(true)
+                      }}
+                      className="w-full mt-0.5 py-1 px-2 rounded-xl text-[10px] sm:text-[11px] font-semibold bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-200 flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+                      title="Enviar Abordagem Inicial (WhatsApp) para todas as oportunidades da coluna Novo"
                     >
-                      {stageOpps.length}
-                    </span>
-                  </div>
-                  <div
-                    title={`Total do estágio: ${formatBRL(stageTotalValue)}`}
-                    className="text-right shrink-0"
-                  >
-                    <span className="text-[10px] xl:text-[11px] font-medium text-gray-400 tabular-nums whitespace-nowrap">
-                      {stageTotalValue >= 1000
-                        ? formatCompactBRL(stageTotalValue)
-                        : formatBRL(stageTotalValue)}
-                    </span>
-                  </div>
+                      <MessageSquare className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span className="truncate">Enviar Abordagem Inicial</span>
+                    </button>
+                  )}
+
+                  {/* Ação de disparo assistido WhatsApp na coluna Qualificado */}
+                  {stage === 'Qualificado' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBatchStage('Qualificado')
+                        setBatchActionType('followup')
+                        setBatchWhatsAppModalOpen(true)
+                      }}
+                      className="w-full mt-0.5 py-1 px-2 rounded-xl text-[10px] sm:text-[11px] font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+                      title="Mensagem de Continuação (Follow-up) para oportunidades qualificadas"
+                    >
+                      <MessageSquare className="w-3 h-3 text-indigo-400 shrink-0" />
+                      <span className="truncate">Follow-up WhatsApp</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Lista de Cards da Coluna */}
@@ -1602,6 +1661,31 @@ export default function Opportunities() {
         currentUserId={user?.id}
         existingOpportunities={opportunities}
         sellersList={sellersList}
+      />
+
+      {/* Modal de Disparo Assistido em Lote via WhatsApp */}
+      <BatchWhatsAppModal
+        open={batchWhatsAppModalOpen}
+        onOpenChange={setBatchWhatsAppModalOpen}
+        stage={batchStage}
+        actionType={batchActionType}
+        opportunities={opportunities.filter((opp) => {
+          if (opp.stage !== batchStage) return false
+          // Vendedor vê só as suas; admin vê as suas (ou filtradas pelo vendedor se selecionado)
+          if (!isAdmin) {
+            return !opp.seller || opp.seller === user?.id || opp.expand?.seller?.id === user?.id
+          } else if (sellerFilter !== 'all') {
+            return opp.seller === sellerFilter || opp.expand?.seller?.id === sellerFilter
+          } else {
+            // Admin sem filtro de vendedor específico: escopo próprio do usuário logado para disparo
+            return !opp.seller || opp.seller === user?.id || opp.expand?.seller?.id === user?.id
+          }
+        })}
+        currentUserId={user?.id}
+        currentUserName={user?.name || user?.email}
+        onInteractionLogged={() => {
+          fetchOpportunities()
+        }}
       />
 
       {/* Modal: Detalhes da Oportunidade */}
