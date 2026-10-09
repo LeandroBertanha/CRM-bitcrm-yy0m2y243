@@ -42,7 +42,7 @@ vi.mock('@/lib/pocketbase/client', () => ({
 }))
 
 describe('Layout do Drawer de Menu Lateral (Apenas Ícones com Tooltip Imediata)', () => {
-  it('renderiza o aside do menu lateral como uma barra estreita w-16 fixa no desktop', () => {
+  it('renderiza o aside do menu flutuante estilo dock (com backdrop-blur e rounded)', () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/painel']}>
         <Layout />
@@ -51,10 +51,9 @@ describe('Layout do Drawer de Menu Lateral (Apenas Ícones com Tooltip Imediata)
 
     const aside = container.querySelector('aside[aria-label="Menu Lateral bitCRM"]')
     expect(aside).not.toBeNull()
-    expect(aside?.className).toContain('w-16')
     expect(aside?.className).toContain('fixed')
-    expect(aside?.className).toContain('bg-[#0E1017]')
-    expect(aside?.className).toContain('border-r')
+    expect(aside?.className).toContain('backdrop-blur')
+    expect(aside?.className).toContain('rounded-2xl')
   })
 
   it('exibe todos os itens de navegação apenas com ícones e com atributos aria-label acessíveis para leitores de tela', () => {
@@ -106,14 +105,14 @@ describe('Layout do Drawer de Menu Lateral (Apenas Ícones com Tooltip Imediata)
     expect(aside?.className).not.toContain('hover:w-')
   })
 
-  it('o container principal compensa a barra lateral com md:pl-16', () => {
+  it('o container principal compensa a barra lateral com md:pl-20', () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/painel']}>
         <Layout />
       </MemoryRouter>,
     )
 
-    const contentWrapper = container.querySelector('.md\\:pl-16')
+    const contentWrapper = container.querySelector('.md\\:pl-20')
     expect(contentWrapper).not.toBeNull()
   })
 })

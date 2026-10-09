@@ -324,7 +324,7 @@ export function BatchWhatsAppModal({
       const url = buildWhatsAppWebUrl(item.phoneNormalized, item.message)
       window.open(url, '_blank', 'noopener,noreferrer')
 
-      // 2. Registrar automaticamente na timeline
+      // 2. Registrar automaticamente na timeline, criar sessão de histórico e auto-qualificar se initial
       const effectiveUserId = currentUserId || pb.authStore.record?.id || ''
       await logWhatsAppInteractionToOpportunity({
         opportunityId: item.opp.id,
@@ -332,6 +332,13 @@ export function BatchWhatsAppModal({
         message: item.message,
         phone: item.opp.contact_phone,
         actionType,
+        opportunityDetails: {
+          company: item.opp.company,
+          contact_name: item.opp.contact_name,
+          contact_phone: item.opp.contact_phone,
+          city: item.opp.city,
+          stage: item.opp.stage,
+        },
       })
 
       // 3. Atualizar sessão local

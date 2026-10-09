@@ -263,8 +263,24 @@ export async function logWhatsAppInteractionToOpportunity(params: {
   message: string
   phone?: string
   actionType?: WhatsAppActionType
+  autoQualify?: boolean
+  opportunityDetails?: {
+    company?: string
+    contact_name?: string
+    contact_phone?: string
+    city?: string
+    stage?: string
+  }
 }): Promise<boolean> {
-  const { opportunityId, authorId, message, phone, actionType = 'initial' } = params
+  const {
+    opportunityId,
+    authorId,
+    message,
+    phone,
+    actionType = 'initial',
+    autoQualify = true,
+    opportunityDetails,
+  } = params
   if (!opportunityId || !authorId) return false
 
   try {
@@ -277,6 +293,7 @@ export async function logWhatsAppInteractionToOpportunity(params: {
       ? `${actionLabel} ${titlePrefix} enviada para ${phone}:\n\n"${message}"`
       : `${actionLabel} ${titlePrefix} aberta para envio:\n\n"${message}"`
 
+    // 1. Registra a nota da mensagem enviada na timeline
     await pb.collection('opportunity_notes').create({
       opportunity: opportunityId,
       author: authorId,
@@ -284,6 +301,92 @@ export async function logWhatsAppInteractionToOpportunity(params: {
       text: summary,
       date: new Date().toISOString(),
     })
+
+    // 2. Registra sessão no Histórico de Abordagens (approach_sessions)
+    try {
+      let company = opportunityDetails?.company || ''
+      let contactName = opportunityDetails?.contact_name || ''
+      let contactPhone = phone || opportunityDetails?.contact_phone || ''
+      let city = opportunityDetails?.city || ''
+      let currentStage = opportunityDetails?.stage
+
+      if (!company) {
+        try {
+          const oppRecord = await pb.collection('opportunities').getOne(opportunityId)
+          company = oppRecord.company || ''
+          contactName = oppRecord.contact_name || ''
+          contactPhone = contactPhone || oppRecord.contact_phone || ''
+          city = oppRecord.city || ''
+          if (!currentStage) currentStage = oppRecord.stage
+        } catch (fetchErr) {
+          console.warn('Não foi possível obter dados complementares da oportunidade:', fetchErr)
+        }
+      }
+
+      await pb.collection('approach_sessions').create({
+        seller: authorId,
+        opportunity: opportunityId,
+        company_name: company,
+        contact_name: contactName,
+        contact_phone: contactPhone,
+        city: city,
+        channel: 'WhatsApp',
+        status: actionType === 'initial' ? 'Contato realizado' : 'Contato realizado',
+        temperature: 'morno',
+        temperature_reason:
+          actionType === 'initial'
+            ? 'Abordagem inicial enviada via WhatsApp'
+            : 'Follow-up enviado via WhatsApp',
+        notes: `[Disparo WhatsApp - ${actionType === 'initial' ? 'Abordagem Inicial' : 'Follow-up'}]\n\nMensagem enviada:\n${message}`,
+        questions_asked: [],
+        answers: [],
+        objections: [],
+        quick_tags: [actionType === 'initial' ? 'WhatsApp inicial' : 'WhatsApp follow-up'],
+      })
+    } catch (sessionErr) {
+      console.warn('Erro ao criar sessão em approach_sessions:', sessionErr)
+    }
+
+    // 3. Regra de negócio: Após envio de Abordagem Inicial via WhatsApp, mover a oportunidade
+    // automaticamente para QUALIFICADO e registrar a mudança de estágio na timeline da oportunidade.
+    if (actionType === 'initial' && autoQualify) {
+      try {
+        let shouldUpdate = true
+        let oldStage = opportunityDetails?.stage
+        if (!oldStage) {
+          try {
+            const oppRecord = await pb.collection('opportunities').getOne(opportunityId)
+            oldStage = oppRecord.stage
+          } catch {
+            // assume Novo se falhar
+          }
+        }
+
+        // Se já está Qualificado ou em estágios mais avançados (Agendado, Proposta, Ganho),
+        // não faz downgrade nem duplica se já for Qualificado
+        if (oldStage && oldStage !== 'Novo') {
+          shouldUpdate = false
+        }
+
+        if (shouldUpdate) {
+          await pb.collection('opportunities').update(opportunityId, {
+            stage: 'Qualificado',
+          })
+
+          // Registrar a mudança de estágio na timeline (opportunity_notes)
+          await pb.collection('opportunity_notes').create({
+            opportunity: opportunityId,
+            author: authorId,
+            type: 'status_change',
+            text: `[Mudança de estágio] Estágio alterado automaticamente de "${oldStage || 'Novo'}" para "Qualificado" após o envio da Abordagem Inicial via WhatsApp.`,
+            date: new Date().toISOString(),
+          })
+        }
+      } catch (stageErr) {
+        console.warn('Erro ao mover oportunidade para Qualificado pós-envio inicial:', stageErr)
+      }
+    }
+
     return true
   } catch (err) {
     console.warn('Erro ao registrar interação de WhatsApp na timeline:', err)

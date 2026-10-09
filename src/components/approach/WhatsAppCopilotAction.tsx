@@ -76,16 +76,30 @@ export const WhatsAppCopilotAction: React.FC<WhatsAppCopilotActionProps> = ({
     // Se houver oportunidade vinculada e autor, grava interação na timeline (opportunity_notes)
     if (opportunityId && authorId) {
       try {
+        // Detecta se a mensagem é inicial ou de follow-up a partir do título
+        const isFollowup =
+          title.toLowerCase().includes('follow-up') || title.toLowerCase().includes('continuação')
+        const actionType = isFollowup ? 'followup' : 'initial'
+
         const logged = await logWhatsAppInteractionToOpportunity({
           opportunityId,
           authorId,
           message,
           phone: phone || phoneDigits,
+          actionType,
+          opportunityDetails: {
+            company: companyName,
+            contact_name: contactName,
+            contact_phone: phone || phoneDigits,
+          },
         })
         if (logged) {
           toast({
             title: 'WhatsApp aberto & registrado',
-            description: 'Interação adicionada na timeline da oportunidade.',
+            description:
+              actionType === 'initial'
+                ? 'Interação registrada e oportunidade qualificada automaticamente!'
+                : 'Interação adicionada na timeline da oportunidade.',
           })
         }
       } catch (err) {

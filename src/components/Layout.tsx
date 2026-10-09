@@ -48,8 +48,6 @@ export default function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [isScrolled, setIsScrolled] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mobileApproachOpen, setMobileApproachOpen] = useState(false)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
 
   // Buscar oportunidades para badge/sino de notificações de retornos
@@ -297,179 +295,28 @@ export default function Layout() {
                   Entrar
                 </Button>
               ) : null}
-
-              {/* Botão Mobile Menu Toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-lg bg-[#12141A] border border-[#262A33] text-gray-400 hover:text-white"
-                aria-label="Abrir menu"
-              >
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
             </div>
           </div>
-
-          {/* Drawer / Menu Mobile Suspenso */}
-          {mobileMenuOpen && (
-            <div className="md:hidden bg-[#0E1017] border-b border-[#262A33] px-4 py-4 space-y-2 animate-fadeInUp max-h-[85vh] overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.to
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
-                        : 'text-gray-400 hover:text-white hover:bg-[#151821]'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </NavLink>
-                )
-              })}
-
-              {/* Acordeão Mobile: Guia de Abordagem Comercial */}
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => setMobileApproachOpen(!mobileApproachOpen)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    location.pathname.startsWith('/abordagem')
-                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
-                      : 'text-gray-300 hover:text-white hover:bg-[#151821]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Headset className="w-4 h-4 text-indigo-400" />
-                    <span>Guia de Abordagem</span>
-                  </div>
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      mobileApproachOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-
-                {mobileApproachOpen && (
-                  <div className="pl-6 pr-2 py-2 space-y-1 bg-[#12141A]/60 rounded-xl mt-1 border border-[#262A33]">
-                    <NavLink
-                      to="/abordagem"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-indigo-300 hover:bg-[#1A1D27]"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-indigo-400 text-indigo-400" />
-                      Iniciar Abordagem (Copiloto)
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/telefone"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-indigo-400" />
-                      Abordagem por Telefone
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/presencial"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                      Abordagem Presencial
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/whatsapp"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                      WhatsApp
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/pitch"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      Pitch de 30 segundos
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/diagnostico"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
-                      Perguntas de Diagnóstico
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/objecoes"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                      Objeções
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/valores"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                      Valores (R$ 500 / R$ 55)
-                    </NavLink>
-                    <NavLink
-                      to="/abordagem/historico"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27]"
-                    >
-                      <History className="w-3.5 h-3.5 text-purple-400" />
-                      Histórico de Abordagens
-                    </NavLink>
-                    {isAdmin && (
-                      <NavLink
-                        to="/abordagem/configuracoes"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-indigo-300 hover:text-white hover:bg-[#1A1D27]"
-                      >
-                        <Settings className="w-3.5 h-3.5 text-indigo-400" />
-                        Configurações do Playbook
-                      </NavLink>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 border-t border-[#262A33]">
-                <NavLink
-                  to="/perfil"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-[#151821]"
-                >
-                  <User className="w-4 h-4 text-indigo-400" />
-                  Meu Perfil
-                </NavLink>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/30 text-left"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sair
-                </button>
-              </div>
-            </div>
-          )}
         </header>
 
-        {/* Menu Lateral Desktop (Drawer Fixo Estreito com APENAS ÍCONES e TOOLTIP IMEDIATA) */}
+        {/* Menu Dock Flutuante Estilo Instagram (Desktop na lateral, Mobile na base) */}
         <aside
           aria-label="Menu Lateral bitCRM"
-          className="hidden md:flex fixed top-16 sm:top-20 bottom-0 left-0 w-16 bg-[#0E1017] border-r border-[#262A33] z-40 flex-col items-center py-4 justify-between"
+          className="fixed z-40 transition-none
+            md:top-1/2 md:-translate-y-1/2 md:left-4 md:bottom-auto
+            bottom-3 left-1/2 -translate-x-1/2 md:translate-x-0
+            max-w-[calc(100vw-1.5rem)]
+            bg-[#0E1017]/85 backdrop-blur-md
+            border border-[#262A33]/90
+            rounded-2xl sm:rounded-3xl
+            p-1.5 sm:p-2
+            shadow-2xl shadow-black/70"
         >
-          {/* Navegação Principal por Ícones */}
-          <nav aria-label="Navegação Principal" className="w-full flex flex-col items-center gap-2">
+          {/* Navegação Principal por Ícones (vertical no desktop, horizontal no mobile) */}
+          <nav
+            aria-label="Navegação Principal"
+            className="flex flex-row md:flex-col items-center gap-1 sm:gap-1.5"
+          >
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.to
@@ -479,7 +326,7 @@ export default function Layout() {
                     <NavLink
                       to={item.to}
                       aria-label={item.label}
-                      className={`w-11 h-11 flex items-center justify-center rounded-xl border select-none ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-2xl border select-none transition-colors ${
                         isActive
                           ? 'bg-gradient-to-r from-indigo-600/90 to-blue-600/90 text-white border-indigo-500/60 shadow-sm shadow-indigo-500/30'
                           : 'border-transparent text-gray-400 hover:text-white hover:bg-[#1A1D27] hover:border-[#262A33]'
@@ -500,8 +347,8 @@ export default function Layout() {
               )
             })}
 
-            {/* Separador sutil */}
-            <div className="w-8 h-px bg-[#262A33]/80 my-1" />
+            {/* Separador sutil (vertical no mobile, horizontal no desktop) */}
+            <div className="h-6 w-px md:w-8 md:h-px bg-[#262A33]/80 my-0.5" />
 
             {/* Menu Dropdown de Ícone: Guia de Abordagem Comercial */}
             <DropdownMenu>
@@ -511,7 +358,7 @@ export default function Layout() {
                     <button
                       type="button"
                       aria-label="Guia de Abordagem Comercial"
-                      className={`w-11 h-11 flex items-center justify-center rounded-xl border select-none ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-2xl border select-none transition-colors ${
                         location.pathname.startsWith('/abordagem')
                           ? 'bg-gradient-to-r from-indigo-600/90 to-blue-600/90 text-white border-indigo-500/60 shadow-sm shadow-indigo-500/30'
                           : 'border-transparent text-indigo-400 hover:text-white hover:bg-[#1A1D27] hover:border-[#262A33]'
@@ -531,10 +378,10 @@ export default function Layout() {
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent
-                side="right"
-                align="start"
+                side="top"
+                align="center"
                 sideOffset={12}
-                className="w-64 bg-[#12141A] border-[#262A33] text-gray-200 p-1.5 rounded-xl shadow-2xl space-y-0.5"
+                className="w-64 bg-[#12141A] border-[#262A33] text-gray-200 p-1.5 rounded-xl shadow-2xl space-y-0.5 md:[transform:none] md:data-[side=right]:align-start"
               >
                 <DropdownMenuLabel className="text-[10px] uppercase font-bold tracking-wider text-gray-500 px-2 py-1">
                   Playbook Comercial bitCRM
@@ -617,16 +464,16 @@ export default function Layout() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </nav>
 
-          {/* Ações inferiores no drawer */}
-          <div className="w-full flex flex-col items-center gap-2">
+            {/* Separador e Perfil no dock */}
+            <div className="h-6 w-px md:w-8 md:h-px bg-[#262A33]/80 my-0.5" />
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <NavLink
                   to="/perfil"
                   aria-label="Meu Perfil"
-                  className={`w-11 h-11 flex items-center justify-center rounded-xl border select-none ${
+                  className={`w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-2xl border select-none transition-colors ${
                     location.pathname === '/perfil'
                       ? 'bg-gradient-to-r from-indigo-600/90 to-blue-600/90 text-white border-indigo-500/60 shadow-sm shadow-indigo-500/30'
                       : 'border-transparent text-gray-400 hover:text-white hover:bg-[#1A1D27] hover:border-[#262A33]'
@@ -652,7 +499,7 @@ export default function Layout() {
                     type="button"
                     onClick={handleLogout}
                     aria-label="Sair da Conta"
-                    className="w-11 h-11 flex items-center justify-center rounded-xl border border-transparent text-gray-500 hover:text-red-400 hover:bg-red-950/20 hover:border-red-900/40 select-none"
+                    className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl sm:rounded-2xl border border-transparent text-gray-500 hover:text-red-400 hover:bg-red-950/20 hover:border-red-900/40 select-none transition-colors"
                   >
                     <LogOut className="w-5 h-5 shrink-0" />
                   </button>
@@ -667,12 +514,12 @@ export default function Layout() {
                 </TooltipContent>
               </Tooltip>
             )}
-          </div>
+          </nav>
         </aside>
 
-        {/* Conteúdo Principal com compensação da barra lateral de 64px no desktop */}
-        <div className="flex-1 md:pl-16 flex flex-col">
-          <main className="flex-1 pt-20 sm:pt-24 md:pt-24 pb-16 px-4 sm:px-6 max-w-[1280px] w-full mx-auto">
+        {/* Conteúdo Principal com compensação: desktop pl-20 / mobile pb-24 para não sobrepor o dock */}
+        <div className="flex-1 md:pl-20 flex flex-col">
+          <main className="flex-1 pt-20 sm:pt-24 md:pt-24 pb-24 md:pb-16 px-4 sm:px-6 max-w-[1280px] w-full mx-auto">
             <Outlet />
           </main>
 
