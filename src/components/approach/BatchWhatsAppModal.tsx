@@ -36,6 +36,8 @@ import {
   Clock,
   ShieldAlert,
   Search,
+  PhoneOff,
+  XCircle,
 } from 'lucide-react'
 
 export interface BatchWhatsAppModalProps {
@@ -111,6 +113,14 @@ export function BatchWhatsAppModal({
 
   // Oportunidade com confirmação pendente de reenvio
   const [confirmResendOpp, setConfirmResendOpp] = useState<Opportunity | null>(null)
+
+  // Oportunidades marcadas como perdidas durante a sessão atual
+  const [lostOppIds, setLostOppIds] = useState<string[]>([])
+
+  // Modal / diálogo para marcar oportunidade como perdida (Sem WhatsApp)
+  const [markLostOpp, setMarkLostOpp] = useState<Opportunity | null>(null)
+  const [markLostComment, setMarkLostComment] = useState('Número não está no WhatsApp')
+  const [savingLost, setSavingLost] = useState(false)
 
   // Estado de envio em andamento
   const [sendingOppId, setSendingOppId] = useState<string | null>(null)
@@ -265,6 +275,7 @@ export function BatchWhatsAppModal({
         actionType === 'initial' ? summary.hasInitial : summary.hasFollowup
 
       const isSentInSession = sessionSentIds.includes(opp.id)
+      const isLost = lostOppIds.includes(opp.id) || opp.stage === 'Perdido'
 
       return {
         opp,
@@ -273,11 +284,20 @@ export function BatchWhatsAppModal({
         hasPhone,
         isAlreadyApproached,
         isSentInSession,
+        isLost,
         summary,
         lastInteractionDate: formattedLastDate,
       }
     })
-  }, [opportunities, notesSummary, actionType, activeScript, currentUserName, sessionSentIds])
+  }, [
+    opportunities,
+    notesSummary,
+    actionType,
+    activeScript,
+    currentUserName,
+    sessionSentIds,
+    lostOppIds,
+  ])
 
   // Filtragem local por termo de busca
   const filteredItems = useMemo(() => {
@@ -295,15 +315,19 @@ export function BatchWhatsAppModal({
 
   // Contadores do topo
   const stats = useMemo(() => {
-    const total = itemsWithMessages.length
-    const withPhone = itemsWithMessages.filter((i) => i.hasPhone).length
-    const alreadyApproached = itemsWithMessages.filter((i) => i.isAlreadyApproached).length
-    const sentInSession = itemsWithMessages.filter((i) => i.isSentInSession).length
+    // Itens ativos (não marcados como perdido) para os contadores de disparo
+    const activeItems = itemsWithMessages.filter((i) => !i.isLost)
+    const total = activeItems.length
+    const withPhone = activeItems.filter((i) => i.hasPhone).length
+    const alreadyApproached = activeItems.filter((i) => i.isAlreadyApproached).length
+    const sentInSession = activeItems.filter((i) => i.isSentInSession).length
+    const lostInSession = itemsWithMessages.filter((i) => i.isLost).length
     return {
       total,
       withPhone,
       alreadyApproached,
       sentInSession,
+      lostInSession,
     }
   }, [itemsWithMessages])
 
@@ -380,6 +404,85 @@ export function BatchWhatsAppModal({
       return
     }
     executeSend(item)
+  }
+
+  // Abrir diálogo de "Sem WhatsApp / Marcar como perdido"
+  const handleOpenMarkLost = (opp: Opportunity) => {
+    setMarkLostOpp(opp)
+    setMarkLostComment('Número não está no WhatsApp')
+  }
+
+  // Confirmar marcação como perdido
+  const handleConfirmMarkLost = async () => {
+    if (!markLostOpp) return
+    const oppToMark = markLostOpp
+    const commentText = markLostComment.trim() || 'Número não está no WhatsApp'
+    const effectiveUserId = currentUserId || pb.authStore.record?.id || ''
+
+    setSavingLost(true)
+    try {
+      const previousStage = oppToMark.stage
+
+      // 1. Atualizar estágio para 'Perdido' no PocketBase
+      await pb.collection('opportunities').update(oppToMark.id, {
+        stage: 'Perdido',
+      })
+
+      // 2. Registrar nota explicativa na timeline (opportunity_notes)
+      if (effectiveUserId) {
+        const fullNote = `[Sem WhatsApp / Perdido] Estágio alterado de "${previousStage}" para "Perdido". Motivo: ${commentText}`
+        await pb.collection('opportunity_notes').create({
+          opportunity: oppToMark.id,
+          author: effectiveUserId,
+          type: 'outro',
+          text: fullNote,
+          date: new Date().toISOString(),
+        })
+
+        // 3. Registrar ou atualizar em approach_sessions se houver autor
+        try {
+          await pb.collection('approach_sessions').create({
+            seller: effectiveUserId,
+            opportunity: oppToMark.id,
+            company_name: oppToMark.company,
+            contact_name: oppToMark.contact_name || '',
+            contact_phone: oppToMark.contact_phone || '',
+            city: oppToMark.city || '',
+            channel: 'WhatsApp',
+            status: 'Perdido',
+            temperature: 'frio',
+            temperature_reason: 'Número sem WhatsApp / contato inválido',
+            notes: `[Disparo WhatsApp] Oportunidade dada como perdida direto do painel de disparo. Motivo: ${commentText}`,
+            questions_asked: [],
+            answers: [],
+            objections: ['Número não possui WhatsApp'],
+            quick_tags: ['Sem WhatsApp', 'Perdido no disparo'],
+          })
+        } catch (sessionErr) {
+          console.warn('Erro ao registrar sessão em approach_sessions:', sessionErr)
+        }
+      }
+
+      // 4. Atualizar estado local
+      setLostOppIds((prev) => (prev.includes(oppToMark.id) ? prev : [...prev, oppToMark.id]))
+
+      toast({
+        title: 'Oportunidade marcada como Perdida',
+        description: `"${oppToMark.company}" foi movida para Perdido e o motivo registrado na timeline.`,
+      })
+
+      setMarkLostOpp(null)
+      onInteractionLogged?.()
+    } catch (err) {
+      console.error('Erro ao marcar oportunidade como perdida:', err)
+      toast({
+        title: 'Erro ao marcar como perdido',
+        description: 'Não foi possível atualizar a oportunidade. Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingLost(false)
+    }
   }
 
   // Copiar todas as mensagens para quem prefere colar manualmente
@@ -480,7 +583,7 @@ export function BatchWhatsAppModal({
             </div>
 
             {/* Contadores no topo */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 pt-2">
               <div className="p-2.5 rounded-xl bg-[#12141A] border border-[#262A33] flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-gray-400 block uppercase font-medium">
@@ -526,6 +629,23 @@ export function BatchWhatsAppModal({
                 </div>
                 <CheckCircle2 className="w-4 h-4 text-blue-400" />
               </div>
+
+              {stats.lostInSession > 0 && (
+                <div
+                  data-testid="stat-lost-in-session"
+                  className="col-span-2 sm:col-span-4 lg:col-span-1 p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/40 flex items-center justify-between"
+                >
+                  <div>
+                    <span className="text-[10px] text-rose-300 block uppercase font-medium">
+                      Perdidos na Sessão
+                    </span>
+                    <span className="text-base font-bold text-rose-200 tabular-nums">
+                      {stats.lostInSession}
+                    </span>
+                  </div>
+                  <XCircle className="w-4 h-4 text-rose-400" />
+                </div>
+              )}
             </div>
 
             {/* Info do script ativo e barra de ações */}
@@ -628,19 +748,30 @@ export function BatchWhatsAppModal({
               filteredItems.map((item, index) => {
                 const isSent = item.isSentInSession
                 const isApproached = item.isAlreadyApproached
+                const isLost = item.isLost
                 const isCurrentSending = sendingOppId === item.opp.id
 
                 return (
                   <div
                     key={item.opp.id}
                     data-testid={`batch-item-${item.opp.id}`}
-                    data-status={isSent ? 'enviada' : isApproached ? 'abordada' : 'pendente'}
+                    data-status={
+                      isLost
+                        ? 'perdido'
+                        : isSent
+                          ? 'enviada'
+                          : isApproached
+                            ? 'abordada'
+                            : 'pendente'
+                    }
                     className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-150 space-y-3 ${
-                      isSent
-                        ? 'bg-[#0E1322] border-blue-500/40 shadow-sm shadow-blue-500/5'
-                        : isApproached
-                          ? 'bg-[#12141A] border-amber-500/30'
-                          : 'bg-[#12141A] border-[#262A33] hover:border-indigo-500/50'
+                      isLost
+                        ? 'bg-[#150D11] border-rose-900/50 opacity-80'
+                        : isSent
+                          ? 'bg-[#0E1322] border-blue-500/40 shadow-sm shadow-blue-500/5'
+                          : isApproached
+                            ? 'bg-[#12141A] border-amber-500/30'
+                            : 'bg-[#12141A] border-[#262A33] hover:border-indigo-500/50'
                     }`}
                   >
                     {/* Topo do Item */}
@@ -649,35 +780,49 @@ export function BatchWhatsAppModal({
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono text-gray-500">#{index + 1}</span>
                           <h4
-                            className="font-bold text-sm text-white truncate"
+                            className={`font-bold text-sm truncate ${
+                              isLost ? 'text-gray-400 line-through' : 'text-white'
+                            }`}
                             title={item.opp.company}
                           >
                             {item.opp.company}
                           </h4>
 
                           {/* Badges de Status */}
-                          {isSent && (
+                          {isLost ? (
                             <span
-                              data-testid={`status-badge-enviada-${item.opp.id}`}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 uppercase tracking-wide"
+                              data-testid={`status-badge-perdido-${item.opp.id}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase tracking-wide"
                             >
-                              <CheckCircle2 className="w-3 h-3 text-blue-400" />
-                              Enviada
+                              <XCircle className="w-3 h-3 text-rose-400" />
+                              Marcada como Perdido (Sem WhatsApp)
                             </span>
-                          )}
+                          ) : (
+                            <>
+                              {isSent && (
+                                <span
+                                  data-testid={`status-badge-enviada-${item.opp.id}`}
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 uppercase tracking-wide"
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-blue-400" />
+                                  Enviada
+                                </span>
+                              )}
 
-                          {isApproached && !isSent && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                              <Clock className="w-3 h-3" />
-                              Já abordada anteriormente
-                            </span>
-                          )}
+                              {isApproached && !isSent && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  <Clock className="w-3 h-3" />
+                                  Já abordada anteriormente
+                                </span>
+                              )}
 
-                          {!item.hasPhone && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                              <AlertTriangle className="w-3 h-3" />
-                              Sem telefone cadastrado
-                            </span>
+                              {!item.hasPhone && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Sem telefone cadastrado
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
 
@@ -712,64 +857,88 @@ export function BatchWhatsAppModal({
                       </div>
 
                       {/* Botões de Ação do Item */}
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopySingle(item.message, item.opp.company)}
-                          className="h-8 text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27] rounded-xl px-2.5"
-                          title="Copiar mensagem individual"
-                        >
-                          <Copy className="w-3.5 h-3.5 mr-1" />
-                          Copiar
-                        </Button>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto flex-wrap sm:flex-nowrap">
+                        {isLost ? (
+                          <span className="text-xs text-rose-400/90 font-medium px-2 py-1 bg-rose-950/40 rounded-lg border border-rose-900/60 flex items-center gap-1">
+                            <XCircle className="w-3.5 h-3.5" />
+                            Oportunidade Perdida
+                          </span>
+                        ) : (
+                          <>
+                            {/* Ação discreta: Sem WhatsApp / Marcar como perdido */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              data-testid={`btn-mark-lost-${item.opp.id}`}
+                              onClick={() => handleOpenMarkLost(item.opp)}
+                              className="h-8 text-xs text-gray-400 hover:text-rose-300 hover:bg-rose-950/30 rounded-xl px-2.5 transition-colors border border-transparent hover:border-rose-900/50"
+                              title="Marcar oportunidade como Perdido caso o número não possua WhatsApp"
+                            >
+                              <PhoneOff className="w-3.5 h-3.5 mr-1 text-rose-400/70" />
+                              <span className="hidden sm:inline">Sem WhatsApp</span>
+                              <span className="sm:hidden">Perdido</span>
+                            </Button>
 
-                        <Button
-                          type="button"
-                          size="sm"
-                          data-testid={`btn-send-${item.opp.id}`}
-                          disabled={!item.hasPhone || isCurrentSending}
-                          onClick={() => handleItemSendClick(item)}
-                          className={`h-8 text-xs font-semibold rounded-xl px-3.5 shadow-md transition-all ${
-                            !item.hasPhone
-                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
-                              : isSent
-                                ? 'bg-blue-600/25 text-blue-200 hover:bg-blue-600/35 border border-blue-500/40 shadow-blue-500/10'
-                                : isApproached
-                                  ? 'bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/40'
-                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                          }`}
-                          title={
-                            !item.hasPhone
-                              ? 'Não é possível enviar sem telefone válido'
-                              : isSent
-                                ? 'Mensagem já enviada. Clique para reenviar.'
-                                : 'Abrir WhatsApp Web e registrar na timeline'
-                          }
-                        >
-                          {isCurrentSending ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                              Registrando...
-                            </>
-                          ) : isSent ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-blue-300" />
-                              Enviada (Reenviar)
-                            </>
-                          ) : isApproached ? (
-                            <>
-                              <Send className="w-3.5 h-3.5 mr-1.5" />
-                              Reenviar (Já abordada)
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-3.5 h-3.5 mr-1.5" />
-                              Enviar
-                            </>
-                          )}
-                        </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCopySingle(item.message, item.opp.company)}
+                              className="h-8 text-xs text-gray-300 hover:text-white hover:bg-[#1A1D27] rounded-xl px-2.5"
+                              title="Copiar mensagem individual"
+                            >
+                              <Copy className="w-3.5 h-3.5 mr-1" />
+                              Copiar
+                            </Button>
+
+                            <Button
+                              type="button"
+                              size="sm"
+                              data-testid={`btn-send-${item.opp.id}`}
+                              disabled={!item.hasPhone || isCurrentSending}
+                              onClick={() => handleItemSendClick(item)}
+                              className={`h-8 text-xs font-semibold rounded-xl px-3.5 shadow-md transition-all ${
+                                !item.hasPhone
+                                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                                  : isSent
+                                    ? 'bg-blue-600/25 text-blue-200 hover:bg-blue-600/35 border border-blue-500/40 shadow-blue-500/10'
+                                    : isApproached
+                                      ? 'bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/40'
+                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                              }`}
+                              title={
+                                !item.hasPhone
+                                  ? 'Não é possível enviar sem telefone válido'
+                                  : isSent
+                                    ? 'Mensagem já enviada. Clique para reenviar.'
+                                    : 'Abrir WhatsApp Web e registrar na timeline'
+                              }
+                            >
+                              {isCurrentSending ? (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                                  Registrando...
+                                </>
+                              ) : isSent ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-blue-300" />
+                                  Enviada (Reenviar)
+                                </>
+                              ) : isApproached ? (
+                                <>
+                                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                                  Reenviar (Já abordada)
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                                  Enviar
+                                </>
+                              )}
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -784,7 +953,11 @@ export function BatchWhatsAppModal({
                           {item.message.length} caracteres
                         </span>
                       </div>
-                      <p className="text-gray-200 whitespace-pre-wrap leading-relaxed font-sans text-xs select-text">
+                      <p
+                        className={`whitespace-pre-wrap leading-relaxed font-sans text-xs select-text ${
+                          isLost ? 'text-gray-500' : 'text-gray-200'
+                        }`}
+                      >
                         {item.message}
                       </p>
                     </div>
@@ -864,6 +1037,104 @@ export function BatchWhatsAppModal({
                 className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-xl"
               >
                 Sim, Reenviar Agora
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Modal de Confirmação: Marcar como Perdido (Sem WhatsApp) */}
+      {markLostOpp && (
+        <Dialog
+          open={Boolean(markLostOpp)}
+          onOpenChange={(o) => !o && !savingLost && setMarkLostOpp(null)}
+        >
+          <DialogContent
+            data-testid="dialog-mark-lost"
+            className="bg-[#12141A] border-[#262A33] text-white max-w-md rounded-2xl shadow-2xl"
+          >
+            <DialogHeader className="space-y-1.5">
+              <div className="flex items-center gap-2 text-rose-400 pb-1">
+                <PhoneOff className="w-5 h-5 shrink-0 text-rose-400" />
+                <DialogTitle className="text-base font-bold text-white">
+                  Marcar como Perdido — Sem WhatsApp
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-xs text-gray-300 leading-relaxed">
+                Você está prestes a mover{' '}
+                <strong className="text-white">&quot;{markLostOpp.company}&quot;</strong>{' '}
+                diretamente para o estágio{' '}
+                <span className="text-rose-400 font-semibold">Perdido</span> e registrar o motivo na
+                timeline.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-2 space-y-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-[#0E1017] border border-[#262A33] text-gray-400 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>Telefone testado:</span>
+                  <span className="font-mono text-white font-semibold">
+                    {markLostOpp.contact_phone || 'Sem telefone'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Estágio atual:</span>
+                  <span className="text-gray-300">{markLostOpp.stage}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-1">
+                <label
+                  htmlFor="lost-comment-input"
+                  className="text-[11px] font-medium text-gray-300 block"
+                >
+                  Motivo / Comentário registrado na timeline:
+                </label>
+                <input
+                  id="lost-comment-input"
+                  data-testid="input-lost-comment"
+                  type="text"
+                  value={markLostComment}
+                  onChange={(e) => setMarkLostComment(e.target.value)}
+                  placeholder="Ex.: Número não existe no WhatsApp / Número inválido"
+                  className="w-full px-3 py-2 text-xs bg-[#0E1017] border border-[#262A33] focus:border-rose-500/60 rounded-xl text-white placeholder:text-gray-500 focus:outline-none"
+                />
+                <span className="text-[10px] text-gray-500 block">
+                  Esse comentário ficará salvo nas notas da oportunidade para histórico da equipe.
+                </span>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-[#262A33] flex flex-col sm:flex-row items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={savingLost}
+                onClick={() => setMarkLostOpp(null)}
+                className="border-[#262A33] text-gray-300 text-xs rounded-xl w-full sm:w-auto"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                data-testid="btn-confirm-mark-lost"
+                disabled={savingLost}
+                onClick={handleConfirmMarkLost}
+                className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-xl w-full sm:w-auto shadow-rose-900/30 shadow-md"
+              >
+                {savingLost ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Confirmar e Marcar Perdido
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
