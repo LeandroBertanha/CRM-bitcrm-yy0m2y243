@@ -38,6 +38,8 @@ import {
   Search,
   PhoneOff,
   XCircle,
+  HelpCircle,
+  Check,
 } from 'lucide-react'
 
 export interface BatchWhatsAppModalProps {
@@ -60,6 +62,7 @@ interface InteractionSummary {
 }
 
 const STORAGE_KEY_PREFIX = 'bitcrm_batch_whatsapp_sent_'
+const STORAGE_KEY_AWAITING_PREFIX = 'bitcrm_batch_whatsapp_awaiting_'
 
 export function BatchWhatsAppModal({
   open,
@@ -78,10 +81,25 @@ export function BatchWhatsAppModal({
     return `${STORAGE_KEY_PREFIX}${stage.toLowerCase()}_${currentUserId || 'default'}`
   }, [stage, currentUserId])
 
-  // IDs das oportunidades enviadas nesta sessão
+  // Chave de persistência de itens aguardando confirmação pós-envio
+  const awaitingKey = useMemo(() => {
+    return `${STORAGE_KEY_AWAITING_PREFIX}${stage.toLowerCase()}_${currentUserId || 'default'}`
+  }, [stage, currentUserId])
+
+  // IDs das oportunidades enviadas nesta sessão (já confirmadas como "Sim, enviado")
   const [sessionSentIds, setSessionSentIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(sessionKey)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // IDs das oportunidades aguardando confirmação ("O número tem WhatsApp?")
+  const [awaitingConfirmationIds, setAwaitingConfirmationIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(awaitingKey)
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -96,6 +114,15 @@ export function BatchWhatsAppModal({
       // Ignora se quota cheia
     }
   }, [sessionSentIds, sessionKey])
+
+  // Sincronizar awaitingConfirmationIds com localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(awaitingKey, JSON.stringify(awaitingConfirmationIds))
+    } catch {
+      // Ignora se quota cheia
+    }
+  }, [awaitingConfirmationIds, awaitingKey])
 
   // Scripts carregados do banco (playbook_scripts)
   const [scripts, setScripts] = useState<PlaybookScript[]>([])
@@ -122,8 +149,9 @@ export function BatchWhatsAppModal({
   const [markLostComment, setMarkLostComment] = useState('Número não está no WhatsApp')
   const [savingLost, setSavingLost] = useState(false)
 
-  // Estado de envio em andamento
+  // Estado de envio ou confirmação em andamento
   const [sendingOppId, setSendingOppId] = useState<string | null>(null)
+  const [confirmingOppId, setConfirmingOppId] = useState<string | null>(null)
 
   // Carregar scripts do Playbook no banco
   const fetchScripts = useCallback(async () => {
@@ -276,6 +304,9 @@ export function BatchWhatsAppModal({
 
       const isSentInSession = sessionSentIds.includes(opp.id)
       const isLost = lostOppIds.includes(opp.id) || opp.stage === 'Perdido'
+      // Se já foi enviada ou marcada como perdida, não deve estar aguardando
+      const isAwaitingConfirmation =
+        awaitingConfirmationIds.includes(opp.id) && !isSentInSession && !isLost
 
       return {
         opp,
@@ -284,6 +315,7 @@ export function BatchWhatsAppModal({
         hasPhone,
         isAlreadyApproached,
         isSentInSession,
+        isAwaitingConfirmation,
         isLost,
         summary,
         lastInteractionDate: formattedLastDate,
@@ -296,6 +328,7 @@ export function BatchWhatsAppModal({
     activeScript,
     currentUserName,
     sessionSentIds,
+    awaitingConfirmationIds,
     lostOppIds,
   ])
 
@@ -331,8 +364,9 @@ export function BatchWhatsAppModal({
     }
   }, [itemsWithMessages])
 
-  // Executar disparo assistido: abre wa.me + registra na timeline
-  const executeSend = async (item: (typeof itemsWithMessages)[0]) => {
+  // Executar disparo assistido: abre wa.me e coloca em "Aguardando confirmação" (estado neutro)
+  // SEM: mudar status para Enviada, mover estágio, registrar timeline, registrar histórico ou contar como Enviada
+  const executeSend = (item: (typeof itemsWithMessages)[0]) => {
     if (!item.hasPhone) {
       toast({
         title: 'Sem telefone cadastrado',
@@ -342,14 +376,39 @@ export function BatchWhatsAppModal({
       return
     }
 
-    setSendingOppId(item.opp.id)
     try {
       // 1. Abrir WhatsApp Web com mensagem pré-preenchida
       const url = buildWhatsAppWebUrl(item.phoneNormalized, item.message)
       window.open(url, '_blank', 'noopener,noreferrer')
 
-      // 2. Registrar automaticamente na timeline, criar sessão de histórico e auto-qualificar se initial
+      // 2. Colocar no estado neutro "Aguardando confirmação"
+      // Nada é registrado ainda na timeline nem alterado no banco
+      setAwaitingConfirmationIds((prev) =>
+        prev.includes(item.opp.id) ? prev : [...prev, item.opp.id],
+      )
+
+      toast({
+        title: 'WhatsApp aberto!',
+        description: `Verifique se o número de "${item.opp.company}" possui WhatsApp para confirmar.`,
+      })
+    } catch (err) {
+      console.error('Erro ao abrir WhatsApp:', err)
+      toast({
+        title: 'Erro ao abrir WhatsApp',
+        description: 'Não foi possível abrir o link do WhatsApp.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Confirmar pós-envio: "Sim, enviado"
+  // Executa todo o fluxo de registro: timeline, histórico, movimentação para Qualificado e status Enviada em azul
+  const handleConfirmSentYes = async (item: (typeof itemsWithMessages)[0]) => {
+    setConfirmingOppId(item.opp.id)
+    try {
       const effectiveUserId = currentUserId || pb.authStore.record?.id || ''
+
+      // 1. Registrar na timeline, histórico em approach_sessions e mover Novo -> Qualificado se initial
       await logWhatsAppInteractionToOpportunity({
         opportunityId: item.opp.id,
         authorId: effectiveUserId,
@@ -365,10 +424,11 @@ export function BatchWhatsAppModal({
         },
       })
 
-      // 3. Atualizar sessão local
+      // 2. Remove do estado aguardando e adiciona às enviadas da sessão
+      setAwaitingConfirmationIds((prev) => prev.filter((id) => id !== item.opp.id))
       setSessionSentIds((prev) => (prev.includes(item.opp.id) ? prev : [...prev, item.opp.id]))
 
-      // 4. Atualizar resumo de notas local
+      // 3. Atualizar resumo de notas local
       setNotesSummary((prev) => ({
         ...prev,
         [item.opp.id]: {
@@ -380,21 +440,27 @@ export function BatchWhatsAppModal({
       }))
 
       toast({
-        title: 'WhatsApp aberto e registrado!',
+        title: 'Envio confirmado com sucesso!',
         description: `Interação registrada na timeline de "${item.opp.company}".`,
       })
 
       onInteractionLogged?.()
     } catch (err) {
-      console.error('Erro ao registrar envio:', err)
+      console.error('Erro ao confirmar envio:', err)
       toast({
         title: 'Erro ao registrar interação',
-        description: 'A mensagem foi aberta mas não foi possível salvar na timeline.',
+        description: 'Não foi possível salvar a interação na timeline.',
         variant: 'destructive',
       })
     } finally {
-      setSendingOppId(null)
+      setConfirmingOppId(null)
     }
+  }
+
+  // Confirmar pós-envio: "Não, sem WhatsApp"
+  // Abre o diálogo para mover direto para Perdido com comentário pré-preenchido, removendo de aguardando se confirmado
+  const handleConfirmSentNo = (item: (typeof itemsWithMessages)[0]) => {
+    handleOpenMarkLost(item.opp)
   }
 
   // Clicou no botão Enviar de um card
@@ -463,7 +529,8 @@ export function BatchWhatsAppModal({
         }
       }
 
-      // 4. Atualizar estado local
+      // 4. Atualizar estado local: retira de aguardando (se estiver) e adiciona aos perdidos
+      setAwaitingConfirmationIds((prev) => prev.filter((id) => id !== oppToMark.id))
       setLostOppIds((prev) => (prev.includes(oppToMark.id) ? prev : [...prev, oppToMark.id]))
 
       toast({
@@ -529,14 +596,16 @@ export function BatchWhatsAppModal({
   const handleResetSession = () => {
     if (confirm('Deseja reiniciar a contagem de disparos desta sessão?')) {
       setSessionSentIds([])
+      setAwaitingConfirmationIds([])
       try {
         localStorage.removeItem(sessionKey)
+        localStorage.removeItem(awaitingKey)
       } catch {
         /* intentionally ignored */
       }
       toast({
         title: 'Sessão reiniciada',
-        description: 'O contador de disparos desta sessão foi zerado.',
+        description: 'O contador de disparos e confirmações pendentes desta sessão foram zerados.',
       })
     }
   }
@@ -747,9 +816,11 @@ export function BatchWhatsAppModal({
             ) : (
               filteredItems.map((item, index) => {
                 const isSent = item.isSentInSession
+                const isAwaiting = item.isAwaitingConfirmation
                 const isApproached = item.isAlreadyApproached
                 const isLost = item.isLost
                 const isCurrentSending = sendingOppId === item.opp.id
+                const isCurrentConfirming = confirmingOppId === item.opp.id
 
                 return (
                   <div
@@ -758,20 +829,24 @@ export function BatchWhatsAppModal({
                     data-status={
                       isLost
                         ? 'perdido'
-                        : isSent
-                          ? 'enviada'
-                          : isApproached
-                            ? 'abordada'
-                            : 'pendente'
+                        : isAwaiting
+                          ? 'aguardando'
+                          : isSent
+                            ? 'enviada'
+                            : isApproached
+                              ? 'abordada'
+                              : 'pendente'
                     }
                     className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-150 space-y-3 ${
                       isLost
                         ? 'bg-[#150D11] border-rose-900/50 opacity-80'
-                        : isSent
-                          ? 'bg-[#0E1322] border-blue-500/40 shadow-sm shadow-blue-500/5'
-                          : isApproached
-                            ? 'bg-[#12141A] border-amber-500/30'
-                            : 'bg-[#12141A] border-[#262A33] hover:border-indigo-500/50'
+                        : isAwaiting
+                          ? 'bg-[#151722] border-indigo-400/50 shadow-md shadow-indigo-500/10'
+                          : isSent
+                            ? 'bg-[#0E1322] border-blue-500/40 shadow-sm shadow-blue-500/5'
+                            : isApproached
+                              ? 'bg-[#12141A] border-amber-500/30'
+                              : 'bg-[#12141A] border-[#262A33] hover:border-indigo-500/50'
                     }`}
                   >
                     {/* Topo do Item */}
@@ -796,6 +871,14 @@ export function BatchWhatsAppModal({
                             >
                               <XCircle className="w-3 h-3 text-rose-400" />
                               Marcada como Perdido (Sem WhatsApp)
+                            </span>
+                          ) : isAwaiting ? (
+                            <span
+                              data-testid={`status-badge-aguardando-${item.opp.id}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600 uppercase tracking-wide"
+                            >
+                              <HelpCircle className="w-3 h-3 text-slate-300 animate-pulse" />
+                              Aguardando confirmação
                             </span>
                           ) : (
                             <>
@@ -863,6 +946,54 @@ export function BatchWhatsAppModal({
                             <XCircle className="w-3.5 h-3.5" />
                             Oportunidade Perdida
                           </span>
+                        ) : isAwaiting ? (
+                          /* Estado Neutro "Aguardando confirmação": pergunta e botões Sim / Não */
+                          <div
+                            data-testid={`confirm-box-${item.opp.id}`}
+                            className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2 rounded-xl bg-[#0E1017] border border-indigo-400/30"
+                          >
+                            <span className="text-xs font-semibold text-gray-200 px-1 flex items-center gap-1">
+                              <HelpCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              O número tem WhatsApp?
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                data-testid={`btn-confirm-yes-${item.opp.id}`}
+                                disabled={isCurrentConfirming}
+                                onClick={() => handleConfirmSentYes(item)}
+                                className="h-7 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-2.5 shadow-sm shadow-blue-600/30"
+                                title="Confirmar envio e seguir fluxo de qualificação"
+                              >
+                                {isCurrentConfirming ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                    Confirmando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Sim, enviado
+                                  </>
+                                )}
+                              </Button>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                data-testid={`btn-confirm-no-${item.opp.id}`}
+                                disabled={isCurrentConfirming}
+                                onClick={() => handleConfirmSentNo(item)}
+                                className="h-7 text-xs font-semibold border-rose-500/40 bg-rose-950/20 text-rose-300 hover:bg-rose-950/50 hover:text-white rounded-lg px-2.5"
+                                title="Marcar como Perdido direto (Sem WhatsApp)"
+                              >
+                                <XCircle className="w-3 h-3 mr-1 text-rose-400" />
+                                Não, sem WhatsApp
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
                           <>
                             {/* Ação discreta: Sem WhatsApp / Marcar como perdido */}
@@ -912,13 +1043,13 @@ export function BatchWhatsAppModal({
                                   ? 'Não é possível enviar sem telefone válido'
                                   : isSent
                                     ? 'Mensagem já enviada. Clique para reenviar.'
-                                    : 'Abrir WhatsApp Web e registrar na timeline'
+                                    : 'Abrir WhatsApp Web e aguardar confirmação'
                               }
                             >
                               {isCurrentSending ? (
                                 <>
                                   <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                                  Registrando...
+                                  Abrindo...
                                 </>
                               ) : isSent ? (
                                 <>
