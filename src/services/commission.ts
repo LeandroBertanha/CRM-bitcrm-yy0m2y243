@@ -47,6 +47,8 @@ export function buildCommissionClosingSummary(params: {
   sellers: Array<{ id: string; name?: string; email: string; role?: string }>
   opportunities: Array<{
     id?: string
+    company?: string
+    value?: number
     stage?: string
     seller?: string
     created?: string
@@ -81,6 +83,7 @@ export function buildCommissionClosingSummary(params: {
       email: string
       role?: string
       wonCountMonth: number
+      wonOpportunities: Array<{ id?: string; value?: number; company?: string }>
     }
   >()
 
@@ -91,6 +94,7 @@ export function buildCommissionClosingSummary(params: {
       email: s.email,
       role: s.role,
       wonCountMonth: 0,
+      wonOpportunities: [],
     })
   })
 
@@ -106,6 +110,11 @@ export function buildCommissionClosingSummary(params: {
             if (sellerId && map.has(sellerId)) {
               const row = map.get(sellerId)!
               row.wonCountMonth += 1
+              row.wonOpportunities.push({
+                id: opp.id,
+                value: (opp as any).value,
+                company: (opp as any).company,
+              })
             }
           }
         } catch {
@@ -115,15 +124,26 @@ export function buildCommissionClosingSummary(params: {
     }
   })
 
-  // Calcular comissões
+  // Calcular comissões aplicando a regra proporcional com base nas oportunidades reais do vendedor
   const calculatedSellers: SellerMonthlyCommission[] = Array.from(map.values()).map((seller) => {
-    const calc = calculateCommission(seller.wonCountMonth, tiers, baseSaleValue)
+    const calc = calculateCommission(
+      seller.wonCountMonth,
+      tiers,
+      baseSaleValue,
+      seller.wonOpportunities,
+    )
+    const totalWonValue = seller.wonOpportunities.reduce((acc, o) => {
+      const val = typeof o.value === 'number' ? o.value : parseFloat(String(o.value || 0))
+      return acc + (isNaN(val) ? 0 : val)
+    }, 0)
+
     return {
       sellerId: seller.sellerId,
       name: seller.name,
       email: seller.email,
       role: seller.role,
       wonCountMonth: seller.wonCountMonth,
+      totalWonValue,
       tier: calc.tier,
       tierName: calc.isQualifying ? calc.tierName : 'Sem faixa atingida',
       percentage: calc.percentage,

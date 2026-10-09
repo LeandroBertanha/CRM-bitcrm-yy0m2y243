@@ -72,13 +72,6 @@ const TYPE_CONFIG: Record<
     bg: 'bg-gray-500/10',
     border: 'border-gray-500/30',
   },
-  status_change: {
-    label: 'Mudança de Estágio',
-    icon: Clock,
-    color: 'text-indigo-400',
-    bg: 'bg-indigo-500/10',
-    border: 'border-indigo-500/30',
-  },
 }
 
 export function OpportunityTimeline({

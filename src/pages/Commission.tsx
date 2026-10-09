@@ -54,16 +54,19 @@ export default function CommissionPage() {
     { id: string; name?: string; email: string; role?: string }[]
   >([])
 
-  // Estados de carregamento e refresh
+  // Estados de carregamento, refresh e erro
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Estado do simulador interativo (quantidade de vendas a testar)
+  // Estado do simulador interativo (quantidade de vendas e valor digitado da venda em R$)
   const [simSalesInput, setSimSalesInput] = useState<string>('10')
+  const [simValueInput, setSimValueInput] = useState<string>('500')
 
   // Carregar dados de comissionamento e oportunidades
   const loadData = useCallback(async () => {
     try {
+      setLoadError(null)
       const [tiersData, settingsData, oppsData, usersData] = await Promise.all([
         getCommissionTiers(),
         getCommissionSettings(),
@@ -83,8 +86,12 @@ export default function CommissionPage() {
       setSettings(settingsData)
       setOpportunities(oppsData)
       setSellers(usersData)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao carregar dados de comissionamento:', err)
+      setLoadError(
+        err?.message ||
+          'Não foi possível conectar ao banco de dados para carregar as faixas e métricas.',
+      )
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -145,18 +152,44 @@ export default function CommissionPage() {
     })
   }, [opportunities, user, isOppInCurrentMonth])
 
-  // Cálculo da comissão do usuário logado para o mês atual
+  // Cálculo da comissão do usuário logado para o mês atual (com cálculo proporcional por oportunidade)
   const mySalesCount = myWonOppsMonth.length
-  const myCommissionCalc = useMemo(() => {
-    return calculateCommission(mySalesCount, tiers, settings?.base_sale_value || 500)
-  }, [mySalesCount, tiers, settings?.base_sale_value])
+  const myWonTotalValue = useMemo(() => {
+    return myWonOppsMonth.reduce((acc, o) => {
+      const val = typeof o.value === 'number' ? o.value : parseFloat(String(o.value || 0))
+      return acc + (isNaN(val) ? 0 : val)
+    }, 0)
+  }, [myWonOppsMonth])
 
-  // Tabela de resumo por vendedor para o perfil Admin
+  const myCommissionCalc = useMemo(() => {
+    const baseVal = settings?.base_sale_value || 500
+    return calculateCommission(
+      mySalesCount,
+      tiers,
+      baseVal,
+      myWonOppsMonth.map((o) => ({
+        id: o.id,
+        value: o.value,
+        company: o.company,
+      })),
+    )
+  }, [mySalesCount, myWonOppsMonth, tiers, settings?.base_sale_value])
+
+  // Tabela de resumo por vendedor para o perfil Admin (com cálculo proporcional por oportunidade)
   const adminSellerRows = useMemo<SellerCommissionRow[]>(() => {
     if (!isAdmin) return []
 
     // Mapear vendedores
-    const map = new Map<string, SellerCommissionRow>()
+    const map = new Map<
+      string,
+      {
+        sellerId: string
+        name: string
+        email: string
+        wonCountMonth: number
+        wonOpportunities: Array<{ id?: string; value?: number; company?: string }>
+      }
+    >()
 
     sellers.forEach((s) => {
       map.set(s.id, {
@@ -164,10 +197,7 @@ export default function CommissionPage() {
         name: s.name || s.email.split('@')[0],
         email: s.email,
         wonCountMonth: 0,
-        tierName: '—',
-        percentage: 0,
-        commissionPerSale: 0,
-        estimatedTotal: 0,
+        wonOpportunities: [],
       })
     })
 
@@ -178,15 +208,28 @@ export default function CommissionPage() {
         if (sellerId && map.has(sellerId)) {
           const row = map.get(sellerId)!
           row.wonCountMonth += 1
+          row.wonOpportunities.push({
+            id: opp.id,
+            value: opp.value,
+            company: opp.company,
+          })
         }
       }
     })
 
-    // Calcular comissões para cada vendedor com base nas faixas do banco
+    // Calcular comissões para cada vendedor com base nas faixas do banco e valores individuais
     const list = Array.from(map.values()).map((row) => {
-      const calc = calculateCommission(row.wonCountMonth, tiers, settings?.base_sale_value || 500)
+      const calc = calculateCommission(
+        row.wonCountMonth,
+        tiers,
+        settings?.base_sale_value || 500,
+        row.wonOpportunities,
+      )
       return {
-        ...row,
+        sellerId: row.sellerId,
+        name: row.name,
+        email: row.email,
+        wonCountMonth: row.wonCountMonth,
         tierName: calc.isQualifying ? calc.tierName : 'Abaixo da faixa',
         percentage: calc.percentage,
         commissionPerSale: calc.commissionPerSale,
@@ -200,11 +243,19 @@ export default function CommissionPage() {
     )
   }, [isAdmin, sellers, opportunities, isOppInCurrentMonth, tiers, settings?.base_sale_value])
 
-  // Cálculo da simulação interativa com o input do usuário
+  // Cálculo da simulação interativa com o input de vendas e valor unitário editável do usuário
   const parsedSimSales = Math.max(0, parseInt(simSalesInput, 10) || 0)
+  const parsedSimValue = Math.max(0, parseFloat(simValueInput.replace(',', '.')) || 0)
+  const baseSaleVal = settings?.base_sale_value || 500
+
   const simulationResult = useMemo(() => {
-    return calculateCommission(parsedSimSales, tiers, settings?.base_sale_value || 500)
-  }, [parsedSimSales, tiers, settings?.base_sale_value])
+    return calculateCommission(
+      parsedSimSales,
+      tiers,
+      baseSaleVal,
+      parsedSimValue > 0 ? parsedSimValue : baseSaleVal,
+    )
+  }, [parsedSimSales, parsedSimValue, tiers, baseSaleVal])
 
   // Exemplos rápidos para a mini tabela de simulação em tempo real (1, 4, 5, 9, 10, 15 vendas)
   const exampleCounts = [1, 4, 5, 9, 10, 15]
@@ -240,6 +291,28 @@ export default function CommissionPage() {
 
   return (
     <div className="space-y-8 animate-fadeInUp">
+      {/* Banner de erro de carregamento com botão de retry (nunca silêncio) */}
+      {loadError && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-rose-200">Falha ao carregar comissionamento</p>
+              <p className="text-xs text-rose-300/90 mt-0.5">{loadError}</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={loadData}
+            disabled={loading || refreshing}
+            className="bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs h-9 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* Cabeçalho da Página */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#262A33]">
         <div>
@@ -429,7 +502,9 @@ export default function CommissionPage() {
                   )}
                 </div>
                 <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
-                  Oportunidades em Ganho ({capitalizedMonth})
+                  {myWonTotalValue > 0
+                    ? `Volume ganho: ${formatBRL(myWonTotalValue)}`
+                    : `Oportunidades em Ganho (${capitalizedMonth})`}
                 </p>
               </div>
             </div>
@@ -681,61 +756,130 @@ export default function CommissionPage() {
           </div>
 
           <div className="space-y-4">
-            {/* Campo de Entrada */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                Quantidade de Vendas Válidas no Mês
-              </label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  min="0"
-                  max="1000"
-                  value={simSalesInput}
-                  onChange={(e) => setSimSalesInput(e.target.value)}
-                  placeholder="Ex: 10"
-                  className="bg-[#0E1017] border-[#262A33] text-white text-base font-bold h-11 w-36 focus:border-indigo-500 text-center"
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {[1, 4, 5, 9, 10, 15, 20].map((quick) => (
-                    <button
-                      key={quick}
-                      type="button"
-                      onClick={() => setSimSalesInput(quick.toString())}
-                      className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
-                        parsedSimSales === quick
-                          ? 'bg-indigo-600 text-white border-indigo-500 font-semibold shadow-sm shadow-indigo-500/20'
-                          : 'bg-[#171A24] border-[#262A33] text-gray-400 hover:text-white hover:bg-[#1f2330]'
-                      }`}
-                    >
-                      {quick} vendas
-                    </button>
-                  ))}
+            {/* Campos de Entrada: Vendas e Valor Unitário Editável */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Quantidade de Vendas */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Quantidade de Vendas Válidas
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    aria-label="Quantidade de vendas para simulação"
+                    value={simSalesInput}
+                    onChange={(e) => setSimSalesInput(e.target.value)}
+                    placeholder="Ex: 10"
+                    className="bg-[#0E1017] border-[#262A33] text-white text-base font-bold h-11 w-full focus:border-indigo-500 text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Valor Unitário da Venda (Editável em R$) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-gray-300">
+                    Valor por Venda (R$)
+                  </label>
+                  {parsedSimValue > baseSaleVal && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
+                      Regra Proporcional Ativa (&gt; R$ 500)
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">
+                    R$
+                  </span>
+                  <Input
+                    type="number"
+                    step="50"
+                    min="0"
+                    aria-label="Valor unitário da venda para simulação"
+                    value={simValueInput}
+                    onChange={(e) => setSimValueInput(e.target.value)}
+                    placeholder="500,00"
+                    className="bg-[#0E1017] border-[#262A33] text-white text-base font-bold h-11 pl-9 w-full focus:border-indigo-500"
+                  />
                 </div>
               </div>
             </div>
 
+            {/* Botões Rápidos de Vendas e Valores */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-gray-400 mr-1">Vendas rápidas:</span>
+                {[1, 4, 5, 9, 10, 15, 20].map((quick) => (
+                  <button
+                    key={quick}
+                    type="button"
+                    onClick={() => setSimSalesInput(quick.toString())}
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                      parsedSimSales === quick
+                        ? 'bg-indigo-600 text-white border-indigo-500 font-semibold shadow-sm shadow-indigo-500/20'
+                        : 'bg-[#171A24] border-[#262A33] text-gray-400 hover:text-white hover:bg-[#1f2330]'
+                    }`}
+                  >
+                    {quick}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-gray-400 mr-1">Valores sugeridos:</span>
+                {[500, 750, 1000, 1500, 2500, 5000].map((quickVal) => (
+                  <button
+                    key={quickVal}
+                    type="button"
+                    onClick={() => setSimValueInput(quickVal.toString())}
+                    className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                      parsedSimValue === quickVal
+                        ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500 font-semibold'
+                        : 'bg-[#171A24] border-[#262A33] text-gray-400 hover:text-white hover:bg-[#1f2330]'
+                    }`}
+                  >
+                    {formatBRL(quickVal)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Informações Complementares Lidas do Banco */}
-            <div className="grid grid-cols-2 gap-3 text-xs bg-[#0E1017] p-3 rounded-xl border border-[#262A33]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#0E1017] p-3 rounded-xl border border-[#262A33]">
               <div>
-                <span className="text-gray-400 block">Valor por Site/LP (Base):</span>
+                <span className="text-gray-400 block">Valor Base do Produto (Banco):</span>
                 <strong className="text-white">
                   {formatBRL(settings?.base_sale_value || 500)}
                 </strong>
+                <span className="text-[10px] text-gray-500 block">
+                  Valores acima de {formatBRL(baseSaleVal)} recebem comissão proporcional
+                </span>
               </div>
               <div>
                 <span className="text-gray-400 block">Hospedagem Mensal:</span>
                 <span className="text-amber-400 font-medium">
                   {formatBRL(settings?.monthly_hosting_value || 55)} (fora da comissão)
                 </span>
+                <span className="text-[10px] text-gray-500 block">
+                  Cobrança recorrente não comissionada
+                </span>
               </div>
             </div>
 
             {/* Resultado da Simulação */}
             <div className="p-4 rounded-xl bg-gradient-to-br from-[#131622] to-[#0E1017] border border-indigo-500/30 space-y-3">
-              <span className="text-xs font-semibold text-indigo-300 uppercase tracking-wider block">
-                Resultado da Simulação
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-indigo-300 uppercase tracking-wider block">
+                  Resultado da Simulação
+                </span>
+                {simulationResult.isProportional && (
+                  <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                    Proporcional {(parsedSimValue / baseSaleVal).toFixed(2)}x
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="p-3 rounded-lg bg-[#171A24]/60 border border-[#262A33]">
@@ -753,10 +897,18 @@ export default function CommissionPage() {
                 </div>
 
                 <div className="p-3 rounded-lg bg-[#171A24]/60 border border-[#262A33]">
-                  <span className="text-[11px] text-gray-400 block">Comissão por Venda:</span>
+                  <span className="text-[11px] text-gray-400 block">
+                    Comissão / Venda {simulationResult.isProportional ? '(Proporcional)' : ''}:
+                  </span>
                   <span className="text-sm font-bold text-emerald-400 block mt-0.5 tabular-nums">
                     {formatBRL(simulationResult.commissionPerSale)}
                   </span>
+                  {simulationResult.isProportional && (
+                    <span className="text-[10px] text-emerald-400/80 block mt-0.5">
+                      {formatBRL(parsedSimValue)} &times;{' '}
+                      {Math.round(simulationResult.percentage * 100)}%
+                    </span>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/40">
@@ -765,6 +917,10 @@ export default function CommissionPage() {
                   </span>
                   <span className="text-xl font-black text-white block mt-0.5 tabular-nums">
                     {formatBRL(simulationResult.totalCommission)}
+                  </span>
+                  <span className="text-[10px] text-indigo-300/80 block mt-0.5">
+                    {parsedSimSales} {parsedSimSales === 1 ? 'venda' : 'vendas'} &times;{' '}
+                    {formatBRL(simulationResult.commissionPerSale)}
                   </span>
                 </div>
               </div>
@@ -873,6 +1029,23 @@ export default function CommissionPage() {
                 A comissão é paga todo dia 5 de cada mês referente às vendas válidas do mês
                 anterior. Caso o dia 5 coincida com sábado, domingo ou feriado nacional brasileiro,
                 o pagamento é realizado no próximo dia útil subsequente.
+              </p>
+            </div>
+          </div>
+
+          {/* Card com a regra de cálculo proporcional acima de R$ 500 */}
+          <div className="p-3.5 rounded-xl bg-[#0E1017] border border-indigo-500/30 flex items-start gap-3 hover:border-indigo-500/50 transition-colors">
+            <div className="w-5 h-5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+              📈
+            </div>
+            <div className="space-y-1">
+              <strong className="text-xs text-indigo-300 font-bold block">
+                Comissionamento Proporcional Acima de R$ 500,00
+              </strong>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Para vendas com valores superiores ao valor comercial base (R$ 500,00), a comissão é
+                calculada de forma proporcional ao valor da venda, aplicando o percentual integral
+                da faixa atingida no mês sobre o montante da oportunidade.
               </p>
             </div>
           </div>

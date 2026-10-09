@@ -25,6 +25,8 @@ export interface CommissionClosingSectionProps {
   sellers: Array<{ id: string; name?: string; email: string; role?: string }>
   opportunities: Array<{
     id?: string
+    company?: string
+    value?: number
     stage?: string
     seller?: string
     created?: string

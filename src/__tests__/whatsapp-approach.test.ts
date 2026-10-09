@@ -191,7 +191,6 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
           text: expect.stringContaining('[WhatsApp inicial] Mensagem inicial via WhatsApp'),
         }),
       )
-
       createSpy.mockRestore()
     })
 

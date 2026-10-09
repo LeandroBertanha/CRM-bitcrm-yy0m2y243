@@ -102,11 +102,6 @@ export default function Layout() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Fecha o menu mobile ao navegar
-  useEffect(() => {
-    setMobileMenuOpen(false)
-  }, [location.pathname])
-
   const handleLogout = () => {
     signOut()
     navigate('/login')

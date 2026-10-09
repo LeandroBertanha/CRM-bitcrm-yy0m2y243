@@ -25,6 +25,15 @@ export interface CommissionSettings extends RecordModel {
   is_active?: boolean
 }
 
+export interface OpportunityCommissionItem {
+  id?: string
+  company?: string
+  value: number
+  unitCommission: number
+  isProportional: boolean
+  ratio: number
+}
+
 export interface CommissionCalculationResult {
   salesCount: number
   tier: CommissionTier | null
@@ -33,6 +42,9 @@ export interface CommissionCalculationResult {
   commissionPerSale: number
   totalCommission: number
   isQualifying: boolean
+  baseSaleValue?: number
+  isProportional?: boolean
+  opportunityDetails?: OpportunityCommissionItem[]
 }
 
 export interface SellerMonthlyCommission {
@@ -41,6 +53,7 @@ export interface SellerMonthlyCommission {
   email: string
   role?: string
   wonCountMonth: number
+  totalWonValue?: number
   tier: CommissionTier | null
   tierName: string
   percentage: number
@@ -245,29 +258,17 @@ export function isOpportunityInMonth(
   }
 }
 
-export function calculateCommission(
+/**
+ * Determina a faixa correspondente no array de faixas com base na contagem de vendas válidas.
+ */
+export function matchCommissionTier(
   salesCount: number,
   tiers: CommissionTier[],
-  baseSaleValue?: number,
-): CommissionCalculationResult {
+): CommissionTier | null {
   const count = Math.max(0, Math.floor(salesCount || 0))
+  if (count === 0 || !tiers || tiers.length === 0) return null
 
-  if (count === 0 || !tiers || tiers.length === 0) {
-    return {
-      salesCount: count,
-      tier: null,
-      tierName: 'Nenhuma faixa atingida (0 vendas)',
-      percentage: 0,
-      commissionPerSale: 0,
-      totalCommission: 0,
-      isQualifying: false,
-    }
-  }
-
-  // Ordena por min_sales ascendente para busca precisa de faixa
   const sorted = [...tiers].sort((a, b) => a.min_sales - b.min_sales)
-
-  // Encontra a faixa correspondente
   let matchedTier: CommissionTier | null = null
 
   for (const tier of sorted) {
@@ -287,6 +288,106 @@ export function calculateCommission(
     }
   }
 
+  return matchedTier
+}
+
+/**
+ * Calcula a comissão unitária de uma venda considerando o valor base da venda (padrão R$ 500,00 lido do banco).
+ *
+ * REGRA PROPORCIONAL ACIMA DE R$ 500,00:
+ * - Para valores até o valor base (ex: <= R$ 500,00):
+ *   Aplica a comissão fixa da faixa (ex: R$ 100, R$ 125 ou R$ 150) ou base * percentual.
+ * - Para valores maiores que o valor base (ex: > R$ 500,00):
+ *   A comissão é proporcional ao valor da venda:
+ *   comissão = comissão_base_da_faixa * (valor / base_sale_value) = valor * percentual_da_faixa.
+ *   Exemplo na Faixa 1 (20%, base R$ 500 com comissão R$ 100):
+ *   - Venda de R$ 500,00 -> comissão = R$ 100,00
+ *   - Venda de R$ 1.000,00 -> razão 1000/500 = 2 -> comissão = R$ 200,00 (1000 * 20%)
+ *   - Venda de R$ 2.500,00 -> razão 2500/500 = 5 -> comissão = R$ 500,00 (2500 * 20%)
+ */
+export function calculateSaleCommission(params: {
+  saleValue: number
+  tier: CommissionTier | null
+  baseSaleValue?: number
+}): {
+  unitCommission: number
+  isProportional: boolean
+  ratio: number
+  percentage: number
+} {
+  const { saleValue, tier, baseSaleValue = 500 } = params
+  const baseValue = baseSaleValue > 0 ? baseSaleValue : 500
+
+  if (!tier) {
+    return {
+      unitCommission: 0,
+      isProportional: false,
+      ratio: 1,
+      percentage: 0,
+    }
+  }
+
+  const rawPct = tier.percentage
+  const normalizedPct = rawPct > 1 ? rawPct / 100 : rawPct
+  const baseCommPerSale =
+    tier.commission_per_sale > 0 ? tier.commission_per_sale : baseValue * normalizedPct
+
+  const val = Math.max(0, Number(saleValue) || 0)
+
+  if (val > baseValue) {
+    const ratio = val / baseValue
+    // Proporcional ao valor acima do base: comissão da faixa * ratio = val * percentual
+    const unitCommission = baseCommPerSale * ratio
+    return {
+      unitCommission,
+      isProportional: true,
+      ratio,
+      percentage: normalizedPct,
+    }
+  }
+
+  return {
+    unitCommission: baseCommPerSale,
+    isProportional: false,
+    ratio: 1,
+    percentage: normalizedPct,
+  }
+}
+
+/**
+ * Calcula a comissão total considerando:
+ * - Quantidade de vendas para definir a faixa no banco.
+ * - Se fornecida uma lista de oportunidades ou valores individuais, aplica a regra proporcional
+ *   acima de R$ 500,00 por oportunidade.
+ * - Se fornecido apenas salesCount (ou na simulação simples), utiliza o valor unitário padrão
+ *   ou o valor de venda informado em saleValueForSingle.
+ */
+export function calculateCommission(
+  salesCount: number,
+  tiers: CommissionTier[],
+  baseSaleValue?: number,
+  salesOrOpps?: Array<{ value?: number; id?: string; company?: string }> | number,
+): CommissionCalculationResult {
+  const count = Math.max(0, Math.floor(salesCount || 0))
+  const baseValue = typeof baseSaleValue === 'number' && baseSaleValue > 0 ? baseSaleValue : 500
+
+  if (count === 0 || !tiers || tiers.length === 0) {
+    return {
+      salesCount: count,
+      tier: null,
+      tierName: 'Nenhuma faixa atingida (0 vendas)',
+      percentage: 0,
+      commissionPerSale: 0,
+      totalCommission: 0,
+      isQualifying: false,
+      baseSaleValue: baseValue,
+      isProportional: false,
+      opportunityDetails: [],
+    }
+  }
+
+  const matchedTier = matchCommissionTier(count, tiers)
+
   if (!matchedTier) {
     return {
       salesCount: count,
@@ -296,29 +397,106 @@ export function calculateCommission(
       commissionPerSale: 0,
       totalCommission: 0,
       isQualifying: false,
+      baseSaleValue: baseValue,
+      isProportional: false,
+      opportunityDetails: [],
     }
   }
 
-  // Percentual
   const rawPct = matchedTier.percentage
-  // Trata caso venha salvo como fração (0.2) ou inteiro (20)
   const normalizedPct = rawPct > 1 ? rawPct / 100 : rawPct
-
-  // Comissão por venda: usa o valor configurado na faixa ou calcula sobre baseSaleValue se aplicável
-  const commPerSale =
+  const baseCommPerSale =
     matchedTier.commission_per_sale > 0
       ? matchedTier.commission_per_sale
-      : (baseSaleValue || 0) * normalizedPct
+      : baseValue * normalizedPct
 
-  const total = count * commPerSale
+  // Caso 1: foi passado um array de oportunidades com valores reais
+  if (Array.isArray(salesOrOpps) && salesOrOpps.length > 0) {
+    let total = 0
+    let hasAnyProportional = false
+    const details: OpportunityCommissionItem[] = []
+
+    for (const opp of salesOrOpps) {
+      const oppVal = typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value || 0))
+      const safeVal = isNaN(oppVal) || oppVal <= 0 ? baseValue : oppVal
+      const saleCalc = calculateSaleCommission({
+        saleValue: safeVal,
+        tier: matchedTier,
+        baseSaleValue: baseValue,
+      })
+
+      if (saleCalc.isProportional) {
+        hasAnyProportional = true
+      }
+      total += saleCalc.unitCommission
+      details.push({
+        id: opp.id,
+        company: opp.company,
+        value: safeVal,
+        unitCommission: saleCalc.unitCommission,
+        isProportional: saleCalc.isProportional,
+        ratio: saleCalc.ratio,
+      })
+    }
+
+    return {
+      salesCount: count,
+      tier: matchedTier,
+      tierName: matchedTier.name,
+      percentage: normalizedPct,
+      commissionPerSale: details.length > 0 ? total / details.length : baseCommPerSale,
+      totalCommission: total,
+      isQualifying: true,
+      baseSaleValue: baseValue,
+      isProportional: hasAnyProportional,
+      opportunityDetails: details,
+    }
+  }
+
+  // Caso 2: foi passado um valor numérico único de simulação (ex: simulador com valor editado)
+  if (typeof salesOrOpps === 'number' && salesOrOpps > 0) {
+    const saleVal = salesOrOpps
+    const saleCalc = calculateSaleCommission({
+      saleValue: saleVal,
+      tier: matchedTier,
+      baseSaleValue: baseValue,
+    })
+    const total = count * saleCalc.unitCommission
+
+    return {
+      salesCount: count,
+      tier: matchedTier,
+      tierName: matchedTier.name,
+      percentage: normalizedPct,
+      commissionPerSale: saleCalc.unitCommission,
+      totalCommission: total,
+      isQualifying: true,
+      baseSaleValue: baseValue,
+      isProportional: saleCalc.isProportional,
+      opportunityDetails: [
+        {
+          value: saleVal,
+          unitCommission: saleCalc.unitCommission,
+          isProportional: saleCalc.isProportional,
+          ratio: saleCalc.ratio,
+        },
+      ],
+    }
+  }
+
+  // Caso 3: cálculo padrão baseado na quantidade (vendas no valor base R$ 500)
+  const total = count * baseCommPerSale
 
   return {
     salesCount: count,
     tier: matchedTier,
     tierName: matchedTier.name,
     percentage: normalizedPct,
-    commissionPerSale: commPerSale,
+    commissionPerSale: baseCommPerSale,
     totalCommission: total,
     isQualifying: true,
+    baseSaleValue: baseValue,
+    isProportional: false,
+    opportunityDetails: [],
   }
 }

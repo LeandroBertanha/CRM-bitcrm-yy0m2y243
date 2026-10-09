@@ -169,6 +169,67 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
     expect(summary.sellers[2].isQualifying).toBe(false)
   })
 
+  describe('Cálculo Proporcional Acima de R$ 500,00', () => {
+    it('mantém comissão padrão da faixa para valores <= R$ 500,00', () => {
+      // 1 venda de R$ 500 na Faixa 1 (20% -> R$ 100)
+      const res500 = calculateCommission(1, mockTiers, 500, 500)
+      expect(res500.isProportional).toBe(false)
+      expect(res500.commissionPerSale).toBe(100)
+      expect(res500.totalCommission).toBe(100)
+
+      // 1 venda de R$ 300 (abaixo de 500): comissão fixa da faixa R$ 100
+      const res300 = calculateCommission(1, mockTiers, 500, 300)
+      expect(res300.isProportional).toBe(false)
+      expect(res300.commissionPerSale).toBe(100)
+      expect(res300.totalCommission).toBe(100)
+    })
+
+    it('calcula comissão proporcional quando valor > R$ 500,00 (ex: R$ 1.000, R$ 2.500)', () => {
+      // Faixa 1 (20%, base R$ 500 -> comissão base R$ 100)
+      // Venda de R$ 1.000 -> razão 2x -> R$ 200 de comissão (1.000 * 20%)
+      const res1000 = calculateCommission(1, mockTiers, 500, 1000)
+      expect(res1000.isProportional).toBe(true)
+      expect(res1000.commissionPerSale).toBe(200)
+      expect(res1000.totalCommission).toBe(200)
+
+      // Faixa 2 (5 vendas: 25%, base R$ 500 -> comissão base R$ 125)
+      // 5 vendas de R$ 2.000 cada -> razão 4x -> R$ 500 por venda -> total R$ 2.500
+      const res2000 = calculateCommission(5, mockTiers, 500, 2000)
+      expect(res2000.tierName).toBe('Faixa 2 (5 a 9 vendas)')
+      expect(res2000.percentage).toBe(0.25)
+      expect(res2000.isProportional).toBe(true)
+      expect(res2000.commissionPerSale).toBe(500) // 2000 * 25% = 500
+      expect(res2000.totalCommission).toBe(2500) // 5 * 500 = 2500
+
+      // Faixa 3 (10 vendas: 30%)
+      // Venda de R$ 1.500 -> comissão unitária: 1500 * 30% = 450
+      const res1500 = calculateCommission(10, mockTiers, 500, 1500)
+      expect(res1500.percentage).toBe(0.3)
+      expect(res1500.commissionPerSale).toBe(450)
+      expect(res1500.totalCommission).toBe(4500)
+    })
+
+    it('calcula comissões mistas por oportunidade real de um vendedor', () => {
+      // Vendedor com 2 vendas na Faixa 1 (20%):
+      // - Opp 1: R$ 500 (comissão R$ 100)
+      // - Opp 2: R$ 1.500 (comissão R$ 300)
+      // Total esperado: R$ 400
+      const opps = [
+        { id: 'o1', company: 'Empresa A', value: 500 },
+        { id: 'o2', company: 'Empresa B', value: 1500 },
+      ]
+      const res = calculateCommission(2, mockTiers, 500, opps)
+      expect(res.salesCount).toBe(2)
+      expect(res.tierName).toBe('Faixa 1 (1 a 4 vendas)')
+      expect(res.totalCommission).toBe(400)
+      expect(res.opportunityDetails).toHaveLength(2)
+      expect(res.opportunityDetails?.[0].unitCommission).toBe(100)
+      expect(res.opportunityDetails?.[0].isProportional).toBe(false)
+      expect(res.opportunityDetails?.[1].unitCommission).toBe(300)
+      expect(res.opportunityDetails?.[1].isProportional).toBe(true)
+    })
+  })
+
   describe('Cálculo do Repasse no Dia 5 ou Próximo Dia Útil', () => {
     it('mantém dia 5 quando cai em dia útil (ex: 05/12/2024 é quinta-feira)', () => {
       // Novembro/2024 -> pagamento em 05/12/2024 (quinta-feira)
