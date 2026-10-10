@@ -68,7 +68,9 @@ export default function Opportunities() {
 
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [sellersList, setSellersList] = useState<{ id: string; name?: string; email: string }[]>([])
+  const [productsList, setProductsList] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Filtros
@@ -135,6 +137,7 @@ export default function Opportunities() {
 
   const fetchOpportunities = useCallback(async () => {
     try {
+      setLoadError(null)
       const records = await pb.collection('opportunities').getFullList<Opportunity>({
         sort: '-created',
         expand: 'seller,product',
@@ -142,6 +145,7 @@ export default function Opportunities() {
       setOpportunities(records)
     } catch (err) {
       console.error('Erro ao carregar oportunidades:', err)
+      setLoadError('Não foi possível carregar as oportunidades do banco de dados.')
     } finally {
       setLoading(false)
       setIsRefreshing(false)
@@ -833,6 +837,34 @@ export default function Opportunities() {
         </div>
       </div>
 
+      {/* Banner de Erro com Retry se houver falha de carregamento */}
+      {loadError && (
+        <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-rose-300">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">{loadError}</p>
+              <p className="text-xs text-rose-300/80 mt-0.5">
+                Verifique sua conexão ou tente recarregar os dados.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => {
+              setIsRefreshing(true)
+              fetchOpportunities()
+              fetchProducts()
+            }}
+            disabled={isRefreshing}
+            className="bg-rose-600 hover:bg-rose-500 text-white rounded-xl h-9 text-xs shrink-0 font-medium"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Tentar Novamente
+          </Button>
+        </div>
+      )}
+
       {/* Barra de Filtros e Busca */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#12141A] border border-[#262A33] p-3 rounded-2xl">
         <div className="relative flex-1">
@@ -1347,56 +1379,29 @@ export default function Opportunities() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs text-gray-300">Vendedor Responsável</Label>
-                <Select
-                  value={formData.seller}
-                  onValueChange={(val) => setFormData({ ...formData, seller: val })}
-                >
-                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
-                    <SelectValue placeholder="Selecione o vendedor" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                    {sellersList.length > 0 ? (
-                      sellersList.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name || s.email}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value={user?.id || 'me'}>
-                        {user?.name || user?.email || 'Eu mesmo'}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-300">Vendedor Responsável</Label>
+              <Select
+                value={formData.seller}
+                onValueChange={(val) => setFormData({ ...formData, seller: val })}
+              >
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                  <SelectValue placeholder="Selecione o vendedor" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                  {sellersList.length > 0 ? (
+                    sellersList.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name || s.email}
                       </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-gray-300">Vendedor Responsável</Label>
-                <Select
-                  value={formData.seller}
-                  onValueChange={(val) => setFormData({ ...formData, seller: val })}
-                >
-                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
-                    <SelectValue placeholder="Selecione o vendedor" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                    {sellersList.length > 0 ? (
-                      sellersList.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name || s.email}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value={user?.id || 'me'}>
-                        {user?.name || user?.email || 'Eu mesmo'}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  ) : (
+                    <SelectItem value={user?.id || 'me'}>
+                      {user?.name || user?.email || 'Eu mesmo'}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

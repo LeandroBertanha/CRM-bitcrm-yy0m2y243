@@ -354,7 +354,8 @@ export function BatchWhatsAppModal({
     (opp: Opportunity): PlaybookScript | null => {
       if (scripts.length === 0) return activeScript
 
-      const oppProductName = (opp.product_name || '').toLowerCase()
+      const oppProductName = (opp.product_name || opp.expand?.product?.name || '').toLowerCase()
+
       const isWaAutonomous =
         oppProductName.includes('whatsapp') ||
         oppProductName.includes('autônomo') ||
