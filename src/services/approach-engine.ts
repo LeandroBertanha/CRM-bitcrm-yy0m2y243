@@ -16,6 +16,8 @@ export interface InterpolationContext {
   segment?: string
   city?: string
   phone?: string
+  ref?: string
+  date?: string
   channel?: ApproachChannel
   digitalSituation?: DigitalSituation | string
 }
@@ -57,25 +59,85 @@ export interface EngineDecisionOutput {
 }
 
 /**
- * Interpola variáveis no texto: [NOME DO VENDEDOR], [NOME DA EMPRESA], [SEGMENTO], [CIDADE], [CONTATO] etc.
+ * Interpola variáveis no texto:
+ * - Sintaxe moderna de chaves: {contato}, {empresa}, {cidade}, {vendedor}, {ref}, {data}, {segmento}, {telefone}
+ * - Sintaxe legada de colchetes: [NOME DO VENDEDOR], [NOME DA EMPRESA], [NOME DO CONTATO], [SEGMENTO], [CIDADE], [TELEFONE], [EMPRESA], [DATA], [REF]
+ *
+ * Fallbacks elegantes:
+ * - contato: primeiro nome do contato (ou "Responsável")
+ * - vendedor: nome do vendedor (ou "Consultor Comercial")
+ * - empresa: nome da empresa (ou "sua empresa")
+ * - segmento: nome do segmento (ou "sua área")
+ * - ref: código rastreável (ou "BIT")
+ * - data: data informada (ou "nosso último contato")
+ * - telefone: telefone informado (ou "")
+ * - cidade vazia: remove os fragmentos " em {cidade}" / " na cidade de {cidade}" / " em [CIDADE]" inteiros
+ *   sem deixar resíduo de preposição e limpa espaços duplos.
  */
 export function interpolateText(text: string, ctx?: InterpolationContext): string {
   if (!text) return ''
+
+  // Contato: usar primeiro nome com fallback
+  const rawContact = ctx?.contactName?.trim() || ''
+  const contactFirstName = rawContact ? rawContact.split(/\s+/)[0] : ''
+  const contact = contactFirstName || 'Responsável'
+
   const seller = ctx?.sellerName?.trim() || 'Consultor Comercial'
   const company = ctx?.companyName?.trim() || 'sua empresa'
-  const contact = ctx?.contactName?.trim() || 'Responsável'
   const seg = ctx?.segment?.trim() || 'sua área'
-  const city = ctx?.city?.trim() || 'sua região'
+  const ref = ctx?.ref?.trim() || 'BIT'
+  const date = ctx?.date?.trim() || 'nosso último contato'
   const phone = ctx?.phone?.trim() || ''
 
-  return text
+  const rawCity = ctx?.city?.trim() || ''
+
+  let result = text
+
+  // Tratamento de cidade vazia: remover fragmento " em {cidade}" / " na cidade de {cidade}" / " em [CIDADE]"
+  if (!rawCity) {
+    result = result
+      // " na cidade de {cidade}" ou " na cidade de [CIDADE]"
+      .replace(/\s+(?:na\s+cidade\s+de|no\s+município\s+de|em)\s+\{(?:cidade)\}/gi, '')
+      .replace(/\s+(?:na\s+cidade\s+de|no\s+município\s+de|em)\s+\[CIDADE\]/gi, '')
+      // Casos sem preposição direta anterior: limpa a chave isolada
+      .replace(/\{cidade\}/gi, '')
+      .replace(/\[CIDADE\]/gi, '')
+  } else {
+    result = result.replace(/\{cidade\}/gi, rawCity).replace(/\[CIDADE\]/gi, rawCity)
+  }
+
+  result = result
+    // Chaves modernas ({...})
+    .replace(/\{contato\}/gi, contact)
+    .replace(/\{empresa\}/gi, company)
+    .replace(/\{vendedor\}/gi, seller)
+    .replace(/\{ref\}/gi, ref)
+    .replace(/\{data\}/gi, date)
+    .replace(/\{segmento\}/gi, seg)
+    .replace(/\{telefone\}/gi, phone)
+    // Colchetes legados ([...])
     .replace(/\[NOME DO VENDEDOR\]/gi, seller)
     .replace(/\[NOME DA EMPRESA\]/gi, company)
-    .replace(/\[NOME DO CONTATO\]/gi, contact)
-    .replace(/\[SEGMENTO\]/gi, seg)
-    .replace(/\[CIDADE\]/gi, city)
-    .replace(/\[TELEFONE\]/gi, phone)
     .replace(/\[EMPRESA\]/gi, company)
+    .replace(/\[NOME DO CONTATO\]/gi, contact)
+    .replace(/\[CONTATO\]/gi, contact)
+    .replace(/\[SEGMENTO\]/gi, seg)
+    .replace(/\[TELEFONE\]/gi, phone)
+    .replace(/\[DATA\]/gi, date)
+    .replace(/\[REF\]/gi, ref)
+
+  // Limpeza de múltiplos espaços em branco por linha (sem estragar quebras de linha \n)
+  result = result
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\s+([,.;!?])/g, '$1')
+        .trimEnd(),
+    )
+    .join('\n')
+
+  return result
 }
 
 /**

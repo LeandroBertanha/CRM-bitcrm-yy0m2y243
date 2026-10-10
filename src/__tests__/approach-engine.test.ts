@@ -21,6 +21,67 @@ describe('Motor de Abordagem Comercial (approach-engine)', () => {
     )
   })
 
+  describe('Interpolação moderna de scripts com chaves ({contato}, {empresa}, {cidade}, {vendedor}, {ref})', () => {
+    const rawTemplate =
+      'Olá, {contato}! Tudo bem? Aqui é {vendedor}, da bit Consulting... Vi o atendimento da {empresa} em {cidade}... — {vendedor}, bit Consulting · Ref. {ref}'
+
+    it('interpola todos os valores presentes corretamente', () => {
+      const result = interpolateText(rawTemplate, {
+        contactName: 'Afonso',
+        sellerName: 'Gabriel',
+        companyName: 'A.R Estética Automotiva',
+        city: 'Osasco',
+        ref: 'ARE-1948',
+      })
+
+      expect(result).toBe(
+        'Olá, Afonso! Tudo bem? Aqui é Gabriel, da bit Consulting... Vi o atendimento da A.R Estética Automotiva em Osasco... — Gabriel, bit Consulting · Ref. ARE-1948',
+      )
+      expect(result).not.toContain('{')
+      expect(result).not.toContain('}')
+    })
+
+    it('remove fragmento " em {cidade}" sem deixar resíduo de preposição nem espaço duplo quando cidade é vazia ou nula', () => {
+      const result = interpolateText(rawTemplate, {
+        contactName: 'Afonso',
+        sellerName: 'Gabriel',
+        companyName: 'A.R Estética Automotiva',
+        city: '',
+        ref: 'ARE-1948',
+      })
+
+      expect(result).toBe(
+        'Olá, Afonso! Tudo bem? Aqui é Gabriel, da bit Consulting... Vi o atendimento da A.R Estética Automotiva... — Gabriel, bit Consulting · Ref. ARE-1948',
+      )
+      expect(result).not.toContain(' em ...')
+      expect(result).not.toContain(' em ')
+      expect(result).not.toContain('{cidade}')
+      expect(result).not.toMatch(/[ ]{2,}/)
+    })
+
+    it('usa apenas o primeiro nome quando o nome do contato for composto', () => {
+      const template = 'Olá, {contato}! Tudo bem?'
+      const result = interpolateText(template, {
+        contactName: 'Afonso Rodrigues de Oliveira',
+      })
+
+      expect(result).toBe('Olá, Afonso! Tudo bem?')
+    })
+
+    it('aplica fallbacks elegantes quando campos não estão preenchidos', () => {
+      const template =
+        'Olá, {contato}! Aqui é {vendedor}. Vi o trabalho da {empresa} em {cidade} no segmento {segmento}. Ref. {ref}. Último contato: {data}.'
+      const result = interpolateText(template, {})
+
+      expect(result).toContain('Olá, Responsável!')
+      expect(result).toContain('Aqui é Consultor Comercial.')
+      expect(result).toContain('Vi o trabalho da sua empresa no segmento sua área.')
+      expect(result).toContain('Ref. BIT.')
+      expect(result).toContain('Último contato: nosso último contato.')
+      expect(result).not.toContain('{')
+    })
+  })
+
   it('deve classificar lead como QUENTE quando pede proposta ou demonstra interesse forte', () => {
     const evalResult = evaluateLeadTemperature({
       quickTags: ['interessado', 'gerar proposta'],

@@ -72,11 +72,12 @@ export default function WhatsAppApproachPage() {
           message={buildWhatsAppMessage({
             scriptTemplate: scripts[0].script_text,
             context: {
-              sellerName: user?.name || user?.email?.split('@')[0] || 'Consultor Bit',
-              companyName: '[NOME DA EMPRESA]',
-              contactName: '[NOME DO CONTATO]',
-              segment: 'seu segmento',
-              city: 'sua região',
+              sellerName: user?.name || user?.email?.split('@')[0] || 'Consultor Comercial',
+              companyName: 'sua empresa',
+              contactName: 'Responsável',
+              segment: 'sua área',
+              city: '',
+              ref: 'BIT',
             },
             hasOpportunity: false,
           })}

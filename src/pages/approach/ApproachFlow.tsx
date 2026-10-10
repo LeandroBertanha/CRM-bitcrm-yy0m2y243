@@ -62,7 +62,7 @@ import {
 } from '@/components/ui/select'
 import { OpportunitySelectorSection } from '@/components/approach/OpportunitySelectorSection'
 import { WhatsAppCopilotAction } from '@/components/approach/WhatsAppCopilotAction'
-import { buildWhatsAppMessage } from '@/lib/whatsappApproachHelper'
+import { buildWhatsAppMessage, generateOpportunityShortRef } from '@/lib/whatsappApproachHelper'
 
 /**
  * Infere o segmento da oportunidade ou lead com base em palavras-chave em company, message ou notas.
@@ -347,15 +347,21 @@ export default function ApproachFlow() {
     }
   }
 
+  // Código curto rastreável de referência da oportunidade
+  const shortRef = useMemo(() => {
+    return generateOpportunityShortRef(customCompanyName, selectedOppId)
+  }, [customCompanyName, selectedOppId])
+
   // Objeto de contexto para interpolação
   const interpolationContext = useMemo(() => {
     return {
-      sellerName: user?.name || user?.email?.split('@')[0] || 'Consultor Bit',
+      sellerName: user?.name || user?.email?.split('@')[0] || 'Consultor Comercial',
       companyName: customCompanyName,
       contactName: customContactName,
       segment: selectedSegment,
       city: customCity,
       phone: customPhone,
+      ref: shortRef,
       channel,
       digitalSituation,
     }
@@ -366,6 +372,7 @@ export default function ApproachFlow() {
     selectedSegment,
     customCity,
     customPhone,
+    shortRef,
     channel,
     digitalSituation,
   ])
@@ -563,6 +570,7 @@ export default function ApproachFlow() {
       scriptTemplate: waScript?.script_text || null,
       context: interpolationContext,
       hasOpportunity: Boolean(selectedOppId),
+      opportunityId: selectedOppId,
     })
   }, [playbook.scripts, interpolationContext, selectedOppId, opportunities, activeProduct])
 

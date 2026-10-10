@@ -100,6 +100,34 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
 
       expect(result).toBe('Olá, Dr. Fábio! Aqui é Lucas. Vi o trabalho da Clínica Vida em Santos.')
     })
+
+    it('interpola {ref} e usa primeiro nome para contatos compostos', () => {
+      const template = 'Olá, {contato}! Aqui é {vendedor}, da bit Consulting · Ref. {ref}'
+
+      const result = interpolateVariables(template, {
+        contato: 'Afonso Rodrigues da Silva',
+        vendedor: 'Carlos Consultor',
+        ref: 'AR-9921',
+      })
+
+      expect(result).toBe('Olá, Afonso! Aqui é Carlos Consultor, da bit Consulting · Ref. AR-9921')
+    })
+
+    it('trata cidade vazia sem deixar preposição residual "em " e limpa espaços duplos', () => {
+      const template =
+        'Vi o atendimento da {empresa} em {cidade} e gostaria de compartilhar uma solução rápida.'
+
+      const result = interpolateVariables(template, {
+        empresa: 'A.R Estética Automotiva',
+        cidade: '',
+      })
+
+      expect(result).toBe(
+        'Vi o atendimento da A.R Estética Automotiva e gostaria de compartilhar uma solução rápida.',
+      )
+      expect(result).not.toContain('em e gostaria')
+      expect(result).not.toContain('  ')
+    })
   })
 
   describe('buildBatchWhatsAppMessage', () => {
@@ -134,6 +162,23 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
       expect(message).toContain('Amanda Costa')
       expect(message).toContain('Bella Pizzaria em São Paulo')
       expect(message).toContain('— Amanda Costa, bit Consulting · Ref. BP-abcd')
+    })
+
+    it('não duplica rodapé se o script já contiver rodapé com {ref}', () => {
+      const scriptWithFooter =
+        'Olá, {contato}! Vi a {empresa} em {cidade}.\n\n— {vendedor}, bit Consulting · Ref. {ref}'
+
+      const message = buildBatchWhatsAppMessage({
+        actionType: 'initial',
+        scriptTemplate: scriptWithFooter,
+        opportunity: mockOpp,
+        sellerName: 'Amanda Costa',
+      })
+
+      expect(message).toContain('— Amanda Costa, bit Consulting · Ref. BP-abcd')
+      // O rodapé não deve aparecer repetido
+      const occurrences = (message.match(/Ref\. BP-abcd/g) || []).length
+      expect(occurrences).toBe(1)
     })
 
     it('constrói mensagem de follow-up mencionando retomada e última interação opcional', () => {

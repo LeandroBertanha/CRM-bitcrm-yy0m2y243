@@ -103,12 +103,22 @@ export function buildWhatsAppMessage(options: {
   scriptTemplate?: string | null
   context: InterpolationContext
   hasOpportunity?: boolean
+  opportunityId?: string | null
 }): string {
-  const { scriptTemplate, context, hasOpportunity } = options
+  const { scriptTemplate, context, hasOpportunity, opportunityId } = options
+
+  // Garantir que context.ref esteja sempre preenchido
+  const effectiveRef =
+    context.ref?.trim() || generateOpportunityShortRef(context.companyName, opportunityId)
+
+  const effectiveContext: InterpolationContext = {
+    ...context,
+    ref: effectiveRef,
+  }
 
   // Se há script vindo do banco/playbook
   if (scriptTemplate && scriptTemplate.trim()) {
-    return interpolateText(scriptTemplate.trim(), context)
+    return interpolateText(scriptTemplate.trim(), effectiveContext)
   }
 
   // Fallback: se tem oportunidade vinculada (ou dados personalizados preenchidos)
@@ -122,12 +132,13 @@ export function buildWhatsAppMessage(options: {
     ? DEFAULT_WHATSAPP_OPENING_TEMPLATE
     : DEFAULT_WHATSAPP_GENERIC_TEMPLATE
 
-  return interpolateText(template, context)
+  return interpolateText(template, effectiveContext)
 }
 
 /**
- * Suporte a interpolação flexível com {contato}, {empresa}, {cidade}, {vendedor}, {data}
+ * Suporte a interpolação flexível com {contato}, {empresa}, {cidade}, {vendedor}, {ref}, {data}, {segmento}, {telefone}
  * além dos marcadores legados [NOME DO CONTATO], [NOME DA EMPRESA], etc.
+ * Delega para interpolateText para manter regra de negócio centralizada e idêntica.
  */
 export function interpolateVariables(
   template: string,
@@ -139,38 +150,21 @@ export function interpolateVariables(
     data?: string | null
     segmento?: string | null
     telefone?: string | null
+    ref?: string | null
   },
 ): string {
   if (!template) return ''
 
-  const contato = (variables.contato || '').trim() || 'Responsável'
-  const empresa = (variables.empresa || '').trim() || 'sua empresa'
-  const cidade = (variables.cidade || '').trim() || 'sua região'
-  const vendedor = (variables.vendedor || '').trim() || 'Consultor Comercial'
-  const data = (variables.data || '').trim()
-  const segmento = (variables.segmento || '').trim() || 'sua área'
-  const telefone = (variables.telefone || '').trim()
-
-  let result = template
-    // Suporte às chaves {variavel} solicitadas no prompt
-    .replace(/\{contato\}/gi, contato)
-    .replace(/\{empresa\}/gi, empresa)
-    .replace(/\{cidade\}/gi, cidade)
-    .replace(/\{vendedor\}/gi, vendedor)
-    .replace(/\{data\}/gi, data || 'nosso último contato')
-    .replace(/\{segmento\}/gi, segmento)
-    .replace(/\{telefone\}/gi, telefone)
-    // Suporte aos colchetes legados do playbook [NOME DO ...]
-    .replace(/\[NOME DO CONTATO\]/gi, contato)
-    .replace(/\[NOME DA EMPRESA\]/gi, empresa)
-    .replace(/\[EMPRESA\]/gi, empresa)
-    .replace(/\[CIDADE\]/gi, cidade)
-    .replace(/\[NOME DO VENDEDOR\]/gi, vendedor)
-    .replace(/\[DATA\]/gi, data || 'nosso último contato')
-    .replace(/\[SEGMENTO\]/gi, segmento)
-    .replace(/\[TELEFONE\]/gi, telefone)
-
-  return result
+  return interpolateText(template, {
+    contactName: variables.contato || undefined,
+    companyName: variables.empresa || undefined,
+    city: variables.cidade || undefined,
+    sellerName: variables.vendedor || undefined,
+    date: variables.data || undefined,
+    segment: variables.segmento || undefined,
+    phone: variables.telefone || undefined,
+    ref: variables.ref || undefined,
+  })
 }
 
 export type WhatsAppActionType = 'initial' | 'followup'
@@ -195,6 +189,7 @@ export function buildBatchWhatsAppMessage(options: {
         : DEFAULT_WHATSAPP_FOLLOWUP_TEMPLATE
 
   const rawTemplate = (scriptTemplate && scriptTemplate.trim()) || defaultTemplate
+  const shortRef = generateOpportunityShortRef(opportunity.company, opportunity.id)
 
   let body = interpolateVariables(rawTemplate, {
     contato: opportunity.contact_name,
@@ -203,17 +198,8 @@ export function buildBatchWhatsAppMessage(options: {
     vendedor: sellerName,
     data: lastInteractionDate,
     telefone: opportunity.contact_phone,
+    ref: shortRef,
   })
-
-  // Se houver menção opcional de data de retorno / última interação em follow-up e o template não a incluiu
-  if (
-    actionType === 'followup' &&
-    lastInteractionDate &&
-    !rawTemplate.includes('{data}') &&
-    !rawTemplate.includes('[DATA]')
-  ) {
-    // Se o template não possui {data}, opcionalmente insere no primeiro parágrafo caso faça sentido ou mantém íntegro
-  }
 
   // Rodapé rastreável obrigatório com vendedor e código curto da oportunidade
   const footer = generateMessageFooter({
@@ -225,9 +211,6 @@ export function buildBatchWhatsAppMessage(options: {
   // Se o template já tiver incluído o rodapé (ex: continha "— {vendedor}, bit Consulting · Ref. {ref}")
   // ou já contiver "· Ref. ", não duplicamos o rodapé.
   if (body.includes('· Ref. ')) {
-    // Interpolar {ref} caso tenha ficado
-    const shortRef = generateOpportunityShortRef(opportunity.company, opportunity.id)
-    body = body.replace(/Ref\.\s*\{ref\}/gi, `Ref. ${shortRef}`).replace(/\{ref\}/gi, shortRef)
     return body.trim()
   }
 
