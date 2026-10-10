@@ -52,6 +52,8 @@ export interface PlaybookQuestion extends RecordModel {
   text: string
   category?: string
   triggers?: string
+  product?: string
+  product_name?: string
   display_order: number
   is_active: boolean
 }
@@ -76,6 +78,8 @@ export interface PlaybookObjection extends RecordModel {
   clarification_question?: string
   treatment_script: string
   sub_scenarios?: ObjectionSubScenario[]
+  product?: string
+  product_name?: string
   display_order: number
   is_active: boolean
 }
@@ -83,6 +87,8 @@ export interface PlaybookObjection extends RecordModel {
 export interface PlaybookArgument extends RecordModel {
   situation: string
   argument_text: string
+  product?: string
+  product_name?: string
   display_order: number
   is_active: boolean
 }
@@ -94,6 +100,8 @@ export interface PlaybookValues extends RecordModel {
   inclusions?: string[]
   script: string
   closing_questions?: string[]
+  product?: string
+  product_name?: string
   is_active: boolean
 }
 
@@ -101,6 +109,8 @@ export interface PlaybookNextStep extends RecordModel {
   action: string
   description: string
   trigger_condition?: string
+  product?: string
+  product_name?: string
   display_order: number
   is_active: boolean
 }
@@ -183,5 +193,6 @@ export interface PlaybookBundle {
   objections: PlaybookObjection[]
   argumentsList: PlaybookArgument[]
   valuesConfig: PlaybookValues | null
+  valuesList?: PlaybookValues[]
   nextSteps: PlaybookNextStep[]
 }

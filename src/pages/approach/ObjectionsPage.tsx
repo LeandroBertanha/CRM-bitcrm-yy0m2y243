@@ -17,6 +17,7 @@ export default function ObjectionsPage() {
         const data = await pb.collection('playbook_objections').getFullList<PlaybookObjection>({
           filter: 'is_active = true',
           sort: 'display_order',
+          expand: 'product',
         })
         setObjections(data)
       } catch (err) {

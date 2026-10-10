@@ -11,6 +11,7 @@ export default function DiagnosisPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<'todos' | 'diagnóstico' | 'qualificação'>('todos')
+  const [filterProduct, setFilterProduct] = useState<string>('todos')
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function DiagnosisPage() {
         const data = await pb.collection('playbook_questions').getFullList<PlaybookQuestion>({
           filter: 'is_active = true',
           sort: 'display_order',
+          expand: 'product',
         })
         setQuestions(data)
       } catch (err) {
@@ -32,12 +34,29 @@ export default function DiagnosisPage() {
 
   const filtered = questions.filter((q) => {
     if (filterType !== 'todos' && q.type !== filterType) return false
+    if (filterProduct === 'whatsapp') {
+      const pName = (q.product_name || '').toLowerCase()
+      if (
+        !pName.includes('whatsapp') &&
+        !pName.includes('autônomo') &&
+        !pName.includes('autonomo')
+      ) {
+        return false
+      }
+    } else if (filterProduct === 'site') {
+      const pName = (q.product_name || '').toLowerCase()
+      if (pName.includes('whatsapp') || pName.includes('autônomo')) return false
+      if (!pName.includes('site') && (q.product || q.product_name)) return false
+    } else if (filterProduct === 'generico') {
+      if (q.product || q.product_name) return false
+    }
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
     return (
       q.text.toLowerCase().includes(term) ||
       (q.category || '').toLowerCase().includes(term) ||
-      (q.triggers || '').toLowerCase().includes(term)
+      (q.triggers || '').toLowerCase().includes(term) ||
+      (q.product_name || '').toLowerCase().includes(term)
     )
   })
 
@@ -100,21 +119,44 @@ export default function DiagnosisPage() {
           />
         </div>
 
-        <div className="flex items-center gap-1.5 bg-[#12141A] p-1 rounded-xl border border-[#262A33]">
-          {(['todos', 'diagnóstico', 'qualificação'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                filterType === type
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 bg-[#12141A] p-1 rounded-xl border border-[#262A33]">
+            {[
+              { id: 'todos', label: 'Todos Produtos' },
+              { id: 'whatsapp', label: 'WhatsApp Autônomo' },
+              { id: 'site', label: 'Sites & Geral' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setFilterProduct(p.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  filterProduct === p.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-[#12141A] p-1 rounded-xl border border-[#262A33]">
+            {(['todos', 'diagnóstico', 'qualificação'] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setFilterType(type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                  filterType === type
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -129,9 +171,16 @@ export default function DiagnosisPage() {
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#181B24] border border-[#262A33] text-indigo-400">
-                    {q.type} {q.category ? `• ${q.category}` : ''}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#181B24] border border-[#262A33] text-indigo-400">
+                      {q.type} {q.category ? `• ${q.category}` : ''}
+                    </span>
+                    {q.product_name && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                        {q.product_name}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-gray-500">#{idx + 1}</span>
                 </div>
                 <p className="text-sm font-semibold text-white leading-snug group-hover:text-indigo-200 transition-colors">

@@ -397,13 +397,14 @@ export default function ApproachFlow() {
     return productsList[0] || null
   }, [opportunities, selectedOppId, selectedProductId, productsList])
 
+  // Determinar identificadores do produto ativo (seletor ou oportunidade)
+  const currentOpp = opportunities.find((o) => o.id === selectedOppId)
+  const effectiveProdId = currentOpp?.product || activeProduct?.id
+  const effectiveProdName = currentOpp?.product_name || activeProduct?.name
+  const effectiveProdDesc = activeProduct?.description
+
   // 2. Executar Motor de Decisão Desacoplado
   const decision = useMemo(() => {
-    const opp = opportunities.find((o) => o.id === selectedOppId)
-    const effectiveProdId = opp?.product || activeProduct?.id
-    const effectiveProdName = opp?.product_name || activeProduct?.name
-    const effectiveProdDesc = activeProduct?.description
-
     return runApproachEngine({
       channel,
       segment: selectedSegment,
@@ -440,9 +441,68 @@ export default function ApproachFlow() {
     budget,
     playbook,
     interpolationContext,
-    selectedOppId,
-    opportunities,
-    activeProduct,
+    effectiveProdId,
+    effectiveProdName,
+    effectiveProdDesc,
+  ])
+
+  // Função auxiliar de correspondência de produto para o copiloto
+  const matchesActiveProduct = useCallback(
+    (item: { product?: string; product_name?: string }) => {
+      if (effectiveProdId && item.product === effectiveProdId) return true
+      if (effectiveProdName && item.product_name) {
+        const iName = item.product_name.toLowerCase()
+        const tName = effectiveProdName.toLowerCase()
+        if (iName === tName || iName.includes(tName) || tName.includes(iName)) {
+          return true
+        }
+      }
+      if (effectiveProdName) {
+        const tLower = effectiveProdName.toLowerCase()
+        const isWaTarget =
+          tLower.includes('whatsapp') &&
+          (tLower.includes('autônomo') || tLower.includes('autonomo'))
+        if (isWaTarget && item.product_name) {
+          const iLower = item.product_name.toLowerCase()
+          if (
+            iLower.includes('whatsapp') &&
+            (iLower.includes('autônomo') || iLower.includes('autonomo'))
+          ) {
+            return true
+          }
+        }
+      }
+      return false
+    },
+    [effectiveProdId, effectiveProdName],
+  )
+
+  // Filtrar biblioteca de objeções por produto para a gaveta do copiloto
+  const copilotObjections = useMemo(() => {
+    const all = playbook.objections || []
+    if (effectiveProdId || effectiveProdName) {
+      const prodObjs = all.filter(matchesActiveProduct)
+      const genericObjs = all.filter((o) => !o.product && !o.product_name)
+      return prodObjs.length > 0 ? [...prodObjs, ...genericObjs] : all
+    }
+    const genericOnly = all.filter((o) => !o.product && !o.product_name)
+    return genericOnly.length > 0 ? genericOnly : all
+  }, [playbook.objections, effectiveProdId, effectiveProdName, matchesActiveProduct])
+
+  // Resolver estrutura de valores (playbook_values) correspondente ao produto
+  const copilotValuesConfig = useMemo(() => {
+    const list = playbook.valuesList || (playbook.valuesConfig ? [playbook.valuesConfig] : [])
+    if (effectiveProdId || effectiveProdName) {
+      const prodValues = list.find(matchesActiveProduct)
+      if (prodValues) return prodValues
+    }
+    return playbook.valuesConfig || (list.length > 0 ? list[0] : null)
+  }, [
+    playbook.valuesList,
+    playbook.valuesConfig,
+    effectiveProdId,
+    effectiveProdName,
+    matchesActiveProduct,
   ])
 
   // Mensagem de WhatsApp interpolada usando script do playbook do banco (com a mesma regra a/b/c)
@@ -1042,7 +1102,7 @@ export default function ApproachFlow() {
           {/* 6. GAVETA / SEÇÃO: OBJEÇÕES (QUANDO CLICADO) */}
           {showObjectionsDrawer && (
             <ObjectionSection
-              objections={playbook.objections}
+              objections={copilotObjections}
               activeObjectionName={activeObjection}
               onSelectObjection={handleSelectObjection}
               onClearActiveObjection={() => setActiveObjection(undefined)}
@@ -1052,7 +1112,8 @@ export default function ApproachFlow() {
           {/* 7. GAVETA / SEÇÃO: VALORES (R$ 500 / R$ 55) */}
           {showValuesDrawer && (
             <ValuesCard
-              valuesConfig={playbook.valuesConfig}
+              valuesConfig={copilotValuesConfig}
+              productName={effectiveProdName}
               onQuestionClick={(q) => {
                 toast({
                   title: 'Pergunta selecionada',

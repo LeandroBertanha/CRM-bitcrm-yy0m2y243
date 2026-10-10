@@ -15,29 +15,62 @@ import type { PlaybookValues } from '@/types/playbook'
 export interface ValuesCardProps {
   valuesConfig: PlaybookValues | null
   onQuestionClick?: (q: string) => void
+  productName?: string
 }
 
-export const ValuesCard: React.FC<ValuesCardProps> = ({ valuesConfig, onQuestionClick }) => {
+export const ValuesCard: React.FC<ValuesCardProps> = ({
+  valuesConfig,
+  onQuestionClick,
+  productName,
+}) => {
   const [copied, setCopied] = useState(false)
+
+  const effectiveProductName =
+    productName || valuesConfig?.product_name || valuesConfig?.title || 'Estrutura Comercial Padrão'
+  const isWaAutonomous =
+    effectiveProductName.toLowerCase().includes('whatsapp') &&
+    (effectiveProductName.toLowerCase().includes('autônomo') ||
+      effectiveProductName.toLowerCase().includes('autonomo'))
 
   const creation = valuesConfig?.creation_value ?? 500
   const monthly = valuesConfig?.monthly_value ?? 55
-  const inclusions = valuesConfig?.inclusions ?? [
-    'Criação do site ou landing page profissional sob medida',
-    'Domínio próprio incluso e configurado',
-    'Hospedagem de alta performance inclusa',
-    'Suporte técnico e apoio a atualizações contínuas',
-    'Acompanhamento técnico dedicado',
-  ]
+  const inclusions =
+    valuesConfig?.inclusions ??
+    (isWaAutonomous
+      ? [
+          'Configuração completa da conta Meta Business e WhatsApp Cloud API',
+          'Atendente com respostas humanizadas e naturais sem parecer robô',
+          'Qualificação automática de leads e agendamento de reuniões',
+          'Hospedagem em nuvem de alta disponibilidade inclusa',
+          'Suporte técnico e manutenção contínua',
+        ]
+      : [
+          'Criação do site ou landing page profissional sob medida',
+          'Domínio próprio incluso e configurado',
+          'Hospedagem de alta performance inclusa',
+          'Suporte técnico e apoio a atualizações contínuas',
+          'Acompanhamento técnico dedicado',
+        ])
+
   const script =
     valuesConfig?.script ??
-    'O investimento funciona em dois passos muito simples: A criação do site ou landing page começa em R$ 500,00. Depois, há uma mensalidade de R$ 55,00 cobrindo hospedagem, domínio e suporte técnico contínuo.'
+    (isWaAutonomous
+      ? 'O investimento funciona em dois componentes: a configuração e implantação no Meta Business é de R$ 500,00 em valor único. Depois, há apenas R$ 55,00 por mês para cobrir a hospedagem, manutenção e suporte contínuo.'
+      : 'O investimento funciona em dois passos muito simples: A criação do site ou landing page começa em R$ 500,00. Depois, há uma mensalidade de R$ 55,00 cobrindo hospedagem, domínio e suporte técnico contínuo.')
 
-  const closingQuestions = valuesConfig?.closing_questions ?? [
-    'Esse modelo faria sentido para sua empresa?',
-    'O que você achou dessa estrutura?',
-    'Esse investimento está dentro do que você imaginava?',
-  ]
+  const closingQuestions =
+    valuesConfig?.closing_questions ??
+    (isWaAutonomous
+      ? [
+          'Esse modelo de atendimento 24h faria sentido para a empresa?',
+          'O que achou de não perder mais clientes fora do horário?',
+          'Esse investimento cabe no que você planejava?',
+        ]
+      : [
+          'Esse modelo faria sentido para sua empresa?',
+          'O que você achou dessa estrutura?',
+          'Esse investimento está dentro do que você imaginava?',
+        ])
 
   const handleCopyScript = async () => {
     try {
@@ -58,11 +91,20 @@ export const ValuesCard: React.FC<ValuesCardProps> = ({ valuesConfig, onQuestion
             <DollarSign className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-wide uppercase">
-              Tabela de Valores & Apresentação
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white tracking-wide uppercase">
+                Resumo da Estrutura Comercial
+              </h3>
+              {effectiveProductName && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  {effectiveProductName}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-400">
-              Modelo claro, sem letras miúdas, com hospedagem e suporte
+              {isWaAutonomous
+                ? 'Implantação Meta Business + Mensalidade de Nuvem e Suporte'
+                : 'Modelo claro, sem letras miúdas, com hospedagem e suporte'}
             </p>
           </div>
         </div>
@@ -96,7 +138,7 @@ export const ValuesCard: React.FC<ValuesCardProps> = ({ valuesConfig, onQuestion
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div className="p-4 rounded-xl bg-[#0F1813] border border-emerald-600/30 flex flex-col justify-between">
           <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-            Criação do Site / Landing Page
+            {isWaAutonomous ? 'Setup / Configuração Meta' : 'Criação do Site / Landing Page'}
           </span>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-xs text-gray-400">a partir de</span>
@@ -104,12 +146,14 @@ export const ValuesCard: React.FC<ValuesCardProps> = ({ valuesConfig, onQuestion
               {formatBRL(creation)}
             </span>
           </div>
-          <span className="text-[11px] text-gray-400 mt-1">Investimento único de implantação</span>
+          <span className="text-[11px] text-emerald-400/90 font-medium mt-1">
+            ✓ Investimento único (base exclusiva de comissão)
+          </span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#0F1813] border border-emerald-600/30 flex flex-col justify-between">
           <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-            Mensalidade Técnica
+            {isWaAutonomous ? 'Mensalidade de Nuvem & Suporte' : 'Mensalidade Técnica'}
           </span>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight tabular-nums">
@@ -118,7 +162,9 @@ export const ValuesCard: React.FC<ValuesCardProps> = ({ valuesConfig, onQuestion
             <span className="text-xs text-gray-400">/mês</span>
           </div>
           <span className="text-[11px] text-gray-400 mt-1">
-            Hospedagem + Domínio + Suporte dedicado
+            {isWaAutonomous
+              ? 'Hospedagem nuvem + manutenção (fora da comissão)'
+              : 'Hospedagem + Domínio + Suporte dedicado'}
           </span>
         </div>
       </div>

@@ -27,16 +27,34 @@ export const ObjectionSection: React.FC<ObjectionSectionProps> = ({
   onClearActiveObjection,
 }) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterProduct, setFilterProduct] = useState<string>('todos')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const filtered = objections.filter((ob) => {
+    if (filterProduct === 'whatsapp') {
+      const pName = (ob.product_name || '').toLowerCase()
+      if (
+        !pName.includes('whatsapp') &&
+        !pName.includes('autônomo') &&
+        !pName.includes('autonomo')
+      ) {
+        return false
+      }
+    } else if (filterProduct === 'site') {
+      const pName = (ob.product_name || '').toLowerCase()
+      if (pName.includes('whatsapp') || pName.includes('autônomo')) return false
+      if (!pName.includes('site') && (ob.product || ob.product_name)) return false
+    } else if (filterProduct === 'generico') {
+      if (ob.product || ob.product_name) return false
+    }
     const term = searchTerm.toLowerCase().trim()
     if (!term) return true
     return (
       ob.name.toLowerCase().includes(term) ||
       (ob.clarification_question || '').toLowerCase().includes(term) ||
-      ob.treatment_script.toLowerCase().includes(term)
+      ob.treatment_script.toLowerCase().includes(term) ||
+      (ob.product_name || '').toLowerCase().includes(term)
     )
   })
 
@@ -85,15 +103,37 @@ export const ObjectionSection: React.FC<ObjectionSectionProps> = ({
         )}
       </div>
 
-      {/* Campo de Busca Rápida de Situação / Objeção */}
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        <Input
-          placeholder="Pesquisar situação ou objeção (ex: Instagram, Preço, Sócio, Sem tempo, Site)..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10 placeholder:text-gray-500 focus:border-rose-500/60"
-        />
+      {/* Campo de Busca Rápida de Situação / Objeção + Filtro de Produto */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input
+            placeholder="Pesquisar situação ou objeção (ex: Robô, Secretária, Preço, Sócio, Sem tempo)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10 placeholder:text-gray-500 focus:border-rose-500/60"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-[#0E1017] p-1 rounded-xl border border-[#262A33]">
+          {[
+            { id: 'todos', label: 'Todas' },
+            { id: 'whatsapp', label: 'WhatsApp Autônomo' },
+            { id: 'site', label: 'Sites & Geral' },
+          ].map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setFilterProduct(p.id)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                filterProduct === p.id
+                  ? 'bg-rose-600 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Botões Rápidos de Acesso Direto para as Principais Objeções */}
@@ -159,6 +199,11 @@ export const ObjectionSection: React.FC<ObjectionSectionProps> = ({
                     <span className="text-xs sm:text-sm font-bold text-white block truncate">
                       {ob.name}
                     </span>
+                    {ob.product_name && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                        {ob.product_name}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">

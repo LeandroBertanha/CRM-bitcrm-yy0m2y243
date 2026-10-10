@@ -41,27 +41,35 @@ export async function getPlaybookBundle(): Promise<PlaybookBundle> {
     pb.collection('playbook_questions').getFullList<PlaybookQuestion>({
       filter: 'is_active = true',
       sort: 'display_order',
+      expand: 'product',
     }),
     pb.collection('playbook_answers').getFullList<PlaybookAnswer>({
       sort: 'display_order',
+      expand: 'question',
     }),
     pb.collection('playbook_objections').getFullList<PlaybookObjection>({
       filter: 'is_active = true',
       sort: 'display_order',
+      expand: 'product',
     }),
     pb.collection('playbook_arguments').getFullList<PlaybookArgument>({
       filter: 'is_active = true',
       sort: 'display_order',
+      expand: 'product',
     }),
     pb.collection('playbook_values').getFullList<PlaybookValues>({
       filter: 'is_active = true',
-      limit: 1,
+      sort: 'display_order,created',
+      expand: 'product',
     }),
     pb.collection('playbook_next_steps').getFullList<PlaybookNextStep>({
       filter: 'is_active = true',
       sort: 'display_order',
+      expand: 'product',
     }),
   ])
+
+  const allValues = valuesRes.status === 'fulfilled' ? valuesRes.value : []
 
   return {
     segments: segmentsRes.status === 'fulfilled' ? segmentsRes.value : [],
@@ -70,8 +78,8 @@ export async function getPlaybookBundle(): Promise<PlaybookBundle> {
     answers: answersRes.status === 'fulfilled' ? answersRes.value : [],
     objections: objectionsRes.status === 'fulfilled' ? objectionsRes.value : [],
     argumentsList: argsRes.status === 'fulfilled' ? argsRes.value : [],
-    valuesConfig:
-      valuesRes.status === 'fulfilled' && valuesRes.value.length > 0 ? valuesRes.value[0] : null,
+    valuesConfig: allValues.length > 0 ? allValues[0] : null,
+    valuesList: allValues,
     nextSteps: nextStepsRes.status === 'fulfilled' ? nextStepsRes.value : [],
   }
 }

@@ -43,7 +43,34 @@ export default function PublicForm() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [company, setCompany] = useState('')
-  const [interest, setInterest] = useState<'Site' | 'Landing Page'>('Site')
+  const [interest, setInterest] = useState<string>('WhatsApp Autônomo e Humanizado')
+  const [productsList, setProductsList] = useState<
+    Array<{ id: string; name: string; setup_price: number; monthly_price: number }>
+  >([])
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const records = await pb.collection('products').getFullList({
+          filter: 'is_active = true',
+          sort: 'name',
+        })
+        if (records.length > 0) {
+          setProductsList(
+            records.map((r) => ({
+              id: r.id,
+              name: r.name,
+              setup_price: Number(r.setup_price) || 500,
+              monthly_price: Number(r.monthly_price) || 0,
+            })),
+          )
+        }
+      } catch (err) {
+        console.error('Erro ao carregar produtos no formulário:', err)
+      }
+    }
+    loadProducts()
+  }, [])
   const [serviceValuePreset, setServiceValuePreset] = useState<'500' | '1000' | '2500' | 'outro'>(
     '500',
   )
@@ -97,18 +124,25 @@ export default function PublicForm() {
 
     try {
       // Cria a Oportunidade diretamente na coleção PocketBase
+      const matchedProduct = productsList.find((p) => p.name === interest)
       const opportunityData = {
         company: company.trim(),
         stage: 'Novo',
         source: 'Formulário Público',
         value: finalValue,
+        product: matchedProduct?.id || null,
+        product_name: matchedProduct?.name || interest,
         seller: sellerId || null,
         contact_name: name.trim(),
         contact_email: email.trim(),
         contact_phone: phone.trim(),
         payment_type: paymentType,
         payment_installments: paymentType === 'Parcelado' ? Number(paymentInstallments) : null,
-        message: `[Interesse: ${interest}] [Valor: ${formatBRL(finalValue)}] [Pagamento: ${paymentType}${
+        message: `[Interesse: ${interest}] [Setup: ${formatBRL(finalValue)}${
+          matchedProduct && matchedProduct.monthly_price > 0
+            ? ` | Mensalidade: ${formatBRL(matchedProduct.monthly_price)}/mês`
+            : ''
+        }] [Pagamento: ${paymentType}${
           paymentType === 'Parcelado' ? ` em ${paymentInstallments}x` : ''
         }] ${message.trim()}`,
       }
@@ -345,18 +379,44 @@ export default function PublicForm() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="interest" className="text-xs font-medium text-gray-300">
-                      Principal Interesse *
+                      Principal Interesse / Solução *
                     </Label>
                     <Select
                       value={interest}
-                      onValueChange={(val) => setInterest(val as 'Site' | 'Landing Page')}
+                      onValueChange={(val) => {
+                        setInterest(val)
+                        const matched = productsList.find((p) => p.name === val)
+                        if (matched && matched.setup_price > 0) {
+                          setServiceValuePreset(
+                            String(matched.setup_price) as '500' | '1000' | '2500' | 'outro',
+                          )
+                        }
+                      }}
                     >
                       <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                        <SelectItem value="Site">Site</SelectItem>
-                        <SelectItem value="Landing Page">Landing Page</SelectItem>
+                        {productsList.length > 0 ? (
+                          productsList.map((p) => (
+                            <SelectItem key={p.id} value={p.name}>
+                              {p.name}{' '}
+                              {p.monthly_price > 0
+                                ? `(R$ ${p.setup_price} + R$ ${p.monthly_price}/mês)`
+                                : ''}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            <SelectItem value="WhatsApp Autônomo e Humanizado">
+                              WhatsApp Autônomo e Humanizado (R$ 500 + R$ 55/mês)
+                            </SelectItem>
+                            <SelectItem value="Site">Site Profissional</SelectItem>
+                            <SelectItem value="Landing Page">
+                              Landing Page de Alta Conversão
+                            </SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

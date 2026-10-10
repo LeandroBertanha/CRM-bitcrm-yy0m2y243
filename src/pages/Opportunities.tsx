@@ -252,17 +252,24 @@ export default function Opportunities() {
 
   // Abrir Modal de Criação
   const handleOpenCreate = () => {
-    const defaultProduct = productsList.length > 0 ? productsList[0] : null
+    // Prioriza o produto "WhatsApp Autônomo e Humanizado" se existir, ou o primeiro ativo
+    const waProduct = productsList.find(
+      (p) =>
+        p.name.toLowerCase().includes('whatsapp') &&
+        (p.name.toLowerCase().includes('autônomo') || p.name.toLowerCase().includes('autonomo')),
+    )
+    const defaultProduct = waProduct || (productsList.length > 0 ? productsList[0] : null)
+    const setupVal = (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 500
+    const recVal = (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
+
     setFormData({
       company: '',
       stage: 'Novo',
       source: 'Indicação',
       product: defaultProduct?.id || '',
       product_name: defaultProduct?.name || '',
-      value: defaultProduct?.setup_value ? String(defaultProduct.setup_value) : '500',
-      recurring_value: defaultProduct?.recurring_value
-        ? String(defaultProduct.recurring_value)
-        : '55',
+      value: String(setupVal),
+      recurring_value: String(recVal),
       seller: user?.id || '',
       contact_name: '',
       contact_email: '',
@@ -1311,12 +1318,14 @@ export default function Opportunities() {
                   onValueChange={(val) => {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
+                      const setupVal = (sel as any).setup_price ?? sel.setup_value ?? 500
+                      const recVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
                       setFormData({
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
-                        value: String(sel.setup_value ?? 500),
-                        recurring_value: String(sel.recurring_value ?? 55),
+                        value: String(setupVal),
+                        recurring_value: String(recVal),
                       })
                     } else {
                       setFormData({

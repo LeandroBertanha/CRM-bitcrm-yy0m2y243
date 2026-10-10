@@ -7,7 +7,8 @@ import type { PlaybookValues } from '@/types/playbook'
 import { ValuesCard } from '@/components/approach/ValuesCard'
 
 export default function ValuesPage() {
-  const [valuesConfig, setValuesConfig] = useState<PlaybookValues | null>(null)
+  const [valuesList, setValuesList] = useState<PlaybookValues[]>([])
+  const [selectedIdx, setSelectedIdx] = useState<number>(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -15,13 +16,12 @@ export default function ValuesPage() {
       try {
         const data = await pb.collection('playbook_values').getFullList<PlaybookValues>({
           filter: 'is_active = true',
-          limit: 1,
+          sort: 'display_order,created',
+          expand: 'product',
         })
-        if (data.length > 0) {
-          setValuesConfig(data[0])
-        }
+        setValuesList(data)
       } catch (err) {
-        console.error('Erro ao carregar valores:', err)
+        console.error('Erro ao carregar valores do playbook:', err)
       } finally {
         setLoading(false)
       }
@@ -29,6 +29,7 @@ export default function ValuesPage() {
     load()
   }, [])
 
+  const valuesConfig = valuesList[selectedIdx] || null
   if (loading) {
     return (
       <div className="py-24 text-center text-gray-400 flex items-center justify-center gap-2">
@@ -65,7 +66,29 @@ export default function ValuesPage() {
         </Button>
       </div>
 
-      <ValuesCard valuesConfig={valuesConfig} />
+      {valuesList.length > 1 && (
+        <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#12141A] border border-[#262A33] overflow-x-auto">
+          {valuesList.map((val, idx) => (
+            <button
+              key={val.id}
+              type="button"
+              onClick={() => setSelectedIdx(idx)}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                selectedIdx === idx
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1A1D27]'
+              }`}
+            >
+              {val.product_name || val.title}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <ValuesCard
+        valuesConfig={valuesConfig}
+        productName={valuesConfig?.product_name || valuesConfig?.title}
+      />
     </div>
   )
 }

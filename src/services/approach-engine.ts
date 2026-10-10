@@ -278,29 +278,73 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
   const currentScriptProductName = mainScriptObj.product_name || undefined
   const currentScript = interpolateText(mainScriptObj.script_text, context)
 
+  // Função auxiliar universal para correspondência de produto em itens do playbook
+  const itemMatchesProduct = (item: { product?: string; product_name?: string }) => {
+    if (targetProdId && item.product === targetProdId) return true
+    if (targetProdName && item.product_name) {
+      const iName = item.product_name.toLowerCase()
+      const tName = targetProdName.toLowerCase()
+      if (iName === tName || iName.includes(tName) || tName.includes(iName)) {
+        return true
+      }
+    }
+    if (targetProdName) {
+      const tLower = targetProdName.toLowerCase()
+      const isWaAutonomousTarget =
+        tLower.includes('whatsapp') && (tLower.includes('autônomo') || tLower.includes('autonomo'))
+      if (isWaAutonomousTarget && item.product_name) {
+        const iLower = item.product_name.toLowerCase()
+        if (
+          iLower.includes('whatsapp') &&
+          (iLower.includes('autônomo') || iLower.includes('autonomo'))
+        ) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
   // 2. Perguntas disponíveis para diagnóstico / qualificação
-  // Filtramos apenas as ativas
-  const allActiveQuestions = playbook.questions.filter((q) => q.is_active)
-  const remainingQuestions = allActiveQuestions.filter((q) => !askedQuestions.includes(q.text))
+  // Filtrar ativas pelo produto: se produto informado, perguntas do produto + genéricas (sem produto)
+  const allActiveQuestions = playbook.questions.filter((q) => {
+    if (!q.is_active) return false
+    if (!targetProdId && !targetProdName) {
+      // Sem produto selecionado: aceita itens sem produto (genéricos)
+      return !q.product && !q.product_name
+    }
+    // Com produto: aceita itens do mesmo produto OU genéricos (compatibilidade total)
+    return itemMatchesProduct(q) || (!q.product && !q.product_name)
+  })
+
+  // Ordenar priorizando as do produto sobre as genéricas
+  const sortedQuestions = [...allActiveQuestions].sort((a, b) => {
+    const aMatch = itemMatchesProduct(a) ? 1 : 0
+    const bMatch = itemMatchesProduct(b) ? 1 : 0
+    if (aMatch !== bMatch) return bMatch - aMatch
+    return (a.display_order || 0) - (b.display_order || 0)
+  })
+
+  const remainingQuestions = sortedQuestions.filter((q) => !askedQuestions.includes(q.text))
 
   // Priorização contextual:
   // Se situação digital é "Utiliza somente Instagram", prioriza a pergunta sobre Instagram
   let currentQuestion: PlaybookQuestion | null = null
 
   if (input.digitalSituation === 'Utiliza somente Instagram') {
-    const instaQ = allActiveQuestions.find((q) => q.text.toLowerCase().includes('instagram'))
+    const instaQ = sortedQuestions.find((q) => q.text.toLowerCase().includes('instagram'))
     if (instaQ && !askedQuestions.includes(instaQ.text)) {
       currentQuestion = instaQ
     }
   }
 
   if (!currentQuestion) {
-    if (currentQuestionIndex < allActiveQuestions.length) {
-      currentQuestion = allActiveQuestions[currentQuestionIndex]
+    if (currentQuestionIndex < sortedQuestions.length) {
+      currentQuestion = sortedQuestions[currentQuestionIndex]
     } else if (remainingQuestions.length > 0) {
       currentQuestion = remainingQuestions[0]
     } else {
-      currentQuestion = allActiveQuestions[0] || null
+      currentQuestion = sortedQuestions[0] || null
     }
   }
 
@@ -382,15 +426,22 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
     }
   }
 
-  // Se ainda não tiver, busca argumento correlacionado por situação
+  // Se ainda não tiver, busca argumento correlacionado por situação e produto
   if (!recommendedArgument) {
+    const activeArguments = playbook.argumentsList.filter((a) => {
+      if (!a.is_active) return false
+      if (!targetProdId && !targetProdName) return !a.product && !a.product_name
+      return itemMatchesProduct(a) || (!a.product && !a.product_name)
+    })
+
     if (input.digitalSituation === 'Utiliza somente Instagram') {
-      const arg = playbook.argumentsList.find((a) =>
-        a.situation.toLowerCase().includes('instagram'),
-      )
+      const arg = activeArguments.find((a) => a.situation.toLowerCase().includes('instagram'))
       if (arg) recommendedArgument = arg.argument_text
-    } else if (playbook.argumentsList.length > 0) {
-      recommendedArgument = playbook.argumentsList[0].argument_text
+    }
+    if (!recommendedArgument && activeArguments.length > 0) {
+      // Priorizar argumento que seja específico do produto se houver
+      const prodArg = activeArguments.find(itemMatchesProduct)
+      recommendedArgument = prodArg ? prodArg.argument_text : activeArguments[0].argument_text
     }
   }
 
@@ -409,11 +460,24 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
     answers: givenAnswers,
   })
 
-  // 6. Próxima melhor ação recomendada
+  // 6. Próxima melhor ação recomendada (com suporte a produto)
+  const isWaAutonomoProduct =
+    (targetProdName || '').toLowerCase().includes('whatsapp') &&
+    ((targetProdName || '').toLowerCase().includes('autônomo') ||
+      (targetProdName || '').toLowerCase().includes('autonomo'))
+
   let nextBestAction = 'Fazer mais uma pergunta'
   let nextBestActionDescription = 'Aprofunde o diagnóstico para mapear os gargalos do cliente.'
 
-  if (quickTags.includes('gerar proposta') || tempEval.temperature === 'quente') {
+  if (
+    quickTags.includes('demonstração') ||
+    quickTags.includes('demo') ||
+    (isWaAutonomoProduct && quickTags.includes('quer ver exemplos'))
+  ) {
+    nextBestAction = 'Agendar demonstração do atendente'
+    nextBestActionDescription =
+      'Acione demonstração prática em tempo real do atendente direto no WhatsApp do lead.'
+  } else if (quickTags.includes('gerar proposta') || tempEval.temperature === 'quente') {
     nextBestAction = 'Criar proposta'
     nextBestActionDescription = 'Cliente qualificado e pronto para receber formalização comercial.'
   } else if (
@@ -427,11 +491,19 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
     quickTags.includes('quer ver exemplos') ||
     activeObjection === 'Me manda no WhatsApp'
   ) {
-    nextBestAction = 'Enviar portfólio'
-    nextBestActionDescription = 'Envie link com 2 ou 3 modelos de destaque via WhatsApp.'
+    if (isWaAutonomoProduct) {
+      nextBestAction = 'Agendar demonstração do atendente'
+      nextBestActionDescription =
+        'Demonstre em tempo real o atendente respondendo com linguagem natural.'
+    } else {
+      nextBestAction = 'Enviar portfólio'
+      nextBestActionDescription = 'Envie link com 2 ou 3 modelos de destaque via WhatsApp.'
+    }
   } else if (quickTags.includes('achou caro') || activeObjection === 'Está caro') {
     nextBestAction = 'Mostrar exemplo'
-    nextBestActionDescription = 'Ressalte que os R$ 55,00 já cobrem hospedagem, domínio e suporte.'
+    nextBestActionDescription = isWaAutonomoProduct
+      ? 'Compare o custo de R$ 500 único + R$ 55/mês com mais de R$ 2.000/mês de um atendente humano.'
+      : 'Ressalte que os R$ 55,00 já cobrem hospedagem, domínio e suporte.'
   } else if (givenAnswers.length >= 3 && !input.decisionMaker) {
     nextBestAction = 'Identificar decisor'
     nextBestActionDescription = 'Pergunte se além dele há mais alguém envolvido na decisão.'
