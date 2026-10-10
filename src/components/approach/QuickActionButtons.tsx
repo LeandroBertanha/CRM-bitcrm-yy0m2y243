@@ -115,7 +115,7 @@ export const QuickActionButtons: React.FC<QuickActionButtonsProps> = ({
           className="p-3.5 rounded-xl bg-[#101A15] border border-emerald-500/40 hover:border-emerald-500 text-emerald-300 hover:text-white hover:bg-emerald-950/40 transition-all font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
         >
           <DollarSign className="w-4 h-4 text-emerald-400" />
-          VER VALORES (R$ 500 / R$ 55)
+          VER VALORES COMERCIAIS
         </button>
 
         <button

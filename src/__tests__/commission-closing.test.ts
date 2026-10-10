@@ -17,7 +17,7 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
       min_sales: 1,
       max_sales: 4,
       percentage: 0.2, // 20%
-      commission_per_sale: 100,
+      commission_per_sale: 70, // 350 * 20%
       display_order: 1,
       is_active: true,
       collectionId: 'tiers',
@@ -31,7 +31,7 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
       min_sales: 5,
       max_sales: 9,
       percentage: 0.25, // 25%
-      commission_per_sale: 125,
+      commission_per_sale: 87.5, // 350 * 25%
       display_order: 2,
       is_active: true,
       collectionId: 'tiers',
@@ -45,7 +45,7 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
       min_sales: 10,
       max_sales: null,
       percentage: 0.3, // 30%
-      commission_per_sale: 150,
+      commission_per_sale: 105, // 350 * 30%
       display_order: 3,
       is_active: true,
       collectionId: 'tiers',
@@ -56,41 +56,41 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
   ]
 
   it('calcula corretamente vendedor com 0 vendas válidas (R$ 0,00 sem quebrar)', () => {
-    const res = calculateCommission(0, mockTiers, 500)
+    const res = calculateCommission(0, mockTiers, 350)
     expect(res.salesCount).toBe(0)
     expect(res.isQualifying).toBe(false)
     expect(res.commissionPerSale).toBe(0)
     expect(res.totalCommission).toBe(0)
   })
 
-  it('calcula corretamente vendedor na Faixa 1 (ex: 3 vendas)', () => {
-    const res = calculateCommission(3, mockTiers, 500)
+  it('calcula corretamente vendedor na Faixa 1 (ex: 3 vendas base R$ 350 -> R$ 70)', () => {
+    const res = calculateCommission(3, mockTiers, 350)
     expect(res.salesCount).toBe(3)
     expect(res.isQualifying).toBe(true)
     expect(res.tierName).toBe('Faixa 1 (1 a 4 vendas)')
     expect(res.percentage).toBe(0.2)
-    expect(res.commissionPerSale).toBe(100)
-    expect(res.totalCommission).toBe(300)
+    expect(res.commissionPerSale).toBe(70)
+    expect(res.totalCommission).toBe(210)
   })
 
-  it('calcula corretamente vendedor na Faixa 2 (ex: 6 vendas)', () => {
-    const res = calculateCommission(6, mockTiers, 500)
+  it('calcula corretamente vendedor na Faixa 2 (ex: 6 vendas base R$ 350 -> R$ 87,50)', () => {
+    const res = calculateCommission(6, mockTiers, 350)
     expect(res.salesCount).toBe(6)
     expect(res.isQualifying).toBe(true)
     expect(res.tierName).toBe('Faixa 2 (5 a 9 vendas)')
     expect(res.percentage).toBe(0.25)
-    expect(res.commissionPerSale).toBe(125)
-    expect(res.totalCommission).toBe(750)
+    expect(res.commissionPerSale).toBe(87.5)
+    expect(res.totalCommission).toBe(525)
   })
 
-  it('calcula corretamente vendedor na Faixa 3 (ex: 12 vendas)', () => {
-    const res = calculateCommission(12, mockTiers, 500)
+  it('calcula corretamente vendedor na Faixa 3 (ex: 12 vendas base R$ 350 -> R$ 105)', () => {
+    const res = calculateCommission(12, mockTiers, 350)
     expect(res.salesCount).toBe(12)
     expect(res.isQualifying).toBe(true)
     expect(res.tierName).toBe('Faixa 3 (10 ou mais vendas)')
     expect(res.percentage).toBe(0.3)
-    expect(res.commissionPerSale).toBe(150)
-    expect(res.totalCommission).toBe(1800)
+    expect(res.commissionPerSale).toBe(105)
+    expect(res.totalCommission).toBe(1260)
   })
 
   it('avalia isOpportunityInMonth com base em created ou updated', () => {
@@ -120,13 +120,13 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
     ]
 
     const opportunities = [
-      // usr_1: 2 vendas Ganhas em Outubro -> Faixa 1 (2 x 100 = 200)
+      // usr_1: 2 vendas Ganhas em Outubro -> Faixa 1 (2 x 70 = 140)
       { stage: 'Ganho', seller: 'usr_1', created: '2026-10-02T10:00:00.000Z' },
       { stage: 'Ganho', seller: 'usr_1', created: '2026-10-05T10:00:00.000Z' },
       // usr_1: 1 oportunidade em Proposta (não Ganho) -> não conta
       { stage: 'Proposta', seller: 'usr_1', created: '2026-10-08T10:00:00.000Z' },
 
-      // usr_2: 5 vendas Ganhas em Outubro -> Faixa 2 (5 x 125 = 625)
+      // usr_2: 5 vendas Ganhas em Outubro -> Faixa 2 (5 x 87,50 = 437,50)
       { stage: 'Ganho', seller: 'usr_2', created: '2026-10-01T10:00:00.000Z' },
       { stage: 'Ganho', seller: 'usr_2', created: '2026-10-03T10:00:00.000Z' },
       { stage: 'Ganho', seller: 'usr_2', created: '2026-10-04T10:00:00.000Z' },
@@ -142,7 +142,7 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
       sellers,
       opportunities,
       tiers: mockTiers,
-      baseSaleValue: 500,
+      baseSaleValue: 350,
     })
 
     expect(summary.periodYear).toBe(2026)
@@ -151,17 +151,17 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
     // Em novembro de 2026: 05/11/2026 é uma quinta-feira (dia útil normal)
     expect(summary.paymentDateFormatted).toBe('05/11/2026')
     expect(summary.totalSalesCount).toBe(7) // 2 + 5
-    expect(summary.totalAmountToPay).toBe(825) // 200 + 625
+    expect(summary.totalAmountToPay).toBe(577.5) // 140 + 437.5
     expect(summary.qualifyingSellersCount).toBe(2)
 
-    // Ordenação: usr_2 (625) em 1º, usr_1 (200) em 2º, usr_3 (0) em 3º
+    // Ordenação: usr_2 (437.5) em 1º, usr_1 (140) em 2º, usr_3 (0) em 3º
     expect(summary.sellers[0].sellerId).toBe('usr_2')
     expect(summary.sellers[0].wonCountMonth).toBe(5)
-    expect(summary.sellers[0].totalCommission).toBe(625)
+    expect(summary.sellers[0].totalCommission).toBe(437.5)
 
     expect(summary.sellers[1].sellerId).toBe('usr_1')
     expect(summary.sellers[1].wonCountMonth).toBe(2)
-    expect(summary.sellers[1].totalCommission).toBe(200)
+    expect(summary.sellers[1].totalCommission).toBe(140)
 
     expect(summary.sellers[2].sellerId).toBe('usr_3')
     expect(summary.sellers[2].wonCountMonth).toBe(0)
@@ -169,41 +169,47 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
     expect(summary.sellers[2].isQualifying).toBe(false)
   })
 
-  describe('Cálculo Proporcional Acima de R$ 500,00', () => {
-    it('mantém comissão padrão da faixa para valores <= R$ 500,00', () => {
-      // 1 venda de R$ 500 na Faixa 1 (20% -> R$ 100)
-      const res500 = calculateCommission(1, mockTiers, 500, 500)
-      expect(res500.isProportional).toBe(false)
+  describe('Cálculo Proporcional Acima de R$ 350,00', () => {
+    it('mantém comissão padrão da faixa para valores <= R$ 350,00', () => {
+      // 1 venda de R$ 350 na Faixa 1 (20% -> R$ 70)
+      const res350 = calculateCommission(1, mockTiers, 350, 350)
+      expect(res350.isProportional).toBe(false)
+      expect(res350.commissionPerSale).toBe(70)
+      expect(res350.totalCommission).toBe(70)
+
+      // 1 venda de R$ 300 (abaixo de 350): comissão fixa da faixa R$ 70
+      const res300 = calculateCommission(1, mockTiers, 350, 300)
+      expect(res300.isProportional).toBe(false)
+      expect(res300.commissionPerSale).toBe(70)
+      expect(res300.totalCommission).toBe(70)
+    })
+
+    it('calcula comissão proporcional quando valor > R$ 350,00 (ex: R$ 500, R$ 1.000, R$ 2.500)', () => {
+      // Faixa 1 (20%, base R$ 350 -> comissão base R$ 70)
+      // Venda de R$ 500 -> 500 * 20% = R$ 100 de comissão
+      const res500 = calculateCommission(1, mockTiers, 350, 500)
+      expect(res500.isProportional).toBe(true)
       expect(res500.commissionPerSale).toBe(100)
       expect(res500.totalCommission).toBe(100)
 
-      // 1 venda de R$ 300 (abaixo de 500): comissão fixa da faixa R$ 100
-      const res300 = calculateCommission(1, mockTiers, 500, 300)
-      expect(res300.isProportional).toBe(false)
-      expect(res300.commissionPerSale).toBe(100)
-      expect(res300.totalCommission).toBe(100)
-    })
-
-    it('calcula comissão proporcional quando valor > R$ 500,00 (ex: R$ 1.000, R$ 2.500)', () => {
-      // Faixa 1 (20%, base R$ 500 -> comissão base R$ 100)
-      // Venda de R$ 1.000 -> razão 2x -> R$ 200 de comissão (1.000 * 20%)
-      const res1000 = calculateCommission(1, mockTiers, 500, 1000)
+      // Venda de R$ 1.000 -> 1000 * 20% = R$ 200 de comissão
+      const res1000 = calculateCommission(1, mockTiers, 350, 1000)
       expect(res1000.isProportional).toBe(true)
       expect(res1000.commissionPerSale).toBe(200)
       expect(res1000.totalCommission).toBe(200)
 
-      // Faixa 2 (5 vendas: 25%, base R$ 500 -> comissão base R$ 125)
-      // 5 vendas de R$ 2.000 cada -> razão 4x -> R$ 500 por venda -> total R$ 2.500
-      const res2000 = calculateCommission(5, mockTiers, 500, 2000)
+      // Faixa 2 (5 vendas: 25%, base R$ 350 -> comissão base R$ 87,50)
+      // 5 vendas de R$ 2.000 cada -> 2000 * 25% = R$ 500 por venda -> total R$ 2.500
+      const res2000 = calculateCommission(5, mockTiers, 350, 2000)
       expect(res2000.tierName).toBe('Faixa 2 (5 a 9 vendas)')
       expect(res2000.percentage).toBe(0.25)
       expect(res2000.isProportional).toBe(true)
       expect(res2000.commissionPerSale).toBe(500) // 2000 * 25% = 500
       expect(res2000.totalCommission).toBe(2500) // 5 * 500 = 2500
 
-      // Faixa 3 (10 vendas: 30%)
+      // Faixa 3 (10 vendas: 30%, base R$ 350 -> comissão base R$ 105)
       // Venda de R$ 1.500 -> comissão unitária: 1500 * 30% = 450
-      const res1500 = calculateCommission(10, mockTiers, 500, 1500)
+      const res1500 = calculateCommission(10, mockTiers, 350, 1500)
       expect(res1500.percentage).toBe(0.3)
       expect(res1500.commissionPerSale).toBe(450)
       expect(res1500.totalCommission).toBe(4500)
@@ -211,21 +217,21 @@ describe('Regras de Fechamento de Comissão - Dia 5', () => {
 
     it('calcula comissões mistas por oportunidade real de um vendedor', () => {
       // Vendedor com 2 vendas na Faixa 1 (20%):
-      // - Opp 1: R$ 500 (comissão R$ 100)
-      // - Opp 2: R$ 1.500 (comissão R$ 300)
-      // Total esperado: R$ 400
+      // - Opp 1: R$ 350 (comissão R$ 70)
+      // - Opp 2: R$ 500 (comissão R$ 100)
+      // Total esperado: R$ 170
       const opps = [
-        { id: 'o1', company: 'Empresa A', value: 500 },
-        { id: 'o2', company: 'Empresa B', value: 1500 },
+        { id: 'o1', company: 'Empresa A', value: 350 },
+        { id: 'o2', company: 'Empresa B', value: 500 },
       ]
-      const res = calculateCommission(2, mockTiers, 500, opps)
+      const res = calculateCommission(2, mockTiers, 350, opps)
       expect(res.salesCount).toBe(2)
       expect(res.tierName).toBe('Faixa 1 (1 a 4 vendas)')
-      expect(res.totalCommission).toBe(400)
+      expect(res.totalCommission).toBe(170)
       expect(res.opportunityDetails).toHaveLength(2)
-      expect(res.opportunityDetails?.[0].unitCommission).toBe(100)
+      expect(res.opportunityDetails?.[0].unitCommission).toBe(70)
       expect(res.opportunityDetails?.[0].isProportional).toBe(false)
-      expect(res.opportunityDetails?.[1].unitCommission).toBe(300)
+      expect(res.opportunityDetails?.[1].unitCommission).toBe(100)
       expect(res.opportunityDetails?.[1].isProportional).toBe(true)
     })
   })

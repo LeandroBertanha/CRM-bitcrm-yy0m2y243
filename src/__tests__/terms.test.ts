@@ -9,8 +9,8 @@ describe('Conteúdo e Regras de Negócio dos Termos e Privacidade', () => {
   it('deve conter as regras específicas de negócio da bit Consulting nos Termos de Serviço', () => {
     const allTermsText = TERMS_OF_SERVICE.flatMap((s) => s.content).join(' ')
 
-    // Valores essenciais: R$ 500,00 e R$ 55,00/mês
-    expect(allTermsText).toContain('500,00')
+    // Valores essenciais: a partir de R$ 350,00 e R$ 55,00/mês
+    expect(allTermsText).toContain('350,00')
     expect(allTermsText).toContain('55,00')
     expect(allTermsText).toContain('hospedagem')
     expect(allTermsText).toContain('domínio')

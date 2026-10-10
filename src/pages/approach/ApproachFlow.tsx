@@ -1154,7 +1154,7 @@ export default function ApproachFlow() {
             />
           )}
 
-          {/* 7. GAVETA / SEÇÃO: VALORES (R$ 500 / R$ 55) */}
+          {/* 7. GAVETA / SEÇÃO: VALORES COMERCIAIS */}
           {showValuesDrawer && (
             <ValuesCard
               valuesConfig={copilotValuesConfig}

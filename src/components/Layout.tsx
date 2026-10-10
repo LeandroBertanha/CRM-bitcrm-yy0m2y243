@@ -436,7 +436,7 @@ export default function Layout() {
                   className="cursor-pointer text-xs flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[#1A1D27] text-gray-300 hover:text-white"
                 >
                   <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                  Valores (R$ 500 / R$ 55)
+                  Valores Comerciais
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate('/abordagem/historico')}

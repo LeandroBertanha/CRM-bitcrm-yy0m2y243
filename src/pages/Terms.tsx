@@ -77,7 +77,7 @@ export default function TermsPage() {
               <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold block mb-1">
                 Desenvolvimento
               </span>
-              <p className="text-lg font-bold text-white">A partir de R$ 500,00</p>
+              <p className="text-lg font-bold text-white">A partir de R$ 350,00</p>
               <p className="text-xs text-gray-400 mt-1">
                 Sites e Landing Pages profissionais com alta taxa de conversão.
               </p>

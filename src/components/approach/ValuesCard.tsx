@@ -55,8 +55,8 @@ export const ValuesCard: React.FC<ValuesCardProps> = ({
   const script =
     valuesConfig?.script ??
     (isWaAutonomous
-      ? 'O investimento funciona em dois componentes: a configuração e implantação no Meta Business é de R$ 500,00 em valor único. Depois, há apenas R$ 55,00 por mês para cobrir a hospedagem, manutenção e suporte contínuo.'
-      : 'O investimento funciona em dois passos muito simples: A criação do site ou landing page começa em R$ 500,00. Depois, há uma mensalidade de R$ 55,00 cobrindo hospedagem, domínio e suporte técnico contínuo.')
+      ? 'O investimento funciona em dois componentes: a configuração e implantação no Meta Business começa a partir de R$ 350,00 em valor de setup único. Depois, há apenas R$ 55,00 por mês para cobrir a hospedagem, manutenção e suporte contínuo.'
+      : 'O investimento funciona em dois passos muito simples: A criação do site ou landing page começa a partir de R$ 350,00, ajustada ao escopo. Depois, há uma mensalidade de R$ 55,00 cobrindo hospedagem, domínio e suporte técnico contínuo.')
 
   const closingQuestions =
     valuesConfig?.closing_questions ??

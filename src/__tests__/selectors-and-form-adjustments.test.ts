@@ -289,15 +289,15 @@ describe('Validação dos 3 Ajustes: Seletores de Produto nos Disparos, Approach
       return `${product.name} ${priceLabel}`.trim()
     }
 
-    it('WhatsApp Autônomo e Humanizado NÃO exibe valores (R$ 500 / R$ 55) na label', () => {
+    it('WhatsApp Autônomo e Humanizado NÃO exibe valores (R$ 350 / R$ 55) na label', () => {
       const waProduct = {
         name: 'WhatsApp Autônomo e Humanizado',
-        setup_price: 500,
+        setup_price: 350,
         monthly_price: 55,
       }
       const label = formatProductOptionLabel(waProduct)
       expect(label).toBe('WhatsApp Autônomo e Humanizado')
-      expect(label).not.toContain('500')
+      expect(label).not.toContain('350')
       expect(label).not.toContain('55')
       expect(label).not.toContain('R$')
     })

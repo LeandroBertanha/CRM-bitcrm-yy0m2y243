@@ -421,7 +421,7 @@ describe('Playbook Product Filtering & Commission Setup Suite', () => {
     })
   })
 
-  describe('3. Cálculo de Comissão: Apenas Setup R$ 500,00 na Base (Mensalidade R$ 55/mês NUNCA na base)', () => {
+  describe('3. Cálculo de Comissão: Apenas Setup a partir de R$ 350,00 na Base (Mensalidade R$ 55/mês NUNCA na base)', () => {
     const mockTiers: CommissionTier[] = [
       {
         id: 'tier_1',
@@ -433,7 +433,7 @@ describe('Playbook Product Filtering & Commission Setup Suite', () => {
         min_sales: 1,
         max_sales: 4,
         percentage: 20,
-        commission_per_sale: 100, // 20% sobre 500
+        commission_per_sale: 70, // 20% sobre 350
         is_active: true,
         display_order: 1,
       },
@@ -447,69 +447,91 @@ describe('Playbook Product Filtering & Commission Setup Suite', () => {
         min_sales: 5,
         max_sales: 9,
         percentage: 25,
-        commission_per_sale: 125, // 25% sobre 500
+        commission_per_sale: 87.5, // 25% sobre 350
         is_active: true,
         display_order: 2,
       },
+      {
+        id: 'tier_3',
+        collectionId: 'commission_tiers',
+        collectionName: 'commission_tiers',
+        created: '',
+        updated: '',
+        name: 'Faixa 3 (10 ou mais vendas)',
+        min_sales: 10,
+        max_sales: null,
+        percentage: 30,
+        commission_per_sale: 105, // 30% sobre 350
+        is_active: true,
+        display_order: 3,
+      },
     ]
 
-    it('calcula comissão usando o setup de R$ 500,00 e ignora categoricamente a mensalidade de R$ 55,00', () => {
-      const setupValue = 500
+    it('calcula comissão usando o setup de R$ 350,00 e ignora categoricamente a mensalidade de R$ 55,00', () => {
+      const setupValue = 350
       const recurringMonthlyValue = 55
 
-      // Oportunidade do produto WhatsApp Autônomo com setup R$ 500 e mensalidade R$ 55
+      // Oportunidade do produto WhatsApp Autônomo com setup R$ 350 e mensalidade R$ 55
       const opportunityWa = {
         id: 'opp_wa_comm_1',
-        value: setupValue, // R$ 500 na oportunidade (base)
+        value: setupValue, // R$ 350 na oportunidade (base)
         recurring_value: recurringMonthlyValue, // R$ 55/mês fora da base
       }
 
       // Base da comissão deve ser estritamente o setupValue
       const baseEfetiva = opportunityWa.value
-      expect(baseEfetiva).toBe(500)
+      expect(baseEfetiva).toBe(350)
       expect(opportunityWa.recurring_value).toBe(55)
 
-      // Se somasse a mensalidade de 55 daria 555
+      // Se somasse a mensalidade de 55 daria 405
       const valorComMensalidadeIndevida = baseEfetiva + opportunityWa.recurring_value
-      expect(valorComMensalidadeIndevida).toBe(555)
+      expect(valorComMensalidadeIndevida).toBe(405)
 
-      // Cálculo com 1 venda sobre o setup de 500 via objeto de oportunidade
-      const res1 = calculateCommission(1, mockTiers, 500, [{ value: baseEfetiva }])
-      expect(res1.commissionPerSale).toBe(100)
-      expect(res1.totalCommission).toBe(100)
+      // Cálculo com 1 venda sobre o setup de 350 via objeto de oportunidade
+      const res1 = calculateCommission(1, mockTiers, 350, [{ value: baseEfetiva }])
+      expect(res1.commissionPerSale).toBe(70)
+      expect(res1.totalCommission).toBe(70)
 
-      // Verificação: se erroneamente calculasse sobre 555, o total seria diferente
-      const resErrado = calculateCommission(1, mockTiers, 500, [
+      // Verificação: se erroneamente calculasse sobre 405, o total seria diferente
+      const resErrado = calculateCommission(1, mockTiers, 350, [
         { value: valorComMensalidadeIndevida },
       ])
-      expect(resErrado.totalCommission).toBe(111) // 555 * 20% = 111 != 100
+      expect(resErrado.totalCommission).toBe(81) // 405 * 20% = 81 != 70
       expect(res1.totalCommission).not.toBe(resErrado.totalCommission)
     })
 
-    it('calcula comissão para múltiplas vendas de WhatsApp Autônomo garantindo que todas usem base R$ 500', () => {
-      const salesCount = 6 // Faixa 2: 25% -> R$ 125 por venda
+    it('calcula comissão para múltiplas vendas de WhatsApp Autônomo garantindo que todas usem base R$ 350', () => {
+      const salesCount = 6 // Faixa 2: 25% -> R$ 87,50 por venda
       const opps = Array.from({ length: salesCount }, (_, idx) => ({
         id: `opp_${idx + 1}`,
-        value: 500, // apenas setup R$ 500
+        value: 350, // apenas setup R$ 350
       }))
 
-      const res = calculateCommission(salesCount, mockTiers, 500, opps)
-      expect(res.commissionPerSale).toBe(125)
-      expect(res.totalCommission).toBe(750) // 6 * 125 = 750
+      const res = calculateCommission(salesCount, mockTiers, 350, opps)
+      expect(res.commissionPerSale).toBe(87.5)
+      expect(res.totalCommission).toBe(525) // 6 * 87.5 = 525
 
       // Detalhes de cada oportunidade
       expect(res.opportunityDetails).toBeDefined()
       expect(res.opportunityDetails?.length).toBe(6)
       res.opportunityDetails?.forEach((opp) => {
-        expect(opp.value).toBe(500)
-        expect(opp.unitCommission).toBe(125)
+        expect(opp.value).toBe(350)
+        expect(opp.unitCommission).toBe(87.5)
       })
     })
 
-    it('estrutura de valores do WhatsApp Autônomo e do Site registram setup de 500 e mensalidade de 55 separados', () => {
+    it('calcula proporcional quando setup é negociado acima de R$ 350 (ex: R$ 500,00 na Faixa 1)', () => {
+      // 1 venda de R$ 500 na Faixa 1 (20%): comissão = 500 * 20% = R$ 100
+      const opps = [{ id: 'opp_500', value: 500 }]
+      const res = calculateCommission(1, mockTiers, 350, opps)
+      expect(res.commissionPerSale).toBe(100)
+      expect(res.totalCommission).toBe(100)
+      expect(res.isProportional).toBe(true)
+    })
+
+    it('estrutura de valores do WhatsApp Autônomo e do Site registram setup a partir de 350 e mensalidade de 55 separados', () => {
       const valWa = mockValues.find((v) => v.product_name === PROD_WA_NAME)
       expect(valWa).toBeDefined()
-      expect(valWa?.creation_value).toBe(500)
       expect(valWa?.monthly_value).toBe(55)
       expect(valWa?.creation_value).not.toBe(valWa?.creation_value! + valWa?.monthly_value!)
     })

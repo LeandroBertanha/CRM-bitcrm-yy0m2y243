@@ -271,7 +271,7 @@ describe('Validação do Novo Produto: WhatsApp Autônomo e Humanizado e Oportun
     expect(msg).toContain('Ref. ')
   })
 
-  it('garante que setup de R$ 500 e mensalidade de R$ 55 ficam separados na oportunidade', () => {
+  it('garante que setup (a partir de R$ 350) e mensalidade de R$ 55 ficam separados na oportunidade', () => {
     const opp: Opportunity = {
       id: 'opp_split',
       collectionId: 'opportunities',
@@ -279,15 +279,15 @@ describe('Validação do Novo Produto: WhatsApp Autônomo e Humanizado e Oportun
       company: 'Loja Exemplo',
       stage: 'Proposta',
       source: 'Indicação',
-      value: 500,
+      value: 350,
       recurring_value: 55,
       created: '2026-03-01T00:00:00Z',
       updated: '2026-03-01T00:00:00Z',
     }
 
-    // Apenas value (500) é a base de comissão
+    // Apenas value (350) é a base de comissão
     const baseComissao = opp.value
-    expect(baseComissao).toBe(500)
+    expect(baseComissao).toBe(350)
 
     // Mensalidade recorrente (55) não é incluída na base
     const mensalidade = opp.recurring_value

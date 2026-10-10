@@ -49,7 +49,7 @@ export default function ValuesPage() {
           <div>
             <h1 className="text-2xl font-extrabold text-white">Tabela de Valores & Inclusões</h1>
             <p className="text-xs sm:text-sm text-gray-400">
-              Criação a partir de R$ 500,00 e mensalidade de R$ 55,00/mês com domínio, hospedagem e
+              Criação a partir de R$ 350,00 e mensalidade de R$ 55,00/mês com domínio, hospedagem e
               suporte.
             </p>
           </div>

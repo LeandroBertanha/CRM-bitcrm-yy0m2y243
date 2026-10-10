@@ -25,7 +25,7 @@ export const TERMS_OF_SERVICE: TermsSection[] = [
     id: 'valores-e-condicoes',
     title: '2. Valores, Planos e Condições Comerciais',
     content: [
-      'Projetos de criação: os projetos de desenvolvimento de Sites Institucionais e Landing Pages são comercializados a partir de R$ 500,00 (quinhentos reais) no plano base, variando conforme a complexidade técnica e escopo personalizado aprovado na proposta comercial.',
+      'Projetos de criação: os projetos de desenvolvimento de Sites Institucionais e Landing Pages são comercializados a partir de R$ 350,00 (trezentos e cinquenta reais) no plano base, variando conforme a complexidade técnica e escopo personalizado aprovado na proposta comercial.',
       'Mensalidade de suporte e infraestrutura: os serviços incluem mensalidade operacional no valor de R$ 55,00/mês (cinquenta e cinco reais mensais), que contempla:',
       '• Hospedagem de alta performance em servidores gerenciados e seguros;',
       '• Registro ou renovação de 1 (um) domínio anual (.com.br ou .com) conforme disponibilidade;',

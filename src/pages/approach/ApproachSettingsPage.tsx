@@ -973,7 +973,7 @@ export default function ApproachSettingsPage() {
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-400">
               Estruturas comerciais cadastradas. A comissão é apurada apenas sobre o valor de
-              setup/criação (R$ 500,00).
+              setup/criação (a partir de R$ 350,00).
             </p>
             <Button
               type="button"

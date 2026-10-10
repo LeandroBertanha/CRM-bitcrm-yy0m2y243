@@ -54,7 +54,7 @@ export function CommissionClosingSection({
       sellers,
       opportunities,
       tiers,
-      baseSaleValue: settings?.base_sale_value || 500,
+      baseSaleValue: settings?.base_sale_value || 350,
     })
   }, [sellers, opportunities, tiers, settings?.base_sale_value])
 
@@ -519,7 +519,7 @@ export function CommissionClosingSection({
         <div>
           Produto base:{' '}
           <strong className="text-gray-300">{settings?.product_name || 'Site ou LP'}</strong> (
-          {formatBRL(settings?.base_sale_value || 500)})
+          {formatBRL(settings?.base_sale_value || 350)})
         </div>
       </div>
     </div>

@@ -234,7 +234,7 @@ export const SessionFollowUpModal: React.FC<SessionFollowUpModalProps> = ({
           <div className="space-y-1">
             <Label className="text-xs text-gray-300">Resumo / Próximos Passos</Label>
             <Textarea
-              placeholder="Ex: Cliente gostou dos R$ 500, vai alinhar com a esposa/sócia na quinta e pediu retorno sexta às 10h."
+              placeholder="Ex: Cliente gostou dos valores a partir de R$ 350, vai alinhar com a equipe e pediu retorno sexta às 10h."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl min-h-[70px]"

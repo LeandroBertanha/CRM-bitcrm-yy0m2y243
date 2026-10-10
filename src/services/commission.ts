@@ -88,7 +88,7 @@ export function buildCommissionClosingSummary(params: {
   tiers: CommissionTier[]
   baseSaleValue?: number
 }): CommissionClosingSummary {
-  const { referenceDate = new Date(), sellers, opportunities, tiers, baseSaleValue = 500 } = params
+  const { referenceDate = new Date(), sellers, opportunities, tiers, baseSaleValue = 350 } = params
 
   const periodYear = referenceDate.getFullYear()
   const periodMonth = referenceDate.getMonth() // 0-11

@@ -292,18 +292,19 @@ export function matchCommissionTier(
 }
 
 /**
- * Calcula a comissão unitária de uma venda considerando o valor base da venda (padrão R$ 500,00 lido do banco).
+ * Calcula a comissão unitária de uma venda considerando o valor base da venda (padrão R$ 350,00 lido do banco).
  *
- * REGRA PROPORCIONAL ACIMA DE R$ 500,00:
- * - Para valores até o valor base (ex: <= R$ 500,00):
- *   Aplica a comissão fixa da faixa (ex: R$ 100, R$ 125 ou R$ 150) ou base * percentual.
- * - Para valores maiores que o valor base (ex: > R$ 500,00):
+ * REGRA PROPORCIONAL ACIMA DE R$ 350,00:
+ * - Para valores até o valor base (ex: <= R$ 350,00):
+ *   Aplica a comissão fixa da faixa (ex: R$ 70, R$ 87,50 ou R$ 105) ou base * percentual.
+ * - Para valores maiores que o valor base (ex: > R$ 350,00):
  *   A comissão é proporcional ao valor da venda:
  *   comissão = comissão_base_da_faixa * (valor / base_sale_value) = valor * percentual_da_faixa.
- *   Exemplo na Faixa 1 (20%, base R$ 500 com comissão R$ 100):
- *   - Venda de R$ 500,00 -> comissão = R$ 100,00
- *   - Venda de R$ 1.000,00 -> razão 1000/500 = 2 -> comissão = R$ 200,00 (1000 * 20%)
- *   - Venda de R$ 2.500,00 -> razão 2500/500 = 5 -> comissão = R$ 500,00 (2500 * 20%)
+ *   Exemplo na Faixa 1 (20%, base R$ 350 com comissão R$ 70):
+ *   - Venda de R$ 350,00 -> comissão = R$ 70,00
+ *   - Venda de R$ 500,00 -> razão 500/350 = 1,4285... -> comissão = R$ 100,00 (500 * 20%)
+ *   - Venda de R$ 1.000,00 -> comissão = R$ 200,00 (1000 * 20%)
+ *   - Venda de R$ 2.500,00 -> comissão = R$ 500,00 (2500 * 20%)
  */
 export function calculateSaleCommission(params: {
   saleValue: number
@@ -315,8 +316,8 @@ export function calculateSaleCommission(params: {
   ratio: number
   percentage: number
 } {
-  const { saleValue, tier, baseSaleValue = 500 } = params
-  const baseValue = baseSaleValue > 0 ? baseSaleValue : 500
+  const { saleValue, tier, baseSaleValue = 350 } = params
+  const baseValue = baseSaleValue > 0 ? baseSaleValue : 350
 
   if (!tier) {
     return {
@@ -358,7 +359,7 @@ export function calculateSaleCommission(params: {
  * Calcula a comissão total considerando:
  * - Quantidade de vendas para definir a faixa no banco.
  * - Se fornecida uma lista de oportunidades ou valores individuais, aplica a regra proporcional
- *   acima de R$ 500,00 por oportunidade.
+ *   acima de R$ 350,00 por oportunidade.
  * - Se fornecido apenas salesCount (ou na simulação simples), utiliza o valor unitário padrão
  *   ou o valor de venda informado em saleValueForSingle.
  */
@@ -369,7 +370,7 @@ export function calculateCommission(
   salesOrOpps?: Array<{ value?: number; id?: string; company?: string }> | number,
 ): CommissionCalculationResult {
   const count = Math.max(0, Math.floor(salesCount || 0))
-  const baseValue = typeof baseSaleValue === 'number' && baseSaleValue > 0 ? baseSaleValue : 500
+  const baseValue = typeof baseSaleValue === 'number' && baseSaleValue > 0 ? baseSaleValue : 350
 
   if (count === 0 || !tiers || tiers.length === 0) {
     return {
@@ -484,7 +485,7 @@ export function calculateCommission(
     }
   }
 
-  // Caso 3: cálculo padrão baseado na quantidade (vendas no valor base R$ 500)
+  // Caso 3: cálculo padrão baseado na quantidade (vendas no valor base R$ 350)
   const total = count * baseCommPerSale
 
   return {

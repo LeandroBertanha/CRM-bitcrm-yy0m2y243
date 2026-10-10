@@ -61,7 +61,7 @@ export default function CommissionPage() {
 
   // Estado do simulador interativo (quantidade de vendas e valor digitado da venda em R$)
   const [simSalesInput, setSimSalesInput] = useState<string>('10')
-  const [simValueInput, setSimValueInput] = useState<string>('500')
+  const [simValueInput, setSimValueInput] = useState<string>('350')
 
   // Carregar dados de comissionamento e oportunidades
   const loadData = useCallback(async () => {
@@ -163,7 +163,7 @@ export default function CommissionPage() {
   }, [myWonOppsMonth])
 
   const myCommissionCalc = useMemo(() => {
-    const baseVal = settings?.base_sale_value || 500
+    const baseVal = settings?.base_sale_value || 350
     return calculateCommission(
       mySalesCount,
       tiers,
@@ -223,7 +223,7 @@ export default function CommissionPage() {
       const calc = calculateCommission(
         row.wonCountMonth,
         tiers,
-        settings?.base_sale_value || 500,
+        settings?.base_sale_value || 350,
         row.wonOpportunities,
       )
       return {
@@ -247,7 +247,7 @@ export default function CommissionPage() {
   // Cálculo da simulação interativa com o input de vendas e valor unitário editável do usuário
   const parsedSimSales = Math.max(0, parseInt(simSalesInput, 10) || 0)
   const parsedSimValue = Math.max(0, parseFloat(simValueInput.replace(',', '.')) || 0)
-  const baseSaleVal = settings?.base_sale_value || 500
+  const baseSaleVal = settings?.base_sale_value || 350
 
   const simulationResult = useMemo(() => {
     return calculateCommission(
@@ -262,7 +262,7 @@ export default function CommissionPage() {
   const exampleCounts = [1, 4, 5, 9, 10, 15]
   const simulationExamples = useMemo(() => {
     return exampleCounts.map((count) => {
-      const res = calculateCommission(count, tiers, settings?.base_sale_value || 500)
+      const res = calculateCommission(count, tiers, settings?.base_sale_value || 350)
       return {
         count,
         percentageDisplay: `${Math.round(res.percentage * 100)}%`,
@@ -649,7 +649,7 @@ export default function CommissionPage() {
             Produto:{' '}
             <strong className="text-white">{settings?.product_name || 'Site ou LP'}</strong> &bull;
             Valor base:{' '}
-            <strong className="text-white">{formatBRL(settings?.base_sale_value || 500)}</strong>
+            <strong className="text-white">{formatBRL(settings?.base_sale_value || 350)}</strong>
           </div>
         </div>
 
@@ -786,7 +786,7 @@ export default function CommissionPage() {
                   </label>
                   {parsedSimValue > baseSaleVal && (
                     <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
-                      Regra Proporcional Ativa (&gt; R$ 500)
+                      Regra Proporcional Ativa (&gt; {formatBRL(baseSaleVal)})
                     </span>
                   )}
                 </div>
@@ -801,7 +801,7 @@ export default function CommissionPage() {
                     aria-label="Valor unitário da venda para simulação"
                     value={simValueInput}
                     onChange={(e) => setSimValueInput(e.target.value)}
-                    placeholder="500,00"
+                    placeholder="350,00"
                     className="bg-[#0E1017] border-[#262A33] text-white text-base font-bold h-11 pl-9 w-full focus:border-indigo-500"
                   />
                 </div>
@@ -830,7 +830,7 @@ export default function CommissionPage() {
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] text-gray-400 mr-1">Valores sugeridos:</span>
-                {[500, 750, 1000, 1500, 2500, 5000].map((quickVal) => (
+                {[350, 500, 750, 1000, 1500, 2500, 5000].map((quickVal) => (
                   <button
                     key={quickVal}
                     type="button"
@@ -852,7 +852,7 @@ export default function CommissionPage() {
               <div>
                 <span className="text-gray-400 block">Valor Base do Produto (Banco):</span>
                 <strong className="text-white">
-                  {formatBRL(settings?.base_sale_value || 500)}
+                  {formatBRL(settings?.base_sale_value || 350)}
                 </strong>
                 <span className="text-[10px] text-gray-500 block">
                   Valores acima de {formatBRL(baseSaleVal)} recebem comissão proporcional
@@ -1034,19 +1034,20 @@ export default function CommissionPage() {
             </div>
           </div>
 
-          {/* Card com a regra de cálculo proporcional acima de R$ 500 */}
+          {/* Card com a regra de cálculo proporcional acima de R$ 350 */}
           <div className="p-3.5 rounded-xl bg-[#0E1017] border border-indigo-500/30 flex items-start gap-3 hover:border-indigo-500/50 transition-colors">
             <div className="w-5 h-5 rounded-full bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
               📈
             </div>
             <div className="space-y-1">
               <strong className="text-xs text-indigo-300 font-bold block">
-                Comissionamento Proporcional Acima de R$ 500,00
+                Comissionamento Proporcional Acima de R$ 350,00
               </strong>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Para vendas com valores superiores ao valor comercial base (R$ 500,00), a comissão é
+                Para vendas com valores superiores ao valor comercial base (R$ 350,00), a comissão é
                 calculada de forma proporcional ao valor da venda, aplicando o percentual integral
-                da faixa atingida no mês sobre o montante da oportunidade.
+                da faixa atingida no mês sobre o montante da oportunidade (ex: setup R$ 500 na Faixa
+                1 = R$ 100).
               </p>
             </div>
           </div>

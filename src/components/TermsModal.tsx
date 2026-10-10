@@ -97,7 +97,7 @@ export function TermsModal({
               <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-800/30 text-indigo-200">
                 <p className="font-medium text-white mb-1">Resumo Executivo do Negócio:</p>
                 <ul className="list-disc pl-4 space-y-1 text-gray-300">
-                  <li>Criação de Sites e Landing Pages a partir de R$ 500,00.</li>
+                  <li>Criação de Sites e Landing Pages a partir de R$ 350,00.</li>
                   <li>Mensalidade de suporte, domínio e hospedagem gerenciada por R$ 55,00/mês.</li>
                   <li>Uso restrito do bitCRM para operação comercial autorizada.</li>
                 </ul>

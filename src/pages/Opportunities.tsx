@@ -119,7 +119,7 @@ export default function Opportunities() {
     source: 'Formulário Público',
     product: '',
     product_name: '',
-    value: '500',
+    value: '350',
     recurring_value: '55',
     seller: user?.id || '',
     contact_name: '',
@@ -270,7 +270,7 @@ export default function Opportunities() {
         (p.name.toLowerCase().includes('autônomo') || p.name.toLowerCase().includes('autonomo')),
     )
     const defaultProduct = waProduct || (productsList.length > 0 ? productsList[0] : null)
-    const setupVal = (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 500
+    const setupVal = (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 350
     const recVal = (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
 
     setFormData({
@@ -525,7 +525,7 @@ export default function Opportunities() {
     try {
       const matchedProd = productsList.find((p) => p.id === formData.product)
       const finalProdName = formData.product_name || matchedProd?.name || ''
-      const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 500
+      const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 350
       const recVal = formData.recurring_value
         ? parseFloat(formData.recurring_value.replace(',', '.'))
         : 55
@@ -536,7 +536,7 @@ export default function Opportunities() {
         source: formData.source,
         product: formData.product || null,
         product_name: finalProdName,
-        value: isNaN(setupVal) ? 500 : setupVal, // Setup da oportunidade (base de comissão)
+        value: isNaN(setupVal) ? 350 : setupVal, // Setup da oportunidade (base de comissão)
         recurring_value: isNaN(recVal) ? 55 : recVal, // Mensalidade de hospedagem/suporte (fora da comissão)
         seller: formData.seller || user?.id,
         contact_name: formData.contact_name.trim(),
@@ -1329,7 +1329,7 @@ export default function Opportunities() {
                   onValueChange={(val) => {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
-                      const setupVal = (sel as any).setup_price ?? sel.setup_value ?? 500
+                      const setupVal = (sel as any).setup_price ?? sel.setup_value ?? 350
                       const recVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
                       setFormData({
                         ...formData,
@@ -1368,7 +1368,7 @@ export default function Opportunities() {
                     Setup / Implantação (R$) *
                   </Label>
                   <Input
-                    placeholder="Ex: 500"
+                    placeholder="Ex: 350"
                     type="number"
                     step="any"
                     value={formData.value}
@@ -1621,7 +1621,7 @@ export default function Opportunities() {
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
-                        value: String(sel.setup_value ?? 500),
+                        value: String(sel.setup_value ?? 350),
                         recurring_value: String(sel.recurring_value ?? 55),
                       })
                     } else {

@@ -60,10 +60,14 @@ export default function PublicForm() {
             records.map((r) => ({
               id: r.id,
               name: r.name,
-              setup_price: Number(r.setup_value ?? r.setup_price) || 500,
+              setup_price: Number(r.setup_value ?? r.setup_price) || 350,
               monthly_price: Number(r.recurring_value ?? r.monthly_price) || 0,
             })),
           )
+          const matched = records.find((r) => r.name === interest) || records[0]
+          const initialSetup = Number(matched?.setup_value ?? matched?.setup_price) || 350
+          setServiceValuePreset(String(initialSetup))
+          setSubmittedValue(initialSetup)
         }
       } catch (err) {
         console.error('Erro ao carregar produtos no formulário:', err)
@@ -71,11 +75,9 @@ export default function PublicForm() {
     }
     loadProducts()
   }, [])
-  const [serviceValuePreset, setServiceValuePreset] = useState<'500' | '1000' | '2500' | 'outro'>(
-    '500',
-  )
+  const [serviceValuePreset, setServiceValuePreset] = useState<string>('350')
   const [customValueInput, setCustomValueInput] = useState('')
-  const [submittedValue, setSubmittedValue] = useState<number>(500)
+  const [submittedValue, setSubmittedValue] = useState<number>(350)
   const [paymentType, setPaymentType] = useState<'Débito' | 'PIX' | 'Parcelado'>('PIX')
   const [paymentInstallments, setPaymentInstallments] = useState<number>(1)
   const [message, setMessage] = useState('')
@@ -135,6 +137,12 @@ export default function PublicForm() {
       finalValue = parsedCustom
     } else {
       finalValue = Number(serviceValuePreset)
+    }
+
+    // Validação: setup do produto ou serviço não deve ser inferior ao piso de R$ 350
+    if (finalValue < 350) {
+      setErrorMessage('O valor do setup comercial é a partir de R$ 350,00.')
+      return
     }
 
     setSubmitting(true)
@@ -206,10 +214,13 @@ export default function PublicForm() {
     setEmail('')
     setPhone('')
     setCompany('')
-    setInterest('Site')
-    setServiceValuePreset('500')
+    const defaultInterest =
+      productsList.length > 0 ? productsList[0].name : 'Site ou Landing Page sob medida'
+    setInterest(defaultInterest)
+    const defaultSetup = productsList.length > 0 ? productsList[0].setup_price : 350
+    setServiceValuePreset(String(defaultSetup))
     setCustomValueInput('')
-    setSubmittedValue(500)
+    setSubmittedValue(defaultSetup)
     setPaymentType('PIX')
     setPaymentInstallments(1)
     setMessage('')
@@ -404,9 +415,7 @@ export default function PublicForm() {
                         setInterest(val)
                         const matched = productsList.find((p) => p.name === val)
                         if (matched && matched.setup_price > 0) {
-                          setServiceValuePreset(
-                            String(matched.setup_price) as '500' | '1000' | '2500' | 'outro',
-                          )
+                          setServiceValuePreset(String(matched.setup_price))
                         }
                       }}
                     >
@@ -458,7 +467,7 @@ export default function PublicForm() {
                     <Select
                       value={serviceValuePreset}
                       onValueChange={(val) => {
-                        setServiceValuePreset(val as '500' | '1000' | '2500' | 'outro')
+                        setServiceValuePreset(val)
                       }}
                     >
                       <SelectTrigger
@@ -468,6 +477,8 @@ export default function PublicForm() {
                         <SelectValue placeholder="Selecione o valor do serviço" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {/* Opções derivadas do banco de dados, começando pelo piso R$ 350,00 */}
+                        <SelectItem value="350">R$ 350,00 (Piso do setup)</SelectItem>
                         <SelectItem value="500">R$ 500,00</SelectItem>
                         <SelectItem value="1000">R$ 1.000,00</SelectItem>
                         <SelectItem value="2500">R$ 2.500,00</SelectItem>

@@ -91,7 +91,7 @@ export default function PitchPage() {
             2. Transparência de Preço
           </span>
           <p className="text-xs text-gray-300">
-            A partir de R$ 500,00 + R$ 55,00/mês. Isso elimina a objeção de &quot;deve custar
+            A partir de R$ 350,00 + R$ 55,00/mês. Isso elimina a objeção de &quot;deve custar
             milhares de reais&quot; imediatamente.
           </p>
         </div>

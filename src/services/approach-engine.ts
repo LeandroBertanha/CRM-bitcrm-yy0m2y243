@@ -564,7 +564,7 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
   } else if (quickTags.includes('achou caro') || activeObjection === 'Está caro') {
     nextBestAction = 'Mostrar exemplo'
     nextBestActionDescription = isWaAutonomoProduct
-      ? 'Compare o custo de R$ 500 único + R$ 55/mês com mais de R$ 2.000/mês de um atendente humano.'
+      ? 'Compare o custo a partir de R$ 350 de setup único + R$ 55/mês com mais de R$ 2.000/mês de um atendente humano.'
       : 'Ressalte que os R$ 55,00 já cobrem hospedagem, domínio e suporte.'
   } else if (givenAnswers.length >= 3 && !input.decisionMaker) {
     nextBestAction = 'Identificar decisor'
@@ -621,7 +621,7 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
           context,
         ),
         pitch: interpolateText(
-          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que envia o cardápio digital instantaneamente, tira dúvidas sobre pratos, horários e localização, e direciona reservas 24 horas por dia, com atendimento ágil nos horários de pico. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que envia o cardápio digital instantaneamente, tira dúvidas sobre pratos, horários e localização, e direciona reservas 24 horas por dia, com atendimento ágil nos horários de pico. O setup inicial de implantação e configuração Meta Business começa a partir de R$ 350,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
           context,
         ),
         argumento: interpolateText(
@@ -653,7 +653,7 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
           context,
         ),
         pitch: interpolateText(
-          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] focado em agendamento de serviços, orçamentos rápidos e envio de tabela de serviços 24 horas por dia. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo infraestrutura, suporte e manutenção.',
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] focado em agendamento de serviços, orçamentos rápidos e envio de tabela de serviços 24 horas por dia. O setup inicial de implantação e configuração Meta Business começa a partir de R$ 350,00, e R$ 55,00/mês cobrindo infraestrutura, suporte e manutenção.',
           context,
         ),
         argumento: interpolateText(
@@ -686,7 +686,7 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
           context,
         ),
         pitch: interpolateText(
-          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que atende 24 horas por dia, responde com naturalidade (sem parecer robô), tira dúvidas e agenda clientes. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que atende 24 horas por dia, responde com naturalidade (sem parecer robô), tira dúvidas e agenda clientes. O setup inicial de implantação e configuração Meta Business começa a partir de R$ 350,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
           context,
         ),
         argumento: interpolateText(
@@ -724,8 +724,8 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
         ),
         pitch: interpolateText(
           input.productDescription
-            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
-            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] com cardápio digital interativo, fotos atraentes dos pratos, informações de localização, horários e botão direto para pedidos e reservas no WhatsApp sem taxa de aplicativo. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] com cardápio digital interativo, fotos atraentes dos pratos, informações de localização, horários e botão direto para pedidos e reservas no WhatsApp sem taxa de aplicativo. O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
           context,
         ),
         argumento: interpolateText(
@@ -760,8 +760,8 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
         ),
         pitch: interpolateText(
           input.productDescription
-            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
-            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos de antes e depois, localização e botão direto para agendamento de serviços e orçamentos rápidos no WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos de antes e depois, localização e botão direto para agendamento de serviços e orçamentos rápidos no WhatsApp. O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
           context,
         ),
         argumento: interpolateText(
@@ -797,8 +797,8 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
         ),
         pitch: interpolateText(
           input.productDescription
-            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
-            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 350,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
           context,
         ),
         argumento: interpolateText(

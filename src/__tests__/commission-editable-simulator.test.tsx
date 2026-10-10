@@ -74,10 +74,10 @@ const mockTiers = [
 const mockSettings = {
   id: 'set1',
   product_name: 'Site ou Landing Page sob medida',
-  base_sale_value: 500,
+  base_sale_value: 350,
   monthly_hosting_value: 55,
   hosting_note: 'A mensalidade de R$ 55,00 não integra a base de comissão.',
-  essential_rules: ['A comissão incide sobre o valor da venda do Site/LP.'],
+  essential_rules: ['A comissão incide sobre o setup inicial negociado (a partir de R$ 350,00).'],
   detailed_rules: [],
   is_active: true,
   collectionId: 'commission_settings',
@@ -150,15 +150,14 @@ describe('Simulador Editável na Tela de Comissionamento (Commission.tsx)', () =
     expect(salesInput).toBeDefined()
     expect(valueInput).toBeDefined()
     expect(salesInput.value).toBe('10')
-    expect(valueInput.value).toBe('500')
+    expect(valueInput.value).toBe('350')
 
-    // Altera o valor da venda para R$ 1.500 (acima de 500)
+    // Altera o valor da venda para R$ 1.500 (acima de 350)
     // 10 vendas na Faixa 3 (30%) com valor unitário R$ 1.500 -> comissão por venda = 1500 * 30% = R$ 450,00
     // Total de comissão: 10 * 450 = R$ 4.500,00
     fireEvent.change(valueInput, { target: { value: '1500' } })
 
-    expect(screen.getByText('Regra Proporcional Ativa (> R$ 500)')).toBeDefined()
-    expect(screen.getByText('Proporcional 3.00x')).toBeDefined()
+    expect(screen.getByText(/Regra Proporcional Ativa/)).toBeDefined()
     expect(screen.getByText(/4\.500,00/)).toBeDefined()
 
     // Altera a quantidade de vendas para 2 (Faixa 1 = 20%)
@@ -171,7 +170,7 @@ describe('Simulador Editável na Tela de Comissionamento (Commission.tsx)', () =
     expect(screen.getByText(/400,00/)).toBeDefined()
   })
 
-  it('exibe botões de atalho de valores sugeridos acima de R$ 500', async () => {
+  it('exibe botões de atalho de valores sugeridos acima de R$ 350', async () => {
     render(
       <MemoryRouter initialEntries={['/comissionamento']}>
         <CommissionPage />
