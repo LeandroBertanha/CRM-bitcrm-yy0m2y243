@@ -85,17 +85,34 @@ export default function PublicForm() {
   const [submitted, setSubmitted] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  // Busca o nome do vendedor se o sellerId foi fornecido
+  // ID do vendedor ativo para atribuição da oportunidade (se inativo, seller fica null)
+  const [activeSellerId, setActiveSellerId] = useState<string | null>(null)
+
+  // Busca o nome e status do vendedor se o sellerId foi fornecido
   useEffect(() => {
     if (sellerId) {
       pb.collection('users')
-        .getOne(sellerId, { fields: 'name,email' })
+        .getOne<{ id: string; name?: string; email: string; disabled?: boolean }>(sellerId, {
+          fields: 'id,name,email,disabled',
+        })
         .then((seller) => {
-          setSellerName(seller.name || seller.email.split('@')[0])
+          if (seller.disabled === true) {
+            // Vendedor desativado: não atribuir oportunidade (seller: null)
+            setActiveSellerId(null)
+            setSellerName('')
+          } else {
+            setActiveSellerId(seller.id)
+            setSellerName(seller.name || seller.email.split('@')[0])
+          }
         })
         .catch(() => {
           // vendedor não encontrado ou restrito, segue normalmente
+          setActiveSellerId(null)
+          setSellerName('')
         })
+    } else {
+      setActiveSellerId(null)
+      setSellerName('')
     }
   }, [sellerId])
 
@@ -132,7 +149,7 @@ export default function PublicForm() {
         value: finalValue,
         product: matchedProduct?.id || null,
         product_name: matchedProduct?.name || interest,
-        seller: sellerId || null,
+        seller: activeSellerId || null,
         contact_name: name.trim(),
         contact_email: email.trim(),
         contact_phone: phone.trim(),

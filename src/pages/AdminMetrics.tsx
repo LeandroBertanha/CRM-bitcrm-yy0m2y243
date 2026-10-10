@@ -35,7 +35,16 @@ import {
   Percent,
 } from 'lucide-react'
 
-interface SellerStat {
+export interface SellerStatStageCounts {
+  Novo: number
+  Qualificado: number
+  Agendado: number
+  Proposta: number
+  Ganho: number
+  Perdido: number
+}
+
+export interface SellerStat {
   id: string
   name: string
   email: string
@@ -47,6 +56,55 @@ interface SellerStat {
   wonValue: number
   lostValue: number
   conversionRate: number
+  stageCounts: SellerStatStageCounts
+}
+
+export const STAGE_BADGE_CONFIG: Record<
+  keyof SellerStatStageCounts,
+  { label: string; textClass: string; bgClass: string; borderClass: string; dotClass: string }
+> = {
+  Novo: {
+    label: 'Novo',
+    textClass: 'text-sky-300',
+    bgClass: 'bg-sky-500/10',
+    borderClass: 'border-sky-500/30',
+    dotClass: 'bg-sky-400',
+  },
+  Qualificado: {
+    label: 'Qualificado',
+    textClass: 'text-indigo-300',
+    bgClass: 'bg-indigo-500/10',
+    borderClass: 'border-indigo-500/30',
+    dotClass: 'bg-indigo-400',
+  },
+  Agendado: {
+    label: 'Agendado',
+    textClass: 'text-amber-300',
+    bgClass: 'bg-amber-500/10',
+    borderClass: 'border-amber-500/30',
+    dotClass: 'bg-amber-400',
+  },
+  Proposta: {
+    label: 'Proposta',
+    textClass: 'text-purple-300',
+    bgClass: 'bg-purple-500/10',
+    borderClass: 'border-purple-500/30',
+    dotClass: 'bg-purple-400',
+  },
+  Ganho: {
+    label: 'Ganho',
+    textClass: 'text-emerald-300',
+    bgClass: 'bg-emerald-500/10',
+    borderClass: 'border-emerald-500/30',
+    dotClass: 'bg-emerald-400',
+  },
+  Perdido: {
+    label: 'Perdido',
+    textClass: 'text-rose-300',
+    bgClass: 'bg-rose-500/10',
+    borderClass: 'border-rose-500/30',
+    dotClass: 'bg-rose-400',
+  },
 }
 
 export default function AdminMetrics() {
@@ -60,9 +118,11 @@ export default function AdminMetrics() {
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedSellerId, setSelectedSellerId] = useState<string>('all')
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
+      setLoadError(null)
       const [oppsRecords, usersRecords, tiersRecords, settingsRecord] = await Promise.all([
         pb.collection('opportunities').getFullList<Opportunity>({
           sort: '-created',
@@ -73,6 +133,7 @@ export default function AdminMetrics() {
           .getFullList<{ id: string; name?: string; email: string; role?: string }>({
             sort: 'name',
             fields: 'id,name,email,role',
+            filter: 'disabled != true',
           }),
         getCommissionTiers(),
         getCommissionSettings(),
@@ -81,8 +142,12 @@ export default function AdminMetrics() {
       setSellers(usersRecords)
       setTiers(tiersRecords)
       setSettings(settingsRecord)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao carregar dados de métricas:', err)
+      setLoadError(
+        err?.message ||
+          'Não foi possível conectar ao banco de dados para carregar as métricas da equipe.',
+      )
     } finally {
       setLoading(false)
       setIsRefreshing(false)
@@ -210,9 +275,22 @@ export default function AdminMetrics() {
   }, [activeOpps, totalOppsCount])
 
   // Métricas por Vendedor (Performance da Equipe)
+  // Regra da Tarefa 2: Nenhum inativo em gráficos, ranking ou desempenho por vendedor.
+  // Somente vendedores ativos (sellers vindos da consulta com 'disabled != true').
+  // Oportunidades históricas de inativos continuam nos totais globais, mas não criam linha de vendedor.
   const sellerStats = useMemo<SellerStat[]>(() => {
-    // Mapear cada seller conhecido + um placeholder para sem vendedor atribuído se houver
+    // Mapear apenas sellers ativos (sellers já filtrados por disabled != true)
+    const activeSellerIds = new Set(sellers.map((s) => s.id))
     const sellerMap = new Map<string, SellerStat>()
+
+    const createEmptyStageCounts = (): SellerStatStageCounts => ({
+      Novo: 0,
+      Qualificado: 0,
+      Agendado: 0,
+      Proposta: 0,
+      Ganho: 0,
+      Perdido: 0,
+    })
 
     sellers.forEach((s) => {
       sellerMap.set(s.id, {
@@ -227,50 +305,28 @@ export default function AdminMetrics() {
         wonValue: 0,
         lostValue: 0,
         conversionRate: 0,
+        stageCounts: createEmptyStageCounts(),
       })
     })
 
-    // Adiciona "Não Atribuído" caso haja oportunidade sem seller
-    const unassignedId = 'unassigned'
-    sellerMap.set(unassignedId, {
-      id: unassignedId,
-      name: 'Sem Vendedor Atribuído',
-      email: 'captacao-geral@bitcrm.local',
-      totalOpps: 0,
-      inProgressCount: 0,
-      wonCount: 0,
-      lostCount: 0,
-      totalPipelineValue: 0,
-      wonValue: 0,
-      lostValue: 0,
-      conversionRate: 0,
-    })
-
     opportunities.forEach((opp) => {
-      const sellerId = opp.seller || opp.expand?.seller?.id || unassignedId
-      let stat = sellerMap.get(sellerId)
-
-      if (!stat) {
-        // Vendedor desconhecido ainda nos registros
-        stat = {
-          id: sellerId,
-          name: opp.expand?.seller?.name || opp.expand?.seller?.email || 'Outro Vendedor',
-          email: opp.expand?.seller?.email || '',
-          totalOpps: 0,
-          inProgressCount: 0,
-          wonCount: 0,
-          lostCount: 0,
-          totalPipelineValue: 0,
-          wonValue: 0,
-          lostValue: 0,
-          conversionRate: 0,
-        }
-        sellerMap.set(sellerId, stat)
+      const sellerId = opp.seller || opp.expand?.seller?.id
+      // Se não pertencer a um vendedor ativo conhecido, não cria linha de vendedor (ex: inativo ou sem vendedor)
+      if (!sellerId || !activeSellerIds.has(sellerId)) {
+        return
       }
+
+      const stat = sellerMap.get(sellerId)
+      if (!stat) return
 
       stat.totalOpps += 1
       const rawVal = typeof opp.value === 'number' ? opp.value : parseFloat(String(opp.value || 0))
       const val = isNaN(rawVal) ? 0 : rawVal
+
+      // Contagem por estágio
+      if (opp.stage in stat.stageCounts) {
+        stat.stageCounts[opp.stage as keyof SellerStatStageCounts] += 1
+      }
 
       if (opp.stage === 'Ganho') {
         stat.wonCount += 1
@@ -287,7 +343,6 @@ export default function AdminMetrics() {
     })
 
     const list = Array.from(sellerMap.values())
-      .filter((s) => s.totalOpps > 0 || s.id !== unassignedId)
       .map((s) => {
         const closed = s.wonCount + s.lostCount
         const rate = closed > 0 ? Math.round((s.wonCount / closed) * 100) : 0
@@ -388,6 +443,28 @@ export default function AdminMetrics() {
 
   return (
     <div className="space-y-8 animate-fadeInUp">
+      {/* Banner de erro com retry se houver falha de carregamento */}
+      {loadError && (
+        <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-start gap-3">
+            <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-rose-200">Falha ao carregar métricas</p>
+              <p className="text-xs text-rose-300/90 mt-0.5">{loadError}</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={fetchData}
+            disabled={loading || isRefreshing}
+            className="bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs h-9 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
       {/* Cabeçalho da Página do Administrador */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#262A33]">
         <div>
@@ -569,20 +646,52 @@ export default function AdminMetrics() {
                       }`}
                     >
                       <td className="py-3.5 px-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                            {s.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-white flex items-center gap-1.5">
-                              {s.name}
-                              {isCurrentLogged && (
-                                <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-500/30">
-                                  Você
-                                </span>
-                              )}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                              {s.name.slice(0, 2).toUpperCase()}
                             </div>
-                            <span className="text-[11px] text-gray-500 font-mono">{s.email}</span>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-white flex items-center gap-1.5 truncate">
+                                {s.name}
+                                {isCurrentLogged && (
+                                  <span className="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded border border-indigo-500/30 shrink-0">
+                                    Você
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-gray-500 font-mono block truncate">
+                                {s.email}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Mini-badges de contagem por estágio (Tarefa 1) */}
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {(
+                              [
+                                'Novo',
+                                'Qualificado',
+                                'Agendado',
+                                'Proposta',
+                                'Ganho',
+                                'Perdido',
+                              ] as const
+                            ).map((stg) => {
+                              const count = s.stageCounts[stg] || 0
+                              const cfg = STAGE_BADGE_CONFIG[stg]
+                              return (
+                                <span
+                                  key={stg}
+                                  title={`${cfg.label}: ${count} oportunidade${count === 1 ? '' : 's'}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border tabular-nums ${cfg.bgClass} ${cfg.textClass} ${cfg.borderClass}`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
+                                  <span className="font-semibold">{cfg.label}:</span>
+                                  <span className="font-bold">{count}</span>
+                                </span>
+                              )
+                            })}
                           </div>
                         </div>
                       </td>

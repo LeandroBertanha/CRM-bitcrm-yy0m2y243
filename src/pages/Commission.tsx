@@ -79,6 +79,7 @@ export default function CommissionPage() {
           .getFullList<{ id: string; name?: string; email: string; role?: string }>({
             sort: 'name',
             fields: 'id,name,email,role',
+            filter: 'disabled != true',
           }),
       ])
 

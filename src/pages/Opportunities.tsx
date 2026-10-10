@@ -167,6 +167,7 @@ export default function Opportunities() {
         .collection('users')
         .getFullList<{ id: string; name?: string; email: string }>({
           fields: 'id,name,email',
+          filter: 'disabled != true',
         })
       setSellersList(users)
     } catch {
@@ -179,6 +180,16 @@ export default function Opportunities() {
     fetchSellers()
     fetchProducts()
   }, [fetchOpportunities, fetchSellers, fetchProducts])
+
+  // Se o sellerFilter do Kanban apontar para um vendedor que não está na lista de ativos, redefine para 'all'
+  useEffect(() => {
+    if (sellerFilter !== 'all' && sellersList.length > 0) {
+      const isActive = sellersList.some((s) => s.id === sellerFilter)
+      if (!isActive) {
+        setSellerFilter('all')
+      }
+    }
+  }, [sellerFilter, sellersList])
 
   // Prevenir comportamento padrão do navegador de abrir/fazer download ao soltar arquivos acidentalmente na janela
   // Mas sem qualquer overlay ou abertura automática do importador
@@ -1681,6 +1692,16 @@ export default function Opportunities() {
                   <SelectValue placeholder="Selecione o vendedor" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                  {/* Se a oportunidade pertencer a um vendedor inativo que não está em sellersList, exibe como "Nome (Inativo)" */}
+                  {Boolean(
+                    formData.seller && !sellersList.some((s) => s.id === formData.seller),
+                  ) && (
+                    <SelectItem value={formData.seller}>
+                      {(selectedOpp?.expand?.seller?.name ||
+                        selectedOpp?.expand?.seller?.email ||
+                        'Vendedor Anterior') + ' (Inativo)'}
+                    </SelectItem>
+                  )}
                   {sellersList.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name || s.email}

@@ -146,6 +146,7 @@ export default function Dashboard() {
         .collection('users')
         .getFullList<{ id: string; name?: string; email: string }>({
           fields: 'id,name,email',
+          filter: 'disabled != true',
         })
       setSellersList(users)
     } catch {
