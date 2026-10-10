@@ -234,14 +234,30 @@ export default function ApproachFlow() {
 
   // Mensagem de WhatsApp interpolada usando script do playbook do banco (ou fallback contextual)
   const whatsAppMessage = useMemo(() => {
-    // Procura o script de WhatsApp no playbook carregado do banco
-    const waScript = playbook.scripts.find((s) => s.channel === 'WhatsApp' && s.is_active)
+    // Procura o script de WhatsApp no playbook carregado do banco, preferindo o associado ao produto da oportunidade
+    const activeOpp = opportunities.find((o) => o.id === selectedOppId)
+    const oppProduct = activeOpp?.product_name || activeOpp?.product
+    let waScript = playbook.scripts.find((s) => {
+      if (s.channel !== 'WhatsApp' || !s.is_active) return false
+      if (!oppProduct) return true
+      return (
+        s.product === activeOpp?.product ||
+        (s.product_name &&
+          oppProduct &&
+          (s.product_name.toLowerCase().includes(oppProduct.toLowerCase()) ||
+            oppProduct.toLowerCase().includes(s.product_name.toLowerCase())))
+      )
+    })
+    if (!waScript) {
+      waScript = playbook.scripts.find((s) => s.channel === 'WhatsApp' && s.is_active)
+    }
+
     return buildWhatsAppMessage({
       scriptTemplate: waScript?.script_text || null,
       context: interpolationContext,
       hasOpportunity: Boolean(selectedOppId),
     })
-  }, [playbook.scripts, interpolationContext, selectedOppId])
+  }, [playbook.scripts, interpolationContext, selectedOppId, opportunities])
 
   // Iniciar Copiloto
   const handleStartCopilot = () => {

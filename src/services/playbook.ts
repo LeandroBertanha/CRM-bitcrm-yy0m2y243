@@ -36,6 +36,7 @@ export async function getPlaybookBundle(): Promise<PlaybookBundle> {
     pb.collection('playbook_scripts').getFullList<PlaybookScript>({
       filter: 'is_active = true',
       sort: 'display_order',
+      expand: 'product',
     }),
     pb.collection('playbook_questions').getFullList<PlaybookQuestion>({
       filter: 'is_active = true',

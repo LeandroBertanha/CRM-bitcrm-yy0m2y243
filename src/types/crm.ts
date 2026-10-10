@@ -17,6 +17,18 @@ export interface OpportunityNote extends RecordModel {
   }
 }
 
+export interface Product extends RecordModel {
+  name: string
+  description?: string
+  setup_value: number
+  recurring_value?: number
+  recurring_interval?: string
+  commission_base_type?: 'setup' | 'total' | string
+  commission_rules_note?: string
+  is_active?: boolean
+  display_order?: number
+}
+
 export interface Opportunity extends RecordModel {
   company: string
   stage: 'Novo' | 'Qualificado' | 'Agendado' | 'Proposta' | 'Ganho' | 'Perdido'
@@ -29,6 +41,9 @@ export interface Opportunity extends RecordModel {
     | 'Prospecção'
     | 'Outro'
   value: number
+  product?: string
+  product_name?: string
+  recurring_value?: number | null
   seller?: string
   contact_name?: string
   contact_email?: string
@@ -44,6 +59,7 @@ export interface Opportunity extends RecordModel {
       name?: string
       email?: string
     }
+    product?: Product
   }
 }
 

@@ -66,6 +66,9 @@ export default function ApproachSettingsPage() {
   const [editingItem, setEditingItem] = useState<any | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Lista de produtos para associação de scripts
+  const [productsList, setProductsList] = useState<Array<{ id: string; name: string }>>([])
+
   // Form states específicos
   const [segmentForm, setSegmentForm] = useState({ name: '', display_order: '1' })
   const [scriptForm, setScriptForm] = useState({
@@ -74,6 +77,7 @@ export default function ApproachSettingsPage() {
     title: '',
     script_text: '',
     instructions: '',
+    product: '',
     display_order: '1',
   })
   const [questionForm, setQuestionForm] = useState({
@@ -104,7 +108,7 @@ export default function ApproachSettingsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [segs, scrs, quests, objs, args, vals] = await Promise.all([
+      const [segs, scrs, quests, objs, args, vals, prods] = await Promise.all([
         pb.collection('playbook_segments').getFullList<PlaybookSegment>({ sort: 'display_order' }),
         pb.collection('playbook_scripts').getFullList<PlaybookScript>({ sort: 'display_order' }),
         pb
@@ -117,9 +121,13 @@ export default function ApproachSettingsPage() {
           .collection('playbook_arguments')
           .getFullList<PlaybookArgument>({ sort: 'display_order' }),
         pb.collection('playbook_values').getFullList<PlaybookValues>({ limit: 1 }),
+        pb
+          .collection('products')
+          .getFullList({ filter: 'is_active = true', sort: 'display_order,name' }),
       ])
       setSegments(segs)
       setScripts(scrs)
+      setProductsList(prods.map((p) => ({ id: p.id, name: (p as any).name })))
       setQuestions(quests)
       setObjections(objs)
       setArgumentsList(args)
@@ -159,6 +167,7 @@ export default function ApproachSettingsPage() {
         title: '',
         script_text: '',
         instructions: '',
+        product: '',
         display_order: String(scripts.length + 1),
       })
     } else if (activeTab === 'perguntas') {
@@ -197,6 +206,7 @@ export default function ApproachSettingsPage() {
         title: item.title,
         script_text: item.script_text,
         instructions: item.instructions || '',
+        product: item.product || '',
         display_order: String(item.display_order),
       })
     } else if (activeTab === 'perguntas') {
@@ -251,12 +261,15 @@ export default function ApproachSettingsPage() {
           await pb.collection('playbook_segments').create(payload)
         }
       } else if (activeTab === 'scripts') {
+        const matchedProduct = productsList.find((p) => p.id === scriptForm.product)
         const payload = {
           channel: scriptForm.channel,
           situation: scriptForm.situation.trim(),
           title: scriptForm.title.trim(),
           script_text: scriptForm.script_text.trim(),
           instructions: scriptForm.instructions.trim(),
+          product: scriptForm.product || null,
+          product_name: matchedProduct ? matchedProduct.name : '',
           display_order: parseInt(scriptForm.display_order, 10) || 1,
           is_active: true,
         }
@@ -451,44 +464,54 @@ export default function ApproachSettingsPage() {
       {/* 2. SCRIPTS */}
       {activeTab === 'scripts' && (
         <div className="space-y-3">
-          {scripts.map((sc) => (
-            <div
-              key={sc.id}
-              className="p-4 rounded-xl bg-[#12141A] border border-[#262A33] flex flex-col justify-between gap-2"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block">
-                    {sc.channel} • {sc.title}
-                  </span>
-                  {sc.situation && <p className="text-xs text-gray-400">{sc.situation}</p>}
+          {scripts.map((sc) => {
+            const prodName = sc.product_name || productsList.find((p) => p.id === sc.product)?.name
+            return (
+              <div
+                key={sc.id}
+                className="p-4 rounded-xl bg-[#12141A] border border-[#262A33] flex flex-col justify-between gap-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                        {sc.channel} • {sc.title}
+                      </span>
+                      {prodName && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                          Produto: {prodName}
+                        </span>
+                      )}
+                    </div>
+                    {sc.situation && <p className="text-xs text-gray-400 mt-0.5">{sc.situation}</p>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleOpenEdit(sc)}
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete('playbook_scripts', sc.id)}
+                      className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleOpenEdit(sc)}
-                    className="h-8 w-8 p-0 text-gray-400 hover:text-white"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete('playbook_scripts', sc.id)}
-                    className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
+                <p className="text-xs text-gray-200 whitespace-pre-line mt-1 bg-[#0A0B0E] p-3 rounded-lg border border-[#262A33]">
+                  {sc.script_text}
+                </p>
               </div>
-              <p className="text-xs text-gray-200 whitespace-pre-line mt-1 bg-[#0A0B0E] p-3 rounded-lg border border-[#262A33]">
-                {sc.script_text}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -732,6 +755,38 @@ export default function ApproachSettingsPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
+                    <Label className="text-xs text-gray-300">Produto Associado</Label>
+                    <Select
+                      value={scriptForm.product || 'none'}
+                      onValueChange={(val) =>
+                        setScriptForm({ ...scriptForm, product: val === 'none' ? '' : val })
+                      }
+                    >
+                      <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                        <SelectValue placeholder="Selecione um produto..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        <SelectItem value="none">Geral (qualquer produto)</SelectItem>
+                        {productsList.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-gray-300">Título</Label>
+                    <Input
+                      value={scriptForm.title}
+                      onChange={(e) => setScriptForm({ ...scriptForm, title: e.target.value })}
+                      className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-xs text-gray-300">Ordem</Label>
                     <Input
                       type="number"
@@ -742,15 +797,6 @@ export default function ApproachSettingsPage() {
                       className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
                     />
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-300">Título</Label>
-                  <Input
-                    value={scriptForm.title}
-                    onChange={(e) => setScriptForm({ ...scriptForm, title: e.target.value })}
-                    className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
-                    required
-                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-300">Texto do Script</Label>

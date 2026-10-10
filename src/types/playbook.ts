@@ -41,6 +41,8 @@ export interface PlaybookScript extends RecordModel {
   title: string
   script_text: string
   instructions?: string
+  product?: string
+  product_name?: string
   display_order: number
   is_active: boolean
 }

@@ -24,17 +24,47 @@ export async function getCommissionTiers(): Promise<CommissionTier[]> {
   }
 }
 
-export async function getCommissionSettings(): Promise<CommissionSettings | null> {
+export async function getCommissionSettings(
+  productName?: string,
+): Promise<CommissionSettings | null> {
   try {
+    const filter = productName
+      ? `is_active = true && product_name = "${productName}"`
+      : 'is_active = true'
     const record = await pb
       .collection('commission_settings')
-      .getFirstListItem<CommissionSettings>('is_active = true', {
+      .getFirstListItem<CommissionSettings>(filter, {
         sort: '-updated',
       })
     return record
   } catch (err) {
+    // Fallback para primeiro ativo se busca com filtro específico não retornar
+    if (productName) {
+      try {
+        return await pb
+          .collection('commission_settings')
+          .getFirstListItem<CommissionSettings>('is_active = true', {
+            sort: '-updated',
+          })
+      } catch {
+        return null
+      }
+    }
     console.error('Erro ao buscar configurações de comissionamento do banco:', err)
     return null
+  }
+}
+
+export async function getAllCommissionSettings(): Promise<CommissionSettings[]> {
+  try {
+    const records = await pb.collection('commission_settings').getFullList<CommissionSettings>({
+      filter: 'is_active = true',
+      sort: 'product_name',
+    })
+    return records
+  } catch (err) {
+    console.error('Erro ao buscar lista de configurações de comissão:', err)
+    return []
   }
 }
 

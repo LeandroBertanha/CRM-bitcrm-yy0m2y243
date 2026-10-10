@@ -87,14 +87,22 @@ export default function WhatsAppApproachPage() {
 
       <div className="space-y-4">
         {scripts.map((sc) => (
-          <ScriptCard
-            key={sc.id}
-            title={sc.title}
-            situation={sc.situation}
-            scriptText={sc.script_text}
-            instructions={sc.instructions}
-            highlight={true}
-          />
+          <div key={sc.id} className="space-y-1">
+            {sc.product_name && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
+                  Produto: {sc.product_name}
+                </span>
+              </div>
+            )}
+            <ScriptCard
+              title={sc.title}
+              situation={sc.situation}
+              scriptText={sc.script_text}
+              instructions={sc.instructions}
+              highlight={true}
+            />
+          </div>
         ))}
       </div>
     </div>

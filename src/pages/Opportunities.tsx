@@ -4,6 +4,7 @@ import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
 import {
   Opportunity,
+  Product,
   STAGES,
   SOURCES,
   STAGE_CONFIG,
@@ -12,6 +13,7 @@ import {
   formatDateBR,
   getReturnAlertInfo,
 } from '@/types/crm'
+import { getActiveProducts } from '@/services/productService'
 import { OpportunityTimeline } from '@/components/OpportunityTimeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -96,7 +98,10 @@ export default function Opportunities() {
     company: string
     stage: Opportunity['stage']
     source: Opportunity['source']
+    product: string
+    product_name: string
     value: string
+    recurring_value: string
     seller: string
     contact_name: string
     contact_email: string
@@ -110,7 +115,10 @@ export default function Opportunities() {
     company: '',
     stage: 'Novo',
     source: 'Formulário Público',
-    value: '',
+    product: '',
+    product_name: '',
+    value: '500',
+    recurring_value: '55',
     seller: user?.id || '',
     contact_name: '',
     contact_email: '',
@@ -129,7 +137,7 @@ export default function Opportunities() {
     try {
       const records = await pb.collection('opportunities').getFullList<Opportunity>({
         sort: '-created',
-        expand: 'seller',
+        expand: 'seller,product',
       })
       setOpportunities(records)
     } catch (err) {
@@ -137,6 +145,15 @@ export default function Opportunities() {
     } finally {
       setLoading(false)
       setIsRefreshing(false)
+    }
+  }, [])
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const prods = await getActiveProducts()
+      setProductsList(prods)
+    } catch (e) {
+      console.error('Erro ao carregar produtos:', e)
     }
   }, [])
 
@@ -156,7 +173,8 @@ export default function Opportunities() {
   useEffect(() => {
     fetchOpportunities()
     fetchSellers()
-  }, [fetchOpportunities, fetchSellers])
+    fetchProducts()
+  }, [fetchOpportunities, fetchSellers, fetchProducts])
 
   // Prevenir comportamento padrão do navegador de abrir/fazer download ao soltar arquivos acidentalmente na janela
   // Mas sem qualquer overlay ou abertura automática do importador
@@ -230,11 +248,15 @@ export default function Opportunities() {
 
   // Abrir Modal de Criação
   const handleOpenCreate = () => {
+    const defaultProduct = productsList.length > 0 ? productsList[0] : null
     setFormData({
       company: '',
       stage: 'Novo',
       source: 'Indicação',
-      value: '',
+      product: defaultProduct?.id || '',
+      product_name: defaultProduct?.name || '',
+      value: defaultProduct?.setup_value ? String(defaultProduct.setup_value) : '500',
+      recurring_value: defaultProduct?.recurring_value ? String(defaultProduct.recurring_value) : '55',
       seller: user?.id || '',
       contact_name: '',
       contact_email: '',
@@ -257,7 +279,13 @@ export default function Opportunities() {
       company: opp.company,
       stage: opp.stage,
       source: opp.source,
-      value: opp.value ? String(opp.value) : '',
+      product: opp.product || '',
+      product_name: opp.product_name || opp.expand?.product?.name || '',
+      value: opp.value !== undefined && opp.value !== null ? String(opp.value) : '',
+      recurring_value:
+        opp.recurring_value !== undefined && opp.recurring_value !== null
+          ? String(opp.recurring_value)
+          : '55',
       seller: opp.seller || user?.id || '',
       contact_name: opp.contact_name || '',
       contact_email: opp.contact_email || '',
@@ -471,11 +499,19 @@ export default function Opportunities() {
 
     setSubmitting(true)
     try {
+      const matchedProd = productsList.find((p) => p.id === formData.product)
+      const finalProdName = formData.product_name || matchedProd?.name || ''
+      const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 500
+      const recVal = formData.recurring_value ? parseFloat(formData.recurring_value.replace(',', '.')) : 55
+
       await pb.collection('opportunities').create({
         company: formData.company.trim(),
         stage: formData.stage,
         source: formData.source,
-        value: formData.value ? parseFloat(formData.value.replace(',', '.')) : 0,
+        product: formData.product || null,
+        product_name: finalProdName,
+        value: isNaN(setupVal) ? 500 : setupVal, // Setup da oportunidade (base de comissão)
+        recurring_value: isNaN(recVal) ? 55 : recVal, // Mensalidade de hospedagem/suporte (fora da comissão)
         seller: formData.seller || user?.id,
         contact_name: formData.contact_name.trim(),
         contact_email: formData.contact_email.trim(),
@@ -521,12 +557,19 @@ export default function Opportunities() {
     setSubmitting(true)
     try {
       const returnAtIso = buildIsoDateTime(formData.return_date, formData.return_time)
+      const matchedProd = productsList.find((p) => p.id === formData.product)
+      const finalProdName = formData.product_name || matchedProd?.name || ''
+      const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 0
+      const recVal = formData.recurring_value ? parseFloat(formData.recurring_value.replace(',', '.')) : 55
 
       await pb.collection('opportunities').update(selectedOpp.id, {
         company: formData.company.trim(),
         stage: formData.stage,
         source: formData.source,
-        value: formData.value ? parseFloat(formData.value.replace(',', '.')) : 0,
+        product: formData.product || null,
+        product_name: finalProdName,
+        value: isNaN(setupVal) ? 0 : setupVal,
+        recurring_value: isNaN(recVal) ? 55 : recVal,
         seller: formData.seller || user?.id,
         contact_name: formData.contact_name.trim(),
         contact_email: formData.contact_email.trim(),
@@ -1064,15 +1107,32 @@ export default function Opportunities() {
                             )
                           })()}
 
+                        {/* Produto e Recorrência se houver */}
+                        {(opp.product_name || opp.expand?.product?.name || opp.recurring_value) && (
+                          <div className="text-[10px] bg-[#0E1017] px-2 py-1 rounded-lg border border-[#262A33]/60 flex items-center justify-between gap-1">
+                            <span className="text-gray-300 font-medium truncate" title={opp.product_name || opp.expand?.product?.name || 'Produto'}>
+                              {opp.product_name || opp.expand?.product?.name || 'Produto'}
+                            </span>
+                            {opp.recurring_value ? (
+                              <span className="text-cyan-400 font-semibold shrink-0" title="Mensalidade recorrente (não comissionável)">
+                                +{formatBRL(opp.recurring_value)}/mês
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+
                         {/* Valor, Pagamento e Badge de Origem */}
                         <div className="flex items-center justify-between gap-1 pt-1 border-t border-[#262A33]/80 min-w-0">
                           <div className="flex flex-col min-w-0">
-                            <span
-                              title={formatBRL(opp.value)}
-                              className="text-xs font-bold text-indigo-400 tabular-nums truncate"
-                            >
-                              {formatBRL(opp.value)}
-                            </span>
+                            <div className="flex items-baseline gap-1 min-w-0">
+                              <span
+                                title={`Setup: ${formatBRL(opp.value)} (base comissionável)`}
+                                className="text-xs font-bold text-indigo-400 tabular-nums truncate"
+                              >
+                                {formatBRL(opp.value)}
+                              </span>
+                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-medium">setup</span>
+                            </div>
                             {opp.payment_type && (
                               <span className="text-[9px] text-emerald-400 font-medium truncate">
                                 {opp.payment_type}
@@ -1191,17 +1251,110 @@ export default function Opportunities() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Seleção do Produto do Catálogo */}
+            <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-gray-300">Valor Estimado (R$)</Label>
-                <Input
-                  placeholder="Ex: 45000"
-                  type="number"
-                  step="any"
-                  value={formData.value}
-                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
-                />
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-indigo-300 font-semibold">Produto do Catálogo</Label>
+                  <span className="text-[10px] text-gray-400">Lido do banco de dados</span>
+                </div>
+                <Select
+                  value={formData.product || 'none'}
+                  onValueChange={(val) => {
+                    const sel = productsList.find((p) => p.id === val)
+                    if (sel) {
+                      setFormData({
+                        ...formData,
+                        product: sel.id,
+                        product_name: sel.name,
+                        value: String(sel.setup_value ?? 500),
+                        recurring_value: String(sel.recurring_value ?? 55),
+                      })
+                    } else {
+                      setFormData({
+                        ...formData,
+                        product: '',
+                        product_name: '',
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione o produto comercial" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    <SelectItem value="none">Personalizado / Outro</SelectItem>
+                    {productsList.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Dois componentes: Configuração (Setup) e Hospedagem/Suporte (Mensalidade) */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <Label className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                    Setup / Implantação (R$) *
+                  </Label>
+                  <Input
+                    placeholder="Ex: 500"
+                    type="number"
+                    step="any"
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                  />
+                  <span className="text-[10px] text-emerald-400/80 block">
+                    ✓ Base exclusiva para comissão
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-cyan-400 font-semibold flex items-center gap-1">
+                    Mensalidade / Suporte (R$/mês)
+                  </Label>
+                  <Input
+                    placeholder="Ex: 55"
+                    type="number"
+                    step="any"
+                    value={formData.recurring_value}
+                    onChange={(e) => setFormData({ ...formData, recurring_value: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                  />
+                  <span className="text-[10px] text-gray-400 block">
+                    ℹ Recorrência (nunca entra na comissão)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs text-gray-300">Vendedor Responsável</Label>
+                <Select
+                  value={formData.seller}
+                  onValueChange={(val) => setFormData({ ...formData, seller: val })}
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione o vendedor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    {sellersList.length > 0 ? (
+                      sellersList.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name || s.email}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value={user?.id || 'me'}>
+                        {user?.name || user?.email || 'Eu mesmo'}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
@@ -1414,17 +1567,79 @@ export default function Opportunities() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Produto no Edit */}
+            <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-gray-300">Valor (R$)</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={formData.value}
-                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                  className="bg-[#0E1017] border-[#262A33] text-white text-xs rounded-xl h-10"
-                />
+                <Label className="text-xs text-indigo-300 font-semibold">Produto do Catálogo</Label>
+                <Select
+                  value={formData.product || 'none'}
+                  onValueChange={(val) => {
+                    const sel = productsList.find((p) => p.id === val)
+                    if (sel) {
+                      setFormData({
+                        ...formData,
+                        product: sel.id,
+                        product_name: sel.name,
+                        value: String(sel.setup_value ?? 500),
+                        recurring_value: String(sel.recurring_value ?? 55),
+                      })
+                    } else {
+                      setFormData({
+                        ...formData,
+                        product: '',
+                        product_name: '',
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                    <SelectValue placeholder="Selecione o produto comercial" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    <SelectItem value="none">Personalizado / Outro</SelectItem>
+                    {productsList.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="space-y-1">
+                  <Label className="text-xs text-emerald-400 font-semibold">
+                    Setup / Implantação (R$) *
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                  />
+                  <span className="text-[10px] text-emerald-400/80 block">
+                    ✓ Base exclusiva para comissão
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-cyan-400 font-semibold">
+                    Mensalidade / Suporte (R$/mês)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={formData.recurring_value}
+                    onChange={(e) => setFormData({ ...formData, recurring_value: e.target.value })}
+                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                  />
+                  <span className="text-[10px] text-gray-400 block">
+                    ℹ Recorrência (fora da comissão)
+                  </span>
+                </div>
+              </div>
+            </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-300">Vendedor</Label>
@@ -1718,23 +1933,43 @@ export default function Opportunities() {
               </DialogHeader>
 
               <div className="space-y-4 py-2 text-xs">
-                {/* Valor, Origem e Condições de Pagamento */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 rounded-xl bg-[#0E1017] border border-[#262A33]">
+                {/* Dois componentes: Setup Comissionável + Recorrência Separada */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-[#0E1017] border border-[#262A33]">
                   <div>
-                    <span className="text-gray-500 block text-[11px]">Valor Previsto</span>
-                    <span className="text-lg font-bold text-white tabular-nums">
+                    <span className="text-emerald-400 font-bold block text-[10px] uppercase tracking-wider">
+                      Setup / Implantação
+                    </span>
+                    <span className="text-lg font-extrabold text-white tabular-nums block mt-0.5">
                       {formatBRL(selectedOpp.value)}
                     </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 block text-[11px]">Canal de Origem</span>
-                    <span className="text-sm font-semibold text-gray-200">
-                      {selectedOpp.source}
+                    <span className="text-[9px] text-emerald-400/90 block">
+                      Base de comissão (único)
                     </span>
                   </div>
-                  <div className="col-span-2 sm:col-span-1">
+
+                  <div>
+                    <span className="text-cyan-400 font-bold block text-[10px] uppercase tracking-wider">
+                      Hospedagem & Suporte
+                    </span>
+                    <span className="text-lg font-extrabold text-cyan-300 tabular-nums block mt-0.5">
+                      {formatBRL(selectedOpp.recurring_value ?? 55)}/mês
+                    </span>
+                    <span className="text-[9px] text-gray-400 block">
+                      Recorrente (fora da base)
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-gray-500 block text-[11px]">Produto</span>
+                    <span className="text-xs font-semibold text-gray-200 block mt-0.5 truncate" title={selectedOpp.product_name || selectedOpp.expand?.product?.name || 'Site ou LP'}>
+                      {selectedOpp.product_name || selectedOpp.expand?.product?.name || 'Site ou LP'}
+                    </span>
+                    <span className="text-[9px] text-gray-500 block">Origem: {selectedOpp.source}</span>
+                  </div>
+
+                  <div>
                     <span className="text-gray-500 block text-[11px]">Forma de Pagamento</span>
-                    <span className="text-sm font-semibold text-emerald-400">
+                    <span className="text-xs font-semibold text-emerald-400 block mt-0.5">
                       {selectedOpp.payment_type ? (
                         <>
                           {selectedOpp.payment_type}
