@@ -222,6 +222,15 @@ export function buildBatchWhatsAppMessage(options: {
     opportunityId: opportunity.id,
   })
 
+  // Se o template já tiver incluído o rodapé (ex: continha "— {vendedor}, bit Consulting · Ref. {ref}")
+  // ou já contiver "· Ref. ", não duplicamos o rodapé.
+  if (body.includes('· Ref. ')) {
+    // Interpolar {ref} caso tenha ficado
+    const shortRef = generateOpportunityShortRef(opportunity.company, opportunity.id)
+    body = body.replace(/Ref\.\s*\{ref\}/gi, `Ref. ${shortRef}`).replace(/\{ref\}/gi, shortRef)
+    return body.trim()
+  }
+
   // Junta o corpo ao rodapé
   body = `${body.trim()}\n\n${footer}`
   return body

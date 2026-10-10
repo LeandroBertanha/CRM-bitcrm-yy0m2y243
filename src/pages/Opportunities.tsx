@@ -256,7 +256,9 @@ export default function Opportunities() {
       product: defaultProduct?.id || '',
       product_name: defaultProduct?.name || '',
       value: defaultProduct?.setup_value ? String(defaultProduct.setup_value) : '500',
-      recurring_value: defaultProduct?.recurring_value ? String(defaultProduct.recurring_value) : '55',
+      recurring_value: defaultProduct?.recurring_value
+        ? String(defaultProduct.recurring_value)
+        : '55',
       seller: user?.id || '',
       contact_name: '',
       contact_email: '',
@@ -502,7 +504,9 @@ export default function Opportunities() {
       const matchedProd = productsList.find((p) => p.id === formData.product)
       const finalProdName = formData.product_name || matchedProd?.name || ''
       const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 500
-      const recVal = formData.recurring_value ? parseFloat(formData.recurring_value.replace(',', '.')) : 55
+      const recVal = formData.recurring_value
+        ? parseFloat(formData.recurring_value.replace(',', '.'))
+        : 55
 
       await pb.collection('opportunities').create({
         company: formData.company.trim(),
@@ -560,7 +564,9 @@ export default function Opportunities() {
       const matchedProd = productsList.find((p) => p.id === formData.product)
       const finalProdName = formData.product_name || matchedProd?.name || ''
       const setupVal = formData.value ? parseFloat(formData.value.replace(',', '.')) : 0
-      const recVal = formData.recurring_value ? parseFloat(formData.recurring_value.replace(',', '.')) : 55
+      const recVal = formData.recurring_value
+        ? parseFloat(formData.recurring_value.replace(',', '.'))
+        : 55
 
       await pb.collection('opportunities').update(selectedOpp.id, {
         company: formData.company.trim(),
@@ -1110,11 +1116,17 @@ export default function Opportunities() {
                         {/* Produto e Recorrência se houver */}
                         {(opp.product_name || opp.expand?.product?.name || opp.recurring_value) && (
                           <div className="text-[10px] bg-[#0E1017] px-2 py-1 rounded-lg border border-[#262A33]/60 flex items-center justify-between gap-1">
-                            <span className="text-gray-300 font-medium truncate" title={opp.product_name || opp.expand?.product?.name || 'Produto'}>
+                            <span
+                              className="text-gray-300 font-medium truncate"
+                              title={opp.product_name || opp.expand?.product?.name || 'Produto'}
+                            >
                               {opp.product_name || opp.expand?.product?.name || 'Produto'}
                             </span>
                             {opp.recurring_value ? (
-                              <span className="text-cyan-400 font-semibold shrink-0" title="Mensalidade recorrente (não comissionável)">
+                              <span
+                                className="text-cyan-400 font-semibold shrink-0"
+                                title="Mensalidade recorrente (não comissionável)"
+                              >
                                 +{formatBRL(opp.recurring_value)}/mês
                               </span>
                             ) : null}
@@ -1131,7 +1143,9 @@ export default function Opportunities() {
                               >
                                 {formatBRL(opp.value)}
                               </span>
-                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-medium">setup</span>
+                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-medium">
+                                setup
+                              </span>
                             </div>
                             {opp.payment_type && (
                               <span className="text-[9px] text-emerald-400 font-medium truncate">
@@ -1255,7 +1269,9 @@ export default function Opportunities() {
             <div className="p-3 rounded-xl bg-[#0E1017] border border-[#262A33] space-y-3">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs text-indigo-300 font-semibold">Produto do Catálogo</Label>
+                  <Label className="text-xs text-indigo-300 font-semibold">
+                    Produto do Catálogo
+                  </Label>
                   <span className="text-[10px] text-gray-400">Lido do banco de dados</span>
                 </div>
                 <Select
@@ -1641,24 +1657,23 @@ export default function Opportunities() {
               </div>
             </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs text-gray-300">Vendedor</Label>
-                <Select
-                  value={formData.seller}
-                  onValueChange={(val) => setFormData({ ...formData, seller: val })}
-                >
-                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
-                    <SelectValue placeholder="Selecione o vendedor" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                    {sellersList.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name || s.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-300">Vendedor</Label>
+              <Select
+                value={formData.seller}
+                onValueChange={(val) => setFormData({ ...formData, seller: val })}
+              >
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-10 rounded-xl">
+                  <SelectValue placeholder="Selecione o vendedor" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                  {sellersList.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name || s.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1961,10 +1976,21 @@ export default function Opportunities() {
 
                   <div>
                     <span className="text-gray-500 block text-[11px]">Produto</span>
-                    <span className="text-xs font-semibold text-gray-200 block mt-0.5 truncate" title={selectedOpp.product_name || selectedOpp.expand?.product?.name || 'Site ou LP'}>
-                      {selectedOpp.product_name || selectedOpp.expand?.product?.name || 'Site ou LP'}
+                    <span
+                      className="text-xs font-semibold text-gray-200 block mt-0.5 truncate"
+                      title={
+                        selectedOpp.product_name ||
+                        selectedOpp.expand?.product?.name ||
+                        'Site ou LP'
+                      }
+                    >
+                      {selectedOpp.product_name ||
+                        selectedOpp.expand?.product?.name ||
+                        'Site ou LP'}
                     </span>
-                    <span className="text-[9px] text-gray-500 block">Origem: {selectedOpp.source}</span>
+                    <span className="text-[9px] text-gray-500 block">
+                      Origem: {selectedOpp.source}
+                    </span>
                   </div>
 
                   <div>

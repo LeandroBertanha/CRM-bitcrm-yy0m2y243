@@ -349,6 +349,93 @@ export function BatchWhatsAppModal({
     }
   }, [open, fetchScripts, fetchNotesHistory, fetchCloudStatus])
 
+  // Determina o script apropriado para cada oportunidade com base no produto vinculado
+  const resolveScriptForOpportunity = useCallback(
+    (opp: Opportunity): PlaybookScript | null => {
+      if (scripts.length === 0) return activeScript
+
+      const oppProductName = (opp.product_name || '').toLowerCase()
+      const isWaAutonomous =
+        oppProductName.includes('whatsapp') ||
+        oppProductName.includes('autônomo') ||
+        oppProductName.includes('autonomo')
+
+      if (isWaAutonomous) {
+        // Buscar script específico do produto WhatsApp Autônomo para o actionType correspondente
+        if (actionType === 'initial') {
+          const waInitial = scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              ((s.product_name && s.product_name.toLowerCase().includes('whatsapp')) ||
+                s.title.toLowerCase().includes('autônomo') ||
+                s.title.toLowerCase().includes('autonomo') ||
+                (s.title.toLowerCase().includes('abordagem inicial') &&
+                  s.title.toLowerCase().includes('whatsapp'))),
+          )
+          if (waInitial) return waInitial
+        } else {
+          const waFollowup = scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              ((s.product_name && s.product_name.toLowerCase().includes('whatsapp')) ||
+                s.title.toLowerCase().includes('autônomo') ||
+                s.title.toLowerCase().includes('autonomo')) &&
+              (s.title.toLowerCase().includes('follow') ||
+                s.situation.toLowerCase().includes('retomada') ||
+                s.situation.toLowerCase().includes('continuação')),
+          )
+          if (waFollowup) return waFollowup
+        }
+      }
+
+      // Se a oportunidade NÃO for do WhatsApp Autônomo (ex: sem produto ou Site/Landing page):
+      // usar scripts genéricos ou do produto padrão (Site)
+      if (actionType === 'initial') {
+        const genericInitial =
+          scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              !s.title.toLowerCase().includes('autônomo') &&
+              !s.title.toLowerCase().includes('autonomo') &&
+              s.title.toLowerCase().includes('primeira'),
+          ) ||
+          scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              !s.title.toLowerCase().includes('autônomo') &&
+              !s.title.toLowerCase().includes('autonomo'),
+          )
+        if (genericInitial) return genericInitial
+      } else {
+        const genericFollowup =
+          scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              !s.title.toLowerCase().includes('autônomo') &&
+              !s.title.toLowerCase().includes('autonomo') &&
+              (s.title.toLowerCase().includes('follow') ||
+                s.situation.toLowerCase().includes('continuação')),
+          ) ||
+          scripts.find(
+            (s) =>
+              s.channel === 'Retorno' &&
+              !s.title.toLowerCase().includes('autônomo') &&
+              !s.title.toLowerCase().includes('autonomo'),
+          ) ||
+          scripts.find(
+            (s) =>
+              s.channel === 'WhatsApp' &&
+              !s.title.toLowerCase().includes('autônomo') &&
+              !s.title.toLowerCase().includes('autonomo'),
+          )
+        if (genericFollowup) return genericFollowup
+      }
+
+      return activeScript
+    },
+    [scripts, activeScript, actionType],
+  )
+
   // Oportunidades com mensagens calculadas
   const itemsWithMessages = useMemo(() => {
     return opportunities.map((opp) => {
@@ -359,10 +446,11 @@ export function BatchWhatsAppModal({
       }
 
       const formattedLastDate = formatInteractionDateShort(summary.lastDate)
+      const oppScript = resolveScriptForOpportunity(opp)
 
       const message = buildBatchWhatsAppMessage({
         actionType,
-        scriptTemplate: activeScript?.script_text,
+        scriptTemplate: oppScript?.script_text || activeScript?.script_text,
         opportunity: opp,
         sellerName: currentUserName || 'Consultor Comercial',
         lastInteractionDate: formattedLastDate || null,
@@ -399,6 +487,7 @@ export function BatchWhatsAppModal({
     notesSummary,
     actionType,
     activeScript,
+    resolveScriptForOpportunity,
     currentUserName,
     sessionSentIds,
     awaitingConfirmationIds,
