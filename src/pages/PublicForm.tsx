@@ -53,15 +53,15 @@ export default function PublicForm() {
       try {
         const records = await pb.collection('products').getFullList({
           filter: 'is_active = true',
-          sort: 'name',
+          sort: 'display_order,name',
         })
         if (records.length > 0) {
           setProductsList(
             records.map((r) => ({
               id: r.id,
               name: r.name,
-              setup_price: Number(r.setup_price) || 500,
-              monthly_price: Number(r.monthly_price) || 0,
+              setup_price: Number(r.setup_value ?? r.setup_price) || 500,
+              monthly_price: Number(r.recurring_value ?? r.monthly_price) || 0,
             })),
           )
         }
@@ -398,18 +398,28 @@ export default function PublicForm() {
                       </SelectTrigger>
                       <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
                         {productsList.length > 0 ? (
-                          productsList.map((p) => (
-                            <SelectItem key={p.id} value={p.name}>
-                              {p.name}{' '}
-                              {p.monthly_price > 0
+                          productsList.map((p) => {
+                            const isWaAutonomous =
+                              p.name.toLowerCase().includes('whatsapp') &&
+                              (p.name.toLowerCase().includes('autônomo') ||
+                                p.name.toLowerCase().includes('autonomo'))
+
+                            // Regra do usuário: em WhatsApp Autônomo e Humanizado, retirar da frente os valores
+                            const priceLabel =
+                              !isWaAutonomous && p.monthly_price > 0
                                 ? `(R$ ${p.setup_price} + R$ ${p.monthly_price}/mês)`
-                                : ''}
-                            </SelectItem>
-                          ))
+                                : ''
+
+                            return (
+                              <SelectItem key={p.id} value={p.name}>
+                                {p.name} {priceLabel}
+                              </SelectItem>
+                            )
+                          })
                         ) : (
                           <>
                             <SelectItem value="WhatsApp Autônomo e Humanizado">
-                              WhatsApp Autônomo e Humanizado (R$ 500 + R$ 55/mês)
+                              WhatsApp Autônomo e Humanizado
                             </SelectItem>
                             <SelectItem value="Site">Site Profissional</SelectItem>
                             <SelectItem value="Landing Page">

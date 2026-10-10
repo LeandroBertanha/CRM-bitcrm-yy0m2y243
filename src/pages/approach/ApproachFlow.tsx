@@ -48,6 +48,7 @@ import {
   Search,
   CheckCircle,
   Loader2,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -369,8 +370,12 @@ export default function ApproachFlow() {
     digitalSituation,
   ])
 
-  // Determinar o produto ativo da abordagem (da oportunidade vinculada ou do seletor)
+  // Determinar o produto ativo da abordagem: seletor manual tem prioridade; se não houver, usa da oportunidade
   const activeProduct = useMemo(() => {
+    if (selectedProductId) {
+      const match = productsList.find((p) => p.id === selectedProductId)
+      if (match) return match
+    }
     const opp = opportunities.find((o) => o.id === selectedOppId)
     if (opp?.product) {
       const match = productsList.find((p) => p.id === opp.product)
@@ -390,17 +395,13 @@ export default function ApproachFlow() {
         recurring_value: opp.recurring_value ?? 55,
       } as Product
     }
-    if (selectedProductId) {
-      const match = productsList.find((p) => p.id === selectedProductId)
-      if (match) return match
-    }
     return productsList[0] || null
-  }, [opportunities, selectedOppId, selectedProductId, productsList])
+  }, [selectedProductId, selectedOppId, opportunities, productsList])
 
-  // Determinar identificadores do produto ativo (seletor ou oportunidade)
+  // Determinar identificadores do produto ativo (seletor manual tem precedência sobre opp vinculada)
   const currentOpp = opportunities.find((o) => o.id === selectedOppId)
-  const effectiveProdId = currentOpp?.product || activeProduct?.id
-  const effectiveProdName = currentOpp?.product_name || activeProduct?.name
+  const effectiveProdId = activeProduct?.id || currentOpp?.product
+  const effectiveProdName = activeProduct?.name || currentOpp?.product_name
   const effectiveProdDesc = activeProduct?.description
 
   // 2. Executar Motor de Decisão Desacoplado
@@ -508,8 +509,8 @@ export default function ApproachFlow() {
   // Mensagem de WhatsApp interpolada usando script do playbook do banco (com a mesma regra a/b/c)
   const whatsAppMessage = useMemo(() => {
     const opp = opportunities.find((o) => o.id === selectedOppId)
-    const targetProdId = opp?.product || activeProduct?.id
-    const targetProdName = opp?.product_name || activeProduct?.name
+    const targetProdId = activeProduct?.id || opp?.product
+    const targetProdName = activeProduct?.name || opp?.product_name
 
     const waScripts = playbook.scripts.filter(
       (s) => s.channel === 'WhatsApp' && s.is_active !== false,
@@ -930,14 +931,11 @@ export default function ApproachFlow() {
                 <Select
                   value={activeProduct?.id || selectedProductId}
                   onValueChange={(val) => setSelectedProductId(val)}
-                  disabled={Boolean(
-                    selectedOppId &&
-                    opportunities.find(
-                      (o) => o.id === selectedOppId && (o.product || o.product_name),
-                    ),
-                  )}
                 >
-                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl disabled:opacity-75 disabled:cursor-not-allowed">
+                  <SelectTrigger
+                    data-testid="select-approach-product"
+                    className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl"
+                  >
                     <SelectValue placeholder="Selecione o produto da abordagem" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
@@ -1018,18 +1016,57 @@ export default function ApproachFlow() {
             </div>
           </div>
 
-          {/* BOTÃO EM DESTAQUE NO TOPO QUANDO O CANAL FOR WHATSAPP */}
+          {/* BOTÃO EM DESTAQUE NO TOPO QUANDO O CANAL FOR WHATSAPP COM SELETOR DE TIPO DE MENSAGEM */}
           {channel === 'WhatsApp' && (
-            <WhatsAppCopilotAction
-              phone={customPhone}
-              message={whatsAppMessage}
-              companyName={customCompanyName}
-              contactName={customContactName}
-              opportunityId={selectedOppId}
-              authorId={user?.id}
-              title="Abrir WhatsApp Web com Mensagem Pronta"
-              showMessagePreview={true}
-            />
+            <div className="space-y-2">
+              {productsList.length > 0 && (
+                <div className="p-3 rounded-2xl bg-[#12141A] border border-[#262A33] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        Tipo de Mensagem WhatsApp:
+                      </span>
+                      <span className="text-[11px] text-gray-400">
+                        Escolha se a mensagem oferecerá Site/Landing Page ou WhatsApp Autônomo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-full sm:w-auto min-w-[260px]">
+                    <Select
+                      value={activeProduct?.id || selectedProductId}
+                      onValueChange={(val) => setSelectedProductId(val)}
+                    >
+                      <SelectTrigger
+                        data-testid="select-approach-whatsapp-product-type"
+                        className="bg-[#0E1017] border-[#262A33] text-white text-xs h-9 rounded-xl focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <SelectValue placeholder="Selecione o produto/script" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs z-[100]">
+                        {productsList.map((prod) => (
+                          <SelectItem key={prod.id} value={prod.id}>
+                            {prod.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              <WhatsAppCopilotAction
+                phone={customPhone}
+                message={whatsAppMessage}
+                companyName={customCompanyName}
+                contactName={customContactName}
+                opportunityId={selectedOppId}
+                authorId={user?.id}
+                title="Abrir WhatsApp Web com Mensagem Pronta"
+                showMessagePreview={true}
+              />
+            </div>
           )}
 
           {/* 1. PRÓXIMA MELHOR AÇÃO & TEMPERATURA DO LEAD */}

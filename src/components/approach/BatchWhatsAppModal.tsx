@@ -25,6 +25,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import {
   Send,
@@ -161,6 +168,13 @@ export function BatchWhatsAppModal({
     }
   }, [skippedIds, skippedKey])
 
+  // Produtos carregados do banco (coleção products)
+  const [availableProducts, setAvailableProducts] = useState<Array<{ id: string; name: string }>>(
+    [],
+  )
+  // 'auto' = detecção automática por oportunidade (padrão); ou id do produto selecionado manualmente
+  const [selectedProductFilter, setSelectedProductFilter] = useState<string>('auto')
+
   // Scripts carregados do banco (playbook_scripts)
   const [scripts, setScripts] = useState<PlaybookScript[]>([])
   const [activeScript, setActiveScript] = useState<PlaybookScript | null>(null)
@@ -206,6 +220,24 @@ export function BatchWhatsAppModal({
   const [autoSending, setAutoSending] = useState(false)
   const [autoBatchResult, setAutoBatchResult] = useState<WhatsAppBatchSendResponse | null>(null)
   const [showAutoResultModal, setShowAutoResultModal] = useState(false)
+
+  // Carregar lista de produtos ativos do banco
+  const fetchProducts = useCallback(async () => {
+    try {
+      const records = await pb.collection('products').getFullList({
+        filter: 'is_active = true',
+        sort: 'display_order,name',
+      })
+      setAvailableProducts(
+        records.map((r) => ({
+          id: r.id,
+          name: r.name,
+        })),
+      )
+    } catch (err) {
+      console.warn('Erro ao carregar produtos ativos:', err)
+    }
+  }, [])
 
   // Carregar status do WhatsApp Cloud API
   const fetchCloudStatus = useCallback(async () => {
@@ -343,98 +375,161 @@ export function BatchWhatsAppModal({
 
   useEffect(() => {
     if (open) {
+      fetchProducts()
       fetchScripts()
       fetchNotesHistory()
       fetchCloudStatus()
     }
-  }, [open, fetchScripts, fetchNotesHistory, fetchCloudStatus])
+  }, [open, fetchProducts, fetchScripts, fetchNotesHistory, fetchCloudStatus])
 
-  // Determina o script apropriado para cada oportunidade com base no produto vinculado
-  const resolveScriptForOpportunity = useCallback(
-    (opp: Opportunity): PlaybookScript | null => {
-      if (scripts.length === 0) return activeScript
+  // Helper para buscar script por ID ou nome do produto com fallback seguro para genérico
+  const findScriptForProduct = useCallback(
+    (
+      targetProdId?: string | null,
+      targetProdName?: string | null,
+    ): { script: PlaybookScript | null; usedFallback: boolean } => {
+      if (scripts.length === 0) return { script: activeScript, usedFallback: false }
 
-      const oppProductName = (opp.product_name || opp.expand?.product?.name || '').toLowerCase()
+      const tId = targetProdId?.trim() || ''
+      const tName = (targetProdName || '').trim().toLowerCase()
 
       const isWaAutonomous =
-        oppProductName.includes('whatsapp') ||
-        oppProductName.includes('autônomo') ||
-        oppProductName.includes('autonomo')
+        tName.includes('whatsapp') && (tName.includes('autônomo') || tName.includes('autonomo'))
 
-      if (isWaAutonomous) {
-        // Buscar script específico do produto WhatsApp Autônomo para o actionType correspondente
-        if (actionType === 'initial') {
-          const waInitial = scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              ((s.product_name && s.product_name.toLowerCase().includes('whatsapp')) ||
-                s.title.toLowerCase().includes('autônomo') ||
-                s.title.toLowerCase().includes('autonomo') ||
-                (s.title.toLowerCase().includes('abordagem inicial') &&
-                  s.title.toLowerCase().includes('whatsapp'))),
-          )
-          if (waInitial) return waInitial
-        } else {
-          const waFollowup = scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              ((s.product_name && s.product_name.toLowerCase().includes('whatsapp')) ||
-                s.title.toLowerCase().includes('autônomo') ||
-                s.title.toLowerCase().includes('autonomo')) &&
-              (s.title.toLowerCase().includes('follow') ||
-                s.situation.toLowerCase().includes('retomada') ||
-                s.situation.toLowerCase().includes('continuação')),
-          )
-          if (waFollowup) return waFollowup
-        }
-      }
+      const isSiteLp = tName.includes('site') || tName.includes('landing') || tName.includes('lp')
 
-      // Se a oportunidade NÃO for do WhatsApp Autônomo (ex: sem produto ou Site/Landing page):
-      // usar scripts genéricos ou do produto padrão (Site)
+      // Busca script vinculado especificamente ao produto no canal WhatsApp
+      let found: PlaybookScript | undefined
+
       if (actionType === 'initial') {
-        const genericInitial =
-          scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              !s.title.toLowerCase().includes('autônomo') &&
-              !s.title.toLowerCase().includes('autonomo') &&
-              s.title.toLowerCase().includes('primeira'),
-          ) ||
-          scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              !s.title.toLowerCase().includes('autônomo') &&
-              !s.title.toLowerCase().includes('autonomo'),
-          )
-        if (genericInitial) return genericInitial
+        found = scripts.find((s) => {
+          if (s.channel !== 'WhatsApp') return false
+          if (tId && s.product === tId) return true
+          if (s.product_name && s.product_name.toLowerCase() === tName) return true
+
+          if (isWaAutonomous) {
+            const sName = (s.product_name || '').toLowerCase()
+            const sTitle = s.title.toLowerCase()
+            return (
+              sName.includes('whatsapp') ||
+              sTitle.includes('autônomo') ||
+              sTitle.includes('autonomo')
+            )
+          }
+
+          if (isSiteLp) {
+            const sName = (s.product_name || '').toLowerCase()
+            const sTitle = s.title.toLowerCase()
+            return (
+              sName.includes('site') ||
+              sName.includes('landing') ||
+              sTitle.includes('primeira') ||
+              sTitle.includes('site')
+            )
+          }
+          return false
+        })
       } else {
-        const genericFollowup =
-          scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              !s.title.toLowerCase().includes('autônomo') &&
-              !s.title.toLowerCase().includes('autonomo') &&
-              (s.title.toLowerCase().includes('follow') ||
-                s.situation.toLowerCase().includes('continuação')),
-          ) ||
-          scripts.find(
-            (s) =>
-              s.channel === 'Retorno' &&
-              !s.title.toLowerCase().includes('autônomo') &&
-              !s.title.toLowerCase().includes('autonomo'),
-          ) ||
-          scripts.find(
-            (s) =>
-              s.channel === 'WhatsApp' &&
-              !s.title.toLowerCase().includes('autônomo') &&
-              !s.title.toLowerCase().includes('autonomo'),
-          )
-        if (genericFollowup) return genericFollowup
+        found = scripts.find((s) => {
+          if (s.channel !== 'WhatsApp' && s.channel !== 'Retorno') return false
+          if (tId && s.product === tId) return true
+          if (s.product_name && s.product_name.toLowerCase() === tName) return true
+
+          if (isWaAutonomous) {
+            const sName = (s.product_name || '').toLowerCase()
+            const sTitle = s.title.toLowerCase()
+            return (
+              (sName.includes('whatsapp') ||
+                sTitle.includes('autônomo') ||
+                sTitle.includes('autonomo')) &&
+              (sTitle.includes('follow') ||
+                s.situation.toLowerCase().includes('retomada') ||
+                s.situation.toLowerCase().includes('continuação'))
+            )
+          }
+
+          if (isSiteLp) {
+            const sName = (s.product_name || '').toLowerCase()
+            const sTitle = s.title.toLowerCase()
+            return (
+              (sName.includes('site') ||
+                sName.includes('landing') ||
+                sTitle.includes('follow') ||
+                s.situation.toLowerCase().includes('continuação')) &&
+              !sTitle.includes('autônomo') &&
+              !sTitle.includes('autonomo')
+            )
+          }
+          return false
+        })
       }
 
-      return activeScript
+      if (found) {
+        return { script: found, usedFallback: false }
+      }
+
+      // Regra de fallback: se o produto escolhido não tiver script no canal WhatsApp,
+      // cair no script genérico (produto vazio), nunca tela quebrada.
+      const generic =
+        actionType === 'initial'
+          ? scripts.find(
+              (s) =>
+                s.channel === 'WhatsApp' &&
+                !s.product &&
+                !s.product_name &&
+                !s.title.toLowerCase().includes('autônomo') &&
+                !s.title.toLowerCase().includes('autonomo'),
+            ) ||
+            scripts.find(
+              (s) =>
+                s.channel === 'WhatsApp' &&
+                !s.title.toLowerCase().includes('autônomo') &&
+                !s.title.toLowerCase().includes('autonomo'),
+            ) ||
+            scripts.find((s) => s.channel === 'WhatsApp') ||
+            scripts[0] ||
+            null
+          : scripts.find(
+              (s) =>
+                (s.channel === 'WhatsApp' || s.channel === 'Retorno') &&
+                !s.product &&
+                !s.product_name &&
+                !s.title.toLowerCase().includes('autônomo') &&
+                !s.title.toLowerCase().includes('autonomo'),
+            ) ||
+            scripts.find(
+              (s) =>
+                (s.channel === 'WhatsApp' || s.channel === 'Retorno') &&
+                !s.title.toLowerCase().includes('autônomo') &&
+                !s.title.toLowerCase().includes('autonomo'),
+            ) ||
+            scripts.find((s) => s.channel === 'WhatsApp') ||
+            scripts[0] ||
+            null
+
+      return { script: generic || activeScript, usedFallback: true }
     },
     [scripts, activeScript, actionType],
+  )
+
+  // Determina o script apropriado para cada oportunidade com base na escolha manual ou no produto vinculado
+  const resolveScriptForOpportunity = useCallback(
+    (opp: Opportunity): { script: PlaybookScript | null; usedFallback: boolean } => {
+      // Se o usuário selecionou um produto manualmente no seletor do painel:
+      if (selectedProductFilter !== 'auto') {
+        const chosenProduct = availableProducts.find((p) => p.id === selectedProductFilter)
+        return findScriptForProduct(
+          selectedProductFilter,
+          chosenProduct?.name || selectedProductFilter,
+        )
+      }
+
+      // Modo 'auto' (detecção automática por oportunidade):
+      const oppProdId = opp.product || opp.expand?.product?.id || null
+      const oppProdName = opp.product_name || opp.expand?.product?.name || null
+      return findScriptForProduct(oppProdId, oppProdName)
+    },
+    [selectedProductFilter, availableProducts, findScriptForProduct],
   )
 
   // Oportunidades com mensagens calculadas
@@ -447,7 +542,8 @@ export function BatchWhatsAppModal({
       }
 
       const formattedLastDate = formatInteractionDateShort(summary.lastDate)
-      const oppScript = resolveScriptForOpportunity(opp)
+      const resolution = resolveScriptForOpportunity(opp)
+      const oppScript = resolution.script
 
       const message = buildBatchWhatsAppMessage({
         actionType,
@@ -481,6 +577,8 @@ export function BatchWhatsAppModal({
         isLost,
         summary,
         lastInteractionDate: formattedLastDate,
+        scriptUsed: oppScript,
+        scriptFallback: resolution.usedFallback,
       }
     })
   }, [
@@ -1038,6 +1136,30 @@ bit Consulting CRM · bitCRM`
                     Coluna: <strong className="text-white">{stage}</strong>
                   </span>
 
+                  {/* SELETOR DE PRODUTO / TIPO DE MENSAGEM */}
+                  <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+                    <span className="text-[11px] text-gray-400 font-medium">Script / Produto:</span>
+                    <Select
+                      value={selectedProductFilter}
+                      onValueChange={(val) => setSelectedProductFilter(val)}
+                    >
+                      <SelectTrigger
+                        data-testid="select-batch-product-type"
+                        className="h-7 text-xs bg-[#171A24] border-[#262A33] text-white w-[230px] rounded-lg focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <SelectValue placeholder="Selecione o produto/script" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs z-[100]">
+                        <SelectItem value="auto">Detecção automática por oportunidade</SelectItem>
+                        {availableProducts.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Badges de Modo e Integração Cloud API */}
                   {cloudStatus?.configured ? (
                     <span
@@ -1541,12 +1663,32 @@ bit Consulting CRM · bitCRM`
                           </div>
                         </div>
 
+                        {/* Aviso claro se produto escolhido usou fallback para script genérico */}
+                        {item.scriptFallback && (
+                          <div
+                            data-testid={`fallback-warning-queue-${item.opp.id}`}
+                            className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2"
+                          >
+                            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span>
+                              O produto selecionado não possui script específico de WhatsApp
+                              cadastrado. Utilizando <strong>script genérico</strong> do Playbook
+                              Comercial.
+                            </span>
+                          </div>
+                        )}
+
                         {/* Pré-visualização da Mensagem */}
                         <div className="rounded-xl bg-[#0A0C11] border border-[#262A33] p-3.5 text-xs space-y-2">
                           <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
                             <span className="uppercase tracking-wider flex items-center gap-1">
                               <MessageSquare className="w-3 h-3 text-indigo-400" />
                               Mensagem Preparada para Disparo
+                              {item.scriptUsed?.title && (
+                                <span className="text-[10px] text-indigo-300 font-normal bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                                  {item.scriptUsed.title}
+                                </span>
+                              )}
                             </span>
                             <span className="font-mono text-gray-500">
                               {item.message.length} caracteres
@@ -1938,12 +2080,31 @@ bit Consulting CRM · bitCRM`
                         </div>
                       </div>
 
+                      {/* Aviso claro se produto escolhido usou fallback para script genérico */}
+                      {item.scriptFallback && (
+                        <div
+                          data-testid={`fallback-warning-item-${item.opp.id}`}
+                          className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>
+                            Produto sem script específico de WhatsApp. Utilizando{' '}
+                            <strong>script genérico</strong> do Playbook.
+                          </span>
+                        </div>
+                      )}
+
                       {/* Pré-visualização da Mensagem Gerada */}
                       <div className="rounded-xl bg-[#0A0C11] border border-[#262A33] p-3 text-xs space-y-1.5">
                         <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium">
                           <span className="uppercase tracking-wider flex items-center gap-1">
                             <MessageSquare className="w-3 h-3 text-indigo-400" />
                             Mensagem Gerada (Preview do WhatsApp)
+                            {item.scriptUsed?.title && (
+                              <span className="text-[10px] text-indigo-300 font-normal bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                                {item.scriptUsed.title}
+                              </span>
+                            )}
                           </span>
                           <span className="font-mono text-gray-500">
                             {item.message.length} caracteres
