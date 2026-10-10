@@ -64,7 +64,7 @@ export function interpolateText(text: string, ctx?: InterpolationContext): strin
   const seller = ctx?.sellerName?.trim() || 'Consultor Comercial'
   const company = ctx?.companyName?.trim() || 'sua empresa'
   const contact = ctx?.contactName?.trim() || 'Responsável'
-  const seg = ctx?.segment?.trim() || 'seu segmento'
+  const seg = ctx?.segment?.trim() || 'sua área'
   const city = ctx?.city?.trim() || 'sua região'
   const phone = ctx?.phone?.trim() || ''
 
@@ -452,72 +452,233 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
 
   let personalizedPitch: PersonalizedPitchData
 
+  // Especialização contextual por segmento (Restaurante, Automotivo, etc.)
+  const rawSegment = (input.segment || context?.segment || '').trim().toLowerCase()
+  const isRestaurantSegment =
+    rawSegment.includes('restaurante') ||
+    rawSegment.includes('pizzaria') ||
+    rawSegment.includes('lanchonete') ||
+    rawSegment.includes('hamburgueria') ||
+    rawSegment.includes('bar') ||
+    rawSegment.includes('churrascaria')
+  const isAutomotiveSegment =
+    rawSegment.includes('estética automotiva') ||
+    rawSegment.includes('estetica automotiva') ||
+    rawSegment.includes('lava-rápido') ||
+    rawSegment.includes('lava rápido') ||
+    rawSegment.includes('lava jato') ||
+    rawSegment.includes('lavarapido') ||
+    rawSegment.includes('detailing') ||
+    rawSegment.includes('polimento')
+
   if (isWhatsAppAutonomous) {
-    personalizedPitch = {
-      abertura: interpolateText(
-        'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o atendimento da [NOME DA EMPRESA] em [CIDADE] e achei excelente. Posso te fazer uma pergunta rápida sobre como vocês recebem mensagens no WhatsApp hoje?',
-        context,
-      ),
-      pergunta1: interpolateText(
-        'Hoje quando um cliente chama a [NOME DA EMPRESA] no WhatsApp fora do horário comercial ou em horários de pico, ele recebe uma resposta imediata ou precisa esperar alguém da equipe responder manualmente?',
-        context,
-      ),
-      pergunta2: interpolateText(
-        'Vocês costumam perder atendimentos ou orçamentos quando o cliente manda mensagem à noite, fins de semana ou feriados?',
-        context,
-      ),
-      pitch: interpolateText(
-        'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que atende 24 horas por dia, responde com naturalidade (sem parecer robô), tira dúvidas e agenda clientes. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
-        context,
-      ),
-      argumento: interpolateText(
-        'O atendente autônomo não substitui a sua equipe humana, ele assume a primeira resposta em segundos e qualifica o cliente. Sua empresa nunca mais perde uma venda por demora no WhatsApp.',
-        context,
-      ),
-      possivelObjecao: {
-        objecao: 'Já respondo pelo WhatsApp normalmente',
-        clarificacao:
-          'E fora do horário comercial ou quando a loja está cheia, vocês conseguem responder em menos de 1 minuto?',
-        argumento:
-          'O cliente de hoje não espera mais de alguns minutos antes de chamar o concorrente. O WhatsApp Autônomo garante resposta imediata e humanizada 24/7 sem sobrecarregar sua equipe.',
-      },
-      proximoPasso:
-        'Fazer uma demonstração prática em tempo real do atendente autônomo respondendo no WhatsApp e agendar 15 minutos.',
+    if (isRestaurantSegment) {
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o movimento e o atendimento da [NOME DA EMPRESA] em [CIDADE] e achei excelente. Posso te fazer uma pergunta rápida sobre como vocês recebem pedidos e reservas no WhatsApp hoje?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          'Hoje quando um cliente chama a [NOME DA EMPRESA] no WhatsApp nos horários de pico ou fora do expediente para ver o cardápio digital, fazer pedidos ou reservar mesas, ele tem resposta imediata ou precisa esperar alguém responder manualmente?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Vocês costumam perder pedidos fora de hora ou clientes impacientes na fila de espera do WhatsApp enquanto a equipe está ocupada na cozinha ou no salão?',
+          context,
+        ),
+        pitch: interpolateText(
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que envia o cardápio digital instantaneamente, tira dúvidas sobre pratos, horários e localização, e direciona reservas 24 horas por dia, com atendimento ágil nos horários de pico. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
+          context,
+        ),
+        argumento: interpolateText(
+          'O atendente autônomo não substitui seu atendimento acolhedor, ele elimina o tempo de espera no WhatsApp: o cliente recebe o cardápio e faz o pedido em segundos sem desistir para o concorrente.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já respondo pelo WhatsApp normalmente',
+          clarificacao:
+            'E nos horários de pico de pedidos ou tarde da noite, vocês conseguem responder em menos de 1 minuto sem atrasar a operação?',
+          argumento:
+            'Quem pede comida tem pressa. O WhatsApp Autônomo garante envio imediato de cardápio digital e triagem de pedidos 24/7 sem sobrecarregar sua equipe no salão.',
+        },
+        proximoPasso:
+          'Fazer uma demonstração prática em tempo real do atendente autônomo enviando cardápio e agilizando pedidos no WhatsApp.',
+      }
+    } else if (isAutomotiveSegment) {
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi os serviços da [NOME DA EMPRESA] em [CIDADE] e achei impecável. Posso te fazer uma pergunta rápida sobre como vocês recebem pedidos de orçamento e agendamento no WhatsApp?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          'Hoje quando um cliente chama para pedir orçamento de serviços ou agendar um horário no WhatsApp enquanto vocês estão na operação, ele recebe resposta imediata ou precisa esperar?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Vocês costumam perder orçamentos rápidos de clientes que mandam mensagem à noite, fins de semana ou enquanto a equipe está executando serviços?',
+          context,
+        ),
+        pitch: interpolateText(
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] focado em agendamento de serviços, orçamentos rápidos e envio de tabela de serviços 24 horas por dia. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo infraestrutura, suporte e manutenção.',
+          context,
+        ),
+        argumento: interpolateText(
+          'Enquanto sua equipe foca na execução dos serviços com excelência, o atendente autônomo qualifica o veículo, lista os serviços e pré-agenda o cliente sem perder a venda.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já respondo pelo WhatsApp normalmente',
+          clarificacao:
+            'E quando você está executando um serviço ou fora do horário, consegue responder orçamentos em menos de 1 minuto?',
+          argumento:
+            'O cliente de serviços automotivos quer orçamento rápido. O WhatsApp Autônomo responde de imediato, apresenta os pacotes e agenda o atendimento 24/7.',
+        },
+        proximoPasso:
+          'Demonstrar em tempo real como o atendente autônomo qualifica o cliente e agenda serviços no WhatsApp.',
+      }
+    } else {
+      // Genérico / neutro para demais segmentos ou sem segmento
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o atendimento da [NOME DA EMPRESA] em [CIDADE] e achei excelente. Posso te fazer uma pergunta rápida sobre como vocês recebem mensagens no WhatsApp hoje?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          'Hoje quando um cliente chama a [NOME DA EMPRESA] no WhatsApp fora do horário comercial ou em horários de pico, ele recebe uma resposta imediata ou precisa esperar alguém da equipe responder manualmente?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Vocês costumam perder atendimentos ou orçamentos quando o cliente manda mensagem à noite, fins de semana ou feriados?',
+          context,
+        ),
+        pitch: interpolateText(
+          'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que atende 24 horas por dia, responde com naturalidade (sem parecer robô), tira dúvidas e agenda clientes. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
+          context,
+        ),
+        argumento: interpolateText(
+          'O atendente autônomo não substitui a sua equipe humana, ele assume a primeira resposta em segundos e qualifica o cliente. Sua empresa nunca mais perde uma venda por demora no WhatsApp.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já respondo pelo WhatsApp normalmente',
+          clarificacao:
+            'E fora do horário comercial ou quando a loja está cheia, vocês conseguem responder em menos de 1 minuto?',
+          argumento:
+            'O cliente de hoje não espera mais de alguns minutos antes de chamar o concorrente. O WhatsApp Autônomo garante resposta imediata e humanizada 24/7 sem sobrecarregar sua equipe.',
+        },
+        proximoPasso:
+          'Fazer uma demonstração prática em tempo real do atendente autônomo respondendo no WhatsApp e agendar 15 minutos.',
+      }
     }
   } else {
-    personalizedPitch = {
-      abertura: interpolateText(
-        'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei muito profissional. Posso te fazer uma pergunta rápida?',
-        context,
-      ),
-      pergunta1: interpolateText(
-        input.digitalSituation === 'Utiliza somente Instagram'
-          ? 'O Instagram hoje atende tudo o que a [NOME DA EMPRESA] precisa ou os clientes ainda perguntam bastante sobre serviços, localização ou orçamento?'
-          : 'Hoje quando alguém busca pelos serviços da [NOME DA EMPRESA] em [CIDADE], onde essa pessoa encontra as informações oficiais?',
-        context,
-      ),
-      pergunta2: interpolateText(
-        'Quais são os serviços que vocês mais gostariam de destacar e vender este mês?',
-        context,
-      ),
-      pitch: interpolateText(
-        input.productDescription
-          ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
-          : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
-        context,
-      ),
-      argumento: interpolateText(
-        'O site não substitui seus canais atuais, ele organiza. O cliente vê autoridade imediata e clica no WhatsApp já sabendo o que quer comprar.',
-        context,
-      ),
-      possivelObjecao: {
-        objecao: 'Já tenho Instagram',
-        clarificacao: 'O Instagram hoje consegue atender tudo que vocês precisam?',
-        argumento:
-          'O site complementa o Instagram. No Instagram o cliente se distrai; no site oficial ele foca na contratação.',
-      },
-      proximoPasso:
-        'Enviar exemplos do mesmo segmento no WhatsApp e validar se faz sentido agendar 15 minutos.',
+    // Produto: Site ou Landing Page (ou geral)
+    if (isRestaurantSegment) {
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Conheci o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei de muito bom gosto. Posso te fazer uma pergunta rápida sobre o atendimento e cardápio de vocês?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          input.digitalSituation === 'Utiliza somente Instagram'
+            ? 'Hoje no Instagram os clientes encontram com facilidade o cardápio digital completo, horários e botão direto para pedidos e reservas no WhatsApp, ou ainda mandam muito direct perguntando preços?'
+            : 'Quando alguém procura onde comer ou quer fazer pedidos e reservas na [NOME DA EMPRESA] em [CIDADE], onde encontra o cardápio digital oficial e atualizado?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Vocês gostariam de facilitar pedidos fora de hora e agilizar o atendimento no WhatsApp nos horários de pico com cardápio digital interativo e reservas online?',
+          context,
+        ),
+        pitch: interpolateText(
+          input.productDescription
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] com cardápio digital interativo, fotos atraentes dos pratos, informações de localização, horários e botão direto para pedidos e reservas no WhatsApp sem taxa de aplicativo. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+          context,
+        ),
+        argumento: interpolateText(
+          'O cardápio digital oficial agiliza o atendimento nos horários de pico e permite receber pedidos e reservas a qualquer hora, transmitindo autoridade e praticidade para o cliente.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já tenho Instagram ou app de entrega',
+          clarificacao:
+            'Os apps cobram altas taxas e no Instagram o cliente não tem um cardápio organizado e direto para pedidos sem comissão, certo?',
+          argumento:
+            'A página própria com cardápio digital fideliza o cliente direto no seu WhatsApp, eliminando comissões abusivas e organizando pedidos e reservas.',
+        },
+        proximoPasso:
+          'Enviar modelos de cardápio digital e páginas de restaurantes para o WhatsApp e agendar 15 minutos.',
+      }
+    } else if (isAutomotiveSegment) {
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei muito profissional. Posso te fazer uma pergunta rápida?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          input.digitalSituation === 'Utiliza somente Instagram'
+            ? 'Hoje no Instagram os clientes já entendem todos os pacotes de serviços e valores ou ainda chamam toda hora para tirar dúvidas básicas antes de agendar?'
+            : 'Hoje quando alguém busca por estética automotiva e cuidados com veículos em [CIDADE], onde essa pessoa encontra a tabela oficial de serviços e portfólio da [NOME DA EMPRESA]?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Vocês gostariam de agilizar o agendamento de serviços e pedidos de orçamento rápido com uma página de alta conversão?',
+          context,
+        ),
+        pitch: interpolateText(
+          input.productDescription
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos de antes e depois, localização e botão direto para agendamento de serviços e orçamentos rápidos no WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+          context,
+        ),
+        argumento: interpolateText(
+          'A página profissional passa autoridade imediata para donos de veículos exigentes. O cliente vê os serviços executados e clica para agendar já sabendo o padrão do trabalho.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já tenho Instagram',
+          clarificacao:
+            'No Instagram os clientes encontram a lista clara de serviços e botão para agendamento direto sem distrações?',
+          argumento:
+            'A página profissional organiza seus serviços e agiliza orçamentos rápidos e agendamentos no WhatsApp, complementando o Instagram.',
+        },
+        proximoPasso:
+          'Enviar exemplos do segmento automotivo no WhatsApp e validar se faz sentido agendar 15 minutos.',
+      }
+    } else {
+      // Neutro / geral sem inventar nicho
+      personalizedPitch = {
+        abertura: interpolateText(
+          'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei muito profissional. Posso te fazer uma pergunta rápida?',
+          context,
+        ),
+        pergunta1: interpolateText(
+          input.digitalSituation === 'Utiliza somente Instagram'
+            ? 'O Instagram hoje atende tudo o que a [NOME DA EMPRESA] precisa ou os clientes ainda perguntam bastante sobre serviços, localização ou orçamento?'
+            : 'Hoje quando alguém busca pelos serviços da [NOME DA EMPRESA] em [CIDADE], onde essa pessoa encontra as informações oficiais?',
+          context,
+        ),
+        pergunta2: interpolateText(
+          'Quais são os serviços que vocês mais gostariam de destacar e vender este mês?',
+          context,
+        ),
+        pitch: interpolateText(
+          input.productDescription
+            ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+            : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+          context,
+        ),
+        argumento: interpolateText(
+          'O site não substitui seus canais atuais, ele organiza. O cliente vê autoridade imediata e clica no WhatsApp já sabendo o que quer comprar.',
+          context,
+        ),
+        possivelObjecao: {
+          objecao: 'Já tenho Instagram',
+          clarificacao: 'O Instagram hoje consegue atender tudo que vocês precisam?',
+          argumento:
+            'O site complementa o Instagram. No Instagram o cliente se distrai; no site oficial ele foca na contratação.',
+        },
+        proximoPasso: 'Enviar exemplos no WhatsApp e validar se faz sentido agendar 15 minutos.',
+      }
     }
   }
 

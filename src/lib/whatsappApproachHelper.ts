@@ -148,7 +148,7 @@ export function interpolateVariables(
   const cidade = (variables.cidade || '').trim() || 'sua região'
   const vendedor = (variables.vendedor || '').trim() || 'Consultor Comercial'
   const data = (variables.data || '').trim()
-  const segmento = (variables.segmento || '').trim() || 'seu segmento'
+  const segmento = (variables.segmento || '').trim() || 'sua área'
   const telefone = (variables.telefone || '').trim()
 
   let result = template

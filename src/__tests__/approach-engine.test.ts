@@ -228,4 +228,144 @@ describe('Motor de Abordagem Comercial (approach-engine)', () => {
 
     expect(decisionFallbackGenerico.currentScriptTitle).toBe('Script Genérico')
   })
+
+  describe('Especialização de Pitch por Segmento e Interpolação Neutra (sem Estética Automotiva fixa)', () => {
+    const dummyPlaybook: PlaybookBundle = {
+      segments: [],
+      scripts: [
+        {
+          id: 'sc_padrao',
+          collectionId: '',
+          collectionName: '',
+          created: '',
+          updated: '',
+          channel: 'WhatsApp',
+          title: 'Primeira Mensagem',
+          script_text: 'Olá! Ajudamos empresas do segmento de [SEGMENTO].',
+          display_order: 1,
+          is_active: true,
+        },
+      ],
+      questions: [],
+      answers: [],
+      objections: [],
+      argumentsList: [],
+      valuesConfig: null,
+      nextSteps: [],
+    }
+
+    it('quando ctx.segment estiver vazio ou nulo, [SEGMENTO] interpola como texto genérico ("sua área") e nunca "Estética Automotiva"', () => {
+      const template = 'Ajudamos empresas do nicho de [SEGMENTO] a venderem mais.'
+      const resVazio = interpolateText(template, { segment: '' })
+      const resNulo = interpolateText(template, { segment: undefined })
+
+      expect(resVazio).toBe('Ajudamos empresas do nicho de sua área a venderem mais.')
+      expect(resNulo).toBe('Ajudamos empresas do nicho de sua área a venderem mais.')
+      expect(resVazio).not.toContain('Estética Automotiva')
+      expect(resNulo).not.toContain('Estética Automotiva')
+    })
+
+    it('lead com segmento Restaurante gera pitch especializado com foco em cardápio digital, reservas, pedidos fora de hora e horários de pico', () => {
+      const decision = runApproachEngine({
+        channel: 'WhatsApp',
+        segment: 'Restaurante',
+        currentQuestionIndex: 0,
+        askedQuestions: [],
+        givenAnswers: [],
+        quickTags: [],
+        playbook: dummyPlaybook,
+        context: {
+          companyName: 'Restaurante Fogão a Lenha',
+          city: 'Curitiba',
+          segment: 'Restaurante',
+        },
+      })
+
+      const pitch = decision.personalizedPitch
+      expect(pitch).toBeDefined()
+      // Deve conter termos específicos de gastronomia / restaurante
+      expect(pitch?.pitch).toContain('cardápio digital')
+      expect(pitch?.pitch).toContain('reservas')
+      expect(pitch?.pergunta2).toContain('pedidos fora de hora')
+      expect(pitch?.pergunta2).toContain('horários de pico')
+      // NUNCA conter estética automotiva
+      expect(pitch?.pitch).not.toContain('automotivo')
+      expect(pitch?.pitch).not.toContain('Estética Automotiva')
+      expect(pitch?.pitch).not.toContain('polimento')
+    })
+
+    it('lead com segmento Restaurante no produto WhatsApp Autônomo gera pitch de atendente para cardápio digital, horários de pico e reservas', () => {
+      const decisionWa = runApproachEngine({
+        channel: 'WhatsApp',
+        segment: 'Restaurante',
+        productName: 'WhatsApp Autônomo e Humanizado',
+        currentQuestionIndex: 0,
+        askedQuestions: [],
+        givenAnswers: [],
+        quickTags: [],
+        playbook: dummyPlaybook,
+        context: {
+          companyName: 'Pizzaria Bella Napoli',
+          city: 'São Paulo',
+          segment: 'Restaurante',
+        },
+      })
+
+      const pitch = decisionWa.personalizedPitch
+      expect(pitch).toBeDefined()
+      expect(pitch?.abertura).toContain('pedidos e reservas')
+      expect(pitch?.pergunta1).toContain('cardápio digital')
+      expect(pitch?.pitch).toContain('cardápio digital instantaneamente')
+      expect(pitch?.pitch).toContain('horários de pico')
+      expect(pitch?.pitch).not.toContain('Estética Automotiva')
+    })
+
+    it('lead com segmento Estética Automotiva / Lava-Rápido gera pitch com agendamento de serviços e orçamentos rápidos', () => {
+      const decisionAuto = runApproachEngine({
+        channel: 'WhatsApp',
+        segment: 'Estética Automotiva',
+        currentQuestionIndex: 0,
+        askedQuestions: [],
+        givenAnswers: [],
+        quickTags: [],
+        playbook: dummyPlaybook,
+        context: {
+          companyName: 'Auto Brilho Detailing',
+          city: 'Campinas',
+          segment: 'Estética Automotiva',
+        },
+      })
+
+      const pitch = decisionAuto.personalizedPitch
+      expect(pitch).toBeDefined()
+      expect(pitch?.pitch).toContain('agendamento de serviços')
+      expect(pitch?.pitch).toContain('orçamentos rápidos')
+      expect(pitch?.pitch).not.toContain('cardápio')
+    })
+
+    it('lead sem segmento gera pitch neutro comercial sem nicho automotivo fixo', () => {
+      const decisionNeutro = runApproachEngine({
+        channel: 'WhatsApp',
+        segment: '',
+        currentQuestionIndex: 0,
+        askedQuestions: [],
+        givenAnswers: [],
+        quickTags: [],
+        playbook: dummyPlaybook,
+        context: {
+          companyName: 'Consultoria Alpha',
+          city: 'Belo Horizonte',
+          segment: '',
+        },
+      })
+
+      const pitch = decisionNeutro.personalizedPitch
+      expect(pitch).toBeDefined()
+      // Mantém abordagem comercial neutra
+      expect(pitch?.pitch).toContain('apresentar todos os serviços')
+      expect(pitch?.pitch).not.toContain('Estética Automotiva')
+      expect(pitch?.pitch).not.toContain('cardápio')
+      expect(pitch?.pitch).not.toContain('polimento')
+    })
+  })
 })

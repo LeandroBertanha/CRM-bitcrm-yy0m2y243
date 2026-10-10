@@ -16,7 +16,7 @@ import type {
   ObjectionLogItem,
   ApproachStatus,
 } from '@/types/playbook'
-import { getPlaybookBundle, saveApproachSession } from '@/services/playbook'
+import { getPlaybookBundle, saveApproachSession, getApproachSessions } from '@/services/playbook'
 import {
   mapApproachStatusToOpportunityStage,
   syncApproachSessionWithOpportunity,
@@ -63,6 +63,93 @@ import { OpportunitySelectorSection } from '@/components/approach/OpportunitySel
 import { WhatsAppCopilotAction } from '@/components/approach/WhatsAppCopilotAction'
 import { buildWhatsAppMessage } from '@/lib/whatsappApproachHelper'
 
+/**
+ * Infere o segmento da oportunidade ou lead com base em palavras-chave em company, message ou notas.
+ * restaurante/pizzaria/lanchonete/hamburgueria/bar/churrascaria → "Restaurante"
+ * estética automotiva/polimento/detailing → "Estética Automotiva"
+ * lava rápido/lava jato → "Lava-Rápido"
+ * clínica/odonto/médic/saúde → "Clínica"
+ * salão/hair/beleza/manicure → "Salão de Beleza"
+ * barbearia/barber → "Barbearia"
+ * sem padrão claro → ""
+ */
+export function inferSegmentFromOpportunity(data: {
+  company?: string | null
+  message?: string | null
+  segment?: string | null
+}): string {
+  if (data.segment && data.segment.trim()) {
+    return data.segment.trim()
+  }
+
+  const rawText = `${data.company || ''} ${data.message || ''}`
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+  if (!rawText.trim()) return ''
+
+  // 1. Restaurante e gastronomia
+  if (
+    rawText.includes('restaurante') ||
+    rawText.includes('pizzaria') ||
+    rawText.includes('lanchonete') ||
+    rawText.includes('hamburgueria') ||
+    rawText.includes('bar') ||
+    rawText.includes('churrascaria')
+  ) {
+    return 'Restaurante'
+  }
+
+  // 2. Estética automotiva / detalhamento
+  if (
+    rawText.includes('estetica automotiva') ||
+    rawText.includes('polimento') ||
+    rawText.includes('detailing') ||
+    rawText.includes('auto detailing') ||
+    rawText.includes('espelhamento')
+  ) {
+    return 'Estética Automotiva'
+  }
+
+  // 3. Lava Rápido / Lava Jato
+  if (
+    rawText.includes('lava rapido') ||
+    rawText.includes('lava jato') ||
+    rawText.includes('lavarapido') ||
+    rawText.includes('lavajato')
+  ) {
+    return 'Lava-Rápido'
+  }
+
+  // 4. Clínica / Saúde
+  if (
+    rawText.includes('clinica') ||
+    rawText.includes('odonto') ||
+    rawText.includes('medic') ||
+    rawText.includes('saude')
+  ) {
+    return 'Clínica'
+  }
+
+  // 5. Salão de Beleza / Cabelo
+  if (
+    rawText.includes('salao') ||
+    rawText.includes('hair') ||
+    rawText.includes('beleza') ||
+    rawText.includes('manicure')
+  ) {
+    return 'Salão de Beleza'
+  }
+
+  // 6. Barbearia
+  if (rawText.includes('barbearia') || rawText.includes('barber')) {
+    return 'Barbearia'
+  }
+
+  return ''
+}
+
 export default function ApproachFlow() {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -94,7 +181,7 @@ export default function ApproachFlow() {
   const [channel, setChannel] = useState<ApproachChannel>(
     (searchParams.get('channel') as ApproachChannel) || 'Telefone',
   )
-  const [selectedSegment, setSelectedSegment] = useState<string>('Estética Automotiva')
+  const [selectedSegment, setSelectedSegment] = useState<string>('')
   const [digitalSituation, setDigitalSituation] = useState<DigitalSituation>(
     'Utiliza somente Instagram',
   )
@@ -144,6 +231,8 @@ export default function ApproachFlow() {
         // Se veio opp na URL, preenche os dados
         const urlOppId = searchParams.get('opp')
         let initialProdId = ''
+        let inferredSeg = ''
+
         if (urlOppId) {
           const matched = opps.find((o) => o.id === urlOppId)
           if (matched) {
@@ -162,7 +251,31 @@ export default function ApproachFlow() {
               )
               if (p) initialProdId = p.id
             }
+
+            // Tentar recuperar segmento de sessão prévia em approach_sessions
+            try {
+              const prevSessions = await getApproachSessions({ opportunityId: matched.id })
+              const sessionWithSeg = prevSessions.find(
+                (s) => s.segment && s.segment.trim().length > 0,
+              )
+              if (sessionWithSeg?.segment) {
+                inferredSeg = sessionWithSeg.segment.trim()
+              }
+            } catch {
+              // fallback silencioso para inferência direta
+            }
+
+            if (!inferredSeg) {
+              inferredSeg = inferSegmentFromOpportunity({
+                company: matched.company,
+                message: matched.message,
+              })
+            }
           }
+        }
+
+        if (inferredSeg) {
+          setSelectedSegment(inferredSeg)
         }
         if (!initialProdId && prods.length > 0) {
           initialProdId = prods[0].id
@@ -185,8 +298,13 @@ export default function ApproachFlow() {
   }, [searchParams, toast])
 
   // Atualizar campos quando seleciona oportunidade existente
-  const handleSelectOpp = (oppId: string) => {
+  const handleSelectOpp = async (oppId: string) => {
     setSelectedOppId(oppId)
+    if (!oppId) {
+      setSelectedSegment('')
+      return
+    }
+
     const opp = opportunities.find((o) => o.id === oppId)
     if (opp) {
       setCustomCompanyName(opp.company)
@@ -203,6 +321,28 @@ export default function ApproachFlow() {
         )
         if (p) setSelectedProductId(p.id)
       }
+
+      // 1. Tentar buscar segmento de sessão prévia em approach_sessions
+      let finalSegment = ''
+      try {
+        const prevSessions = await getApproachSessions({ opportunityId: opp.id })
+        const sessionWithSeg = prevSessions.find((s) => s.segment && s.segment.trim().length > 0)
+        if (sessionWithSeg?.segment) {
+          finalSegment = sessionWithSeg.segment.trim()
+        }
+      } catch {
+        // fallback
+      }
+
+      // 2. Se não houver sessão prévia com segmento, inferir por palavras-chave
+      if (!finalSegment) {
+        finalSegment = inferSegmentFromOpportunity({
+          company: opp.company,
+          message: opp.message,
+        })
+      }
+
+      setSelectedSegment(finalSegment)
     }
   }
 
@@ -648,11 +788,15 @@ export default function ApproachFlow() {
               <Label className="text-xs font-bold text-gray-200 uppercase tracking-wider">
                 2. Segmento da Empresa
               </Label>
-              <Select value={selectedSegment} onValueChange={setSelectedSegment}>
+              <Select
+                value={selectedSegment || '__none__'}
+                onValueChange={(val) => setSelectedSegment(val === '__none__' ? '' : val)}
+              >
                 <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl">
-                  <SelectValue placeholder="Selecione o segmento" />
+                  <SelectValue placeholder="Selecione o segmento (ou deixe genérico)" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs max-h-60">
+                  <SelectItem value="__none__">Nenhum / Geral (abordagem neutra)</SelectItem>
                   {playbook.segments.map((seg) => (
                     <SelectItem key={seg.id} value={seg.name}>
                       {seg.name}
@@ -660,6 +804,20 @@ export default function ApproachFlow() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedSegment && (
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 pt-0.5">
+                  <span>
+                    Segmento ativo: <strong className="text-indigo-300">{selectedSegment}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSegment('')}
+                    className="text-xs text-gray-400 hover:text-rose-400 underline"
+                  >
+                    Limpar nicho (usar neutro)
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Etapa 3: Situação Digital */}
@@ -789,7 +947,8 @@ export default function ApproachFlow() {
                 Canal: <strong className="text-white">{channel}</strong>
               </span>
               <span className="px-2.5 py-0.5 rounded-lg bg-[#181B24] border border-[#262A33] text-gray-300">
-                Segmento: <strong className="text-white">{selectedSegment}</strong>
+                Segmento:{' '}
+                <strong className="text-white">{selectedSegment || 'Geral / Neutro'}</strong>
               </span>
               {(decision.currentScriptProductName || activeProduct?.name) && (
                 <span className="px-2.5 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold">
@@ -846,7 +1005,7 @@ export default function ApproachFlow() {
           {/* 3. CARD: O QUE FALAR (SCRIPT ATUAL DA ETAPA) */}
           <ScriptCard
             title={`O Que Falar Agora — ${decision.currentScriptTitle}`}
-            situation={`Canal: ${channel} | Segmento: ${selectedSegment}`}
+            situation={`Canal: ${channel} | Segmento: ${selectedSegment || 'Geral / Neutro'}`}
             scriptText={decision.currentScript}
             instructions="Fale de forma natural e com entusiasmo moderado. Pare imediatamente ao terminar para escutar o cliente."
             highlight

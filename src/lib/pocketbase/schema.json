@@ -29,29 +29,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "admin",
-            "seller"
-          ]
+          "selectValues": ["admin", "seller"]
         },
         {
           "name": "mustChangePassword",
@@ -117,14 +109,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "Novo",
-            "Qualificado",
-            "Agendado",
-            "Proposta",
-            "Ganho",
-            "Perdido"
-          ]
+          "selectValues": ["Novo", "Qualificado", "Agendado", "Proposta", "Ganho", "Perdido"]
         },
         {
           "name": "source",
@@ -183,30 +168,21 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "payment_type",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "Débito",
-            "PIX",
-            "Parcelado"
-          ]
+          "selectValues": ["Débito", "PIX", "Parcelado"]
         },
         {
           "name": "payment_installments",
@@ -283,13 +259,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "ligacao",
-            "whatsapp",
-            "reuniao",
-            "nota",
-            "outro"
-          ]
+          "selectValues": ["ligacao", "whatsapp", "reuniao", "nota", "outro"]
         },
         {
           "name": "text",
@@ -308,19 +278,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -387,24 +352,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"
-      ]
+      "indexes": ["CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"]
     },
     {
       "name": "commission_tiers",
@@ -464,19 +422,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -518,24 +471,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"
-      ]
+      "indexes": ["CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"]
     },
     {
       "name": "playbook_scripts",
@@ -553,13 +499,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "Telefone",
-            "Presencial",
-            "WhatsApp",
-            "Reunião",
-            "Retorno"
-          ]
+          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
         },
         {
           "name": "situation",
@@ -602,19 +542,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "product",
@@ -650,11 +585,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "diagnóstico",
-            "qualificação",
-            "fluxo"
-          ]
+          "selectValues": ["diagnóstico", "qualificação", "fluxo"]
         },
         {
           "name": "text",
@@ -691,19 +622,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -769,24 +695,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"
-      ]
+      "indexes": ["CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"]
     },
     {
       "name": "playbook_objections",
@@ -840,19 +759,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -899,24 +813,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"
-      ]
+      "indexes": ["CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"]
     },
     {
       "name": "playbook_values",
@@ -976,19 +883,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": []
@@ -1039,19 +941,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -1112,13 +1009,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "Telefone",
-            "Presencial",
-            "WhatsApp",
-            "Reunião",
-            "Retorno"
-          ]
+          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
         },
         {
           "name": "segment",
@@ -1159,11 +1050,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": [
-            "frio",
-            "morno",
-            "quente"
-          ]
+          "selectValues": ["frio", "morno", "quente"]
         },
         {
           "name": "temperature_reason",
@@ -1248,19 +1135,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -1334,19 +1216,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": []
@@ -1421,24 +1298,17 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
-      "indexes": [
-        "CREATE INDEX idx_products_active ON products (is_active)"
-      ]
+      "indexes": ["CREATE INDEX idx_products_active ON products (is_active)"]
     }
   ]
 }

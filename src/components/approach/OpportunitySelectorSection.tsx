@@ -446,7 +446,7 @@ export function OpportunitySelectorSection({
           <div>
             <Label className="text-[10px] text-gray-400">Nome da Empresa</Label>
             <Input
-              placeholder="Ex: Mendes Estética Automotiva"
+              placeholder="Ex: Restaurante Sabor & Arte"
               value={companyName}
               onChange={(e) => onChangeCompanyName(e.target.value)}
               className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-10 mt-1 focus-visible:border-indigo-500"
