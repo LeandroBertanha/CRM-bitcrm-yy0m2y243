@@ -36,11 +36,15 @@ export interface EngineDecisionInput {
   budget?: string
   playbook: PlaybookBundle
   context?: InterpolationContext
+  productId?: string
+  productName?: string
+  productDescription?: string
 }
 
 export interface EngineDecisionOutput {
   currentScript: string
   currentScriptTitle: string
+  currentScriptProductName?: string
   currentQuestion: PlaybookQuestion | null
   possibleAnswers: PlaybookAnswer[]
   recommendedArgument: string | null
@@ -207,15 +211,71 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
   } = input
 
   // 1. Script principal do canal
-  const channelScripts = playbook.scripts.filter((s) => s.channel === channel)
-  const mainScriptObj = channelScripts[0] ||
-    playbook.scripts[0] || {
-      title: 'Script de Abordagem',
-      script_text:
-        'Olá, sou da Bit Consulting. Gostaria de falar sobre a presença digital da empresa.',
+  const channelScripts = playbook.scripts.filter(
+    (s) => s.channel === channel && s.is_active !== false,
+  )
+  const targetProdId = input.productId?.trim()
+  const targetProdName = input.productName?.trim()
+
+  const scriptMatchesProduct = (s: { product?: string; product_name?: string }) => {
+    if (targetProdId && s.product === targetProdId) return true
+    if (targetProdName && s.product_name) {
+      const sName = s.product_name.toLowerCase()
+      const tName = targetProdName.toLowerCase()
+      if (sName === tName || sName.includes(tName) || tName.includes(sName)) {
+        return true
+      }
     }
+    // Suporte a detecção semântica se produto alvo for "WhatsApp Autônomo"
+    if (targetProdName) {
+      const tLower = targetProdName.toLowerCase()
+      const isWaAutonomousTarget =
+        tLower.includes('whatsapp') && (tLower.includes('autônomo') || tLower.includes('autonomo'))
+      if (isWaAutonomousTarget && s.product_name) {
+        const sLower = s.product_name.toLowerCase()
+        if (
+          sLower.includes('whatsapp') &&
+          (sLower.includes('autônomo') || sLower.includes('autonomo'))
+        ) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  let mainScriptObj: (typeof playbook.scripts)[0] | undefined
+
+  if (targetProdId || targetProdName) {
+    // Regra (a): se foi informado produto, buscar script do MESMO produto no canal
+    mainScriptObj = channelScripts.find(scriptMatchesProduct)
+
+    // Regra (b): se não houver script daquele produto no canal, cair para script do canal sem produto (genéricos)
+    if (!mainScriptObj) {
+      mainScriptObj = channelScripts.find((s) => !s.product && !s.product_name)
+    }
+  }
+
+  // Regra (c): fallback para o primeiro script do canal ou do playbook
+  if (!mainScriptObj) {
+    mainScriptObj = channelScripts[0] ||
+      playbook.scripts[0] || {
+        title: 'Script de Abordagem',
+        script_text:
+          'Olá, sou da Bit Consulting. Gostaria de falar sobre a presença digital da empresa.',
+        display_order: 1,
+        is_active: true,
+        channel,
+        collectionId: '',
+        collectionName: '',
+        created: '',
+        updated: '',
+        id: '',
+      }
+  }
 
   const currentScriptTitle = mainScriptObj.title
+  const currentScriptProductName = mainScriptObj.product_name || undefined
   const currentScript = interpolateText(mainScriptObj.script_text, context)
 
   // 2. Perguntas disponíveis para diagnóstico / qualificação
@@ -381,42 +441,90 @@ export function runApproachEngine(input: EngineDecisionInput): EngineDecisionOut
   }
 
   // 7. Geração da abordagem personalizada (interpolação pura sem IA)
-  const personalizedPitch: PersonalizedPitchData = {
-    abertura: interpolateText(
-      'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei muito profissional. Posso te fazer uma pergunta rápida?',
-      context,
-    ),
-    pergunta1: interpolateText(
-      input.digitalSituation === 'Utiliza somente Instagram'
-        ? 'O Instagram hoje atende tudo o que a [NOME DA EMPRESA] precisa ou os clientes ainda perguntam bastante sobre serviços, localização ou orçamento?'
-        : 'Hoje quando alguém busca pelos serviços da [NOME DA EMPRESA] em [CIDADE], onde essa pessoa encontra as informações oficiais?',
-      context,
-    ),
-    pergunta2: interpolateText(
-      'Quais são os serviços que vocês mais gostariam de destacar e vender este mês?',
-      context,
-    ),
-    pitch: interpolateText(
-      'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
-      context,
-    ),
-    argumento: interpolateText(
-      'O site não substitui seus canais atuais, ele organiza. O cliente vê autoridade imediata e clica no WhatsApp já sabendo o que quer comprar.',
-      context,
-    ),
-    possivelObjecao: {
-      objecao: 'Já tenho Instagram',
-      clarificacao: 'O Instagram hoje consegue atender tudo que vocês precisam?',
-      argumento:
-        'O site complementa o Instagram. No Instagram o cliente se distrai; no site oficial ele foca na contratação.',
-    },
-    proximoPasso:
-      'Enviar exemplos do mesmo segmento no WhatsApp e validar se faz sentido agendar 15 minutos.',
+  // Detecta se a abordagem atual é voltada ao WhatsApp Autônomo e Humanizado
+  const effectiveProdName = (currentScriptProductName || targetProdName || '').toLowerCase()
+  const scriptTitleLower = (currentScriptTitle || '').toLowerCase()
+  const isWhatsAppAutonomous =
+    effectiveProdName.includes('autônomo') ||
+    effectiveProdName.includes('autonomo') ||
+    scriptTitleLower.includes('autônomo') ||
+    scriptTitleLower.includes('autonomo')
+
+  let personalizedPitch: PersonalizedPitchData
+
+  if (isWhatsAppAutonomous) {
+    personalizedPitch = {
+      abertura: interpolateText(
+        'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o atendimento da [NOME DA EMPRESA] em [CIDADE] e achei excelente. Posso te fazer uma pergunta rápida sobre como vocês recebem mensagens no WhatsApp hoje?',
+        context,
+      ),
+      pergunta1: interpolateText(
+        'Hoje quando um cliente chama a [NOME DA EMPRESA] no WhatsApp fora do horário comercial ou em horários de pico, ele recebe uma resposta imediata ou precisa esperar alguém da equipe responder manualmente?',
+        context,
+      ),
+      pergunta2: interpolateText(
+        'Vocês costumam perder atendimentos ou orçamentos quando o cliente manda mensagem à noite, fins de semana ou feriados?',
+        context,
+      ),
+      pitch: interpolateText(
+        'Nós implementamos um atendente autônomo e humanizado no WhatsApp da [NOME DA EMPRESA] que atende 24 horas por dia, responde com naturalidade (sem parecer robô), tira dúvidas e agenda clientes. O setup inicial de implantação e configuração Meta Business é de R$ 500,00, e R$ 55,00/mês cobrindo toda a infraestrutura, suporte e manutenção.',
+        context,
+      ),
+      argumento: interpolateText(
+        'O atendente autônomo não substitui a sua equipe humana, ele assume a primeira resposta em segundos e qualifica o cliente. Sua empresa nunca mais perde uma venda por demora no WhatsApp.',
+        context,
+      ),
+      possivelObjecao: {
+        objecao: 'Já respondo pelo WhatsApp normalmente',
+        clarificacao:
+          'E fora do horário comercial ou quando a loja está cheia, vocês conseguem responder em menos de 1 minuto?',
+        argumento:
+          'O cliente de hoje não espera mais de alguns minutos antes de chamar o concorrente. O WhatsApp Autônomo garante resposta imediata e humanizada 24/7 sem sobrecarregar sua equipe.',
+      },
+      proximoPasso:
+        'Fazer uma demonstração prática em tempo real do atendente autônomo respondendo no WhatsApp e agendar 15 minutos.',
+    }
+  } else {
+    personalizedPitch = {
+      abertura: interpolateText(
+        'Olá, tudo bem? Meu nome é [NOME DO VENDEDOR], da Bit Consulting. Vi o trabalho da [NOME DA EMPRESA] em [CIDADE] e achei muito profissional. Posso te fazer uma pergunta rápida?',
+        context,
+      ),
+      pergunta1: interpolateText(
+        input.digitalSituation === 'Utiliza somente Instagram'
+          ? 'O Instagram hoje atende tudo o que a [NOME DA EMPRESA] precisa ou os clientes ainda perguntam bastante sobre serviços, localização ou orçamento?'
+          : 'Hoje quando alguém busca pelos serviços da [NOME DA EMPRESA] em [CIDADE], onde essa pessoa encontra as informações oficiais?',
+        context,
+      ),
+      pergunta2: interpolateText(
+        'Quais são os serviços que vocês mais gostariam de destacar e vender este mês?',
+        context,
+      ),
+      pitch: interpolateText(
+        input.productDescription
+          ? `${input.productDescription} O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.`
+          : 'Nós criamos uma página profissional sob medida para a [NOME DA EMPRESA] apresentar todos os serviços, fotos e localização, direcionando o cliente direto para o WhatsApp. O investimento inicial é a partir de R$ 500,00, e R$ 55,00/mês cobrindo domínio, hospedagem segura e todo o suporte técnico.',
+        context,
+      ),
+      argumento: interpolateText(
+        'O site não substitui seus canais atuais, ele organiza. O cliente vê autoridade imediata e clica no WhatsApp já sabendo o que quer comprar.',
+        context,
+      ),
+      possivelObjecao: {
+        objecao: 'Já tenho Instagram',
+        clarificacao: 'O Instagram hoje consegue atender tudo que vocês precisam?',
+        argumento:
+          'O site complementa o Instagram. No Instagram o cliente se distrai; no site oficial ele foca na contratação.',
+      },
+      proximoPasso:
+        'Enviar exemplos do mesmo segmento no WhatsApp e validar se faz sentido agendar 15 minutos.',
+    }
   }
 
   return {
     currentScript,
     currentScriptTitle,
+    currentScriptProductName,
     currentQuestion,
     possibleAnswers,
     recommendedArgument,

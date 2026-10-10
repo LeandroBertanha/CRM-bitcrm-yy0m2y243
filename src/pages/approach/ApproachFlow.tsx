@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
-import type { Opportunity } from '@/types/crm'
+import type { Opportunity, Product } from '@/types/crm'
+import { getActiveProducts } from '@/services/productService'
 import type {
   ApproachChannel,
   DigitalSituation,
@@ -80,6 +81,10 @@ export default function ApproachFlow() {
     nextSteps: [],
   })
 
+  // Produtos ativos do catálogo (banco de dados)
+  const [productsList, setProductsList] = useState<Product[]>([])
+  const [selectedProductId, setSelectedProductId] = useState<string>('')
+
   // Minhas oportunidades para vínculo opcional
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [selectedOppId, setSelectedOppId] = useState<string>(searchParams.get('opp') || '')
@@ -123,19 +128,22 @@ export default function ApproachFlow() {
       try {
         setLoading(true)
         // Busca com batch máximo de 500 para garantir que nenhuma oportunidade fique de fora
-        const [pbBundle, opps] = await Promise.all([
+        const [pbBundle, opps, prods] = await Promise.all([
           getPlaybookBundle(),
           pb.collection('opportunities').getFullList<Opportunity>({
             batch: 500,
             sort: '-created',
-            expand: 'seller',
+            expand: 'seller,product',
           }),
+          getActiveProducts(),
         ])
         setPlaybook(pbBundle)
         setOpportunities(opps)
+        setProductsList(prods)
 
         // Se veio opp na URL, preenche os dados
         const urlOppId = searchParams.get('opp')
+        let initialProdId = ''
         if (urlOppId) {
           const matched = opps.find((o) => o.id === urlOppId)
           if (matched) {
@@ -144,7 +152,23 @@ export default function ApproachFlow() {
             setCustomContactName(matched.contact_name || '')
             setCustomPhone(matched.contact_phone || '')
             setCustomCity(matched.city || '')
+            if (matched.product) {
+              initialProdId = matched.product
+            } else if (matched.product_name) {
+              const p = prods.find(
+                (pr) =>
+                  pr.name.toLowerCase() === matched.product_name?.toLowerCase() ||
+                  pr.name.toLowerCase().includes(matched.product_name?.toLowerCase() || ''),
+              )
+              if (p) initialProdId = p.id
+            }
           }
+        }
+        if (!initialProdId && prods.length > 0) {
+          initialProdId = prods[0].id
+        }
+        if (initialProdId) {
+          setSelectedProductId(initialProdId)
         }
       } catch (err) {
         console.error('Erro ao carregar playbook:', err)
@@ -169,6 +193,16 @@ export default function ApproachFlow() {
       setCustomContactName(opp.contact_name || '')
       setCustomPhone(opp.contact_phone || '')
       setCustomCity(opp.city || '')
+      if (opp.product) {
+        setSelectedProductId(opp.product)
+      } else if (opp.product_name) {
+        const p = productsList.find(
+          (pr) =>
+            pr.name.toLowerCase() === opp.product_name?.toLowerCase() ||
+            pr.name.toLowerCase().includes(opp.product_name?.toLowerCase() || ''),
+        )
+        if (p) setSelectedProductId(p.id)
+      }
     }
   }
 
@@ -195,8 +229,41 @@ export default function ApproachFlow() {
     digitalSituation,
   ])
 
+  // Determinar o produto ativo da abordagem (da oportunidade vinculada ou do seletor)
+  const activeProduct = useMemo(() => {
+    const opp = opportunities.find((o) => o.id === selectedOppId)
+    if (opp?.product) {
+      const match = productsList.find((p) => p.id === opp.product)
+      if (match) return match
+    }
+    if (opp?.product_name) {
+      const match = productsList.find(
+        (p) =>
+          p.name.toLowerCase() === opp.product_name?.toLowerCase() ||
+          p.name.toLowerCase().includes(opp.product_name?.toLowerCase() || ''),
+      )
+      if (match) return match
+      return {
+        id: opp.product || '',
+        name: opp.product_name,
+        setup_value: opp.value || 500,
+        recurring_value: opp.recurring_value ?? 55,
+      } as Product
+    }
+    if (selectedProductId) {
+      const match = productsList.find((p) => p.id === selectedProductId)
+      if (match) return match
+    }
+    return productsList[0] || null
+  }, [opportunities, selectedOppId, selectedProductId, productsList])
+
   // 2. Executar Motor de Decisão Desacoplado
   const decision = useMemo(() => {
+    const opp = opportunities.find((o) => o.id === selectedOppId)
+    const effectiveProdId = opp?.product || activeProduct?.id
+    const effectiveProdName = opp?.product_name || activeProduct?.name
+    const effectiveProdDesc = activeProduct?.description
+
     return runApproachEngine({
       channel,
       segment: selectedSegment,
@@ -213,6 +280,9 @@ export default function ApproachFlow() {
       budget,
       playbook,
       context: interpolationContext,
+      productId: effectiveProdId,
+      productName: effectiveProdName,
+      productDescription: effectiveProdDesc,
     })
   }, [
     channel,
@@ -230,26 +300,62 @@ export default function ApproachFlow() {
     budget,
     playbook,
     interpolationContext,
+    selectedOppId,
+    opportunities,
+    activeProduct,
   ])
 
-  // Mensagem de WhatsApp interpolada usando script do playbook do banco (ou fallback contextual)
+  // Mensagem de WhatsApp interpolada usando script do playbook do banco (com a mesma regra a/b/c)
   const whatsAppMessage = useMemo(() => {
-    // Procura o script de WhatsApp no playbook carregado do banco, preferindo o associado ao produto da oportunidade
-    const activeOpp = opportunities.find((o) => o.id === selectedOppId)
-    const oppProduct = activeOpp?.product_name || activeOpp?.product
-    let waScript = playbook.scripts.find((s) => {
-      if (s.channel !== 'WhatsApp' || !s.is_active) return false
-      if (!oppProduct) return true
-      return (
-        s.product === activeOpp?.product ||
-        (s.product_name &&
-          oppProduct &&
-          (s.product_name.toLowerCase().includes(oppProduct.toLowerCase()) ||
-            oppProduct.toLowerCase().includes(s.product_name.toLowerCase())))
-      )
-    })
+    const opp = opportunities.find((o) => o.id === selectedOppId)
+    const targetProdId = opp?.product || activeProduct?.id
+    const targetProdName = opp?.product_name || activeProduct?.name
+
+    const waScripts = playbook.scripts.filter(
+      (s) => s.channel === 'WhatsApp' && s.is_active !== false,
+    )
+
+    const matchesProduct = (s: (typeof waScripts)[0]) => {
+      if (targetProdId && s.product === targetProdId) return true
+      if (targetProdName && s.product_name) {
+        const sName = s.product_name.toLowerCase()
+        const tName = targetProdName.toLowerCase()
+        if (sName === tName || sName.includes(tName) || tName.includes(sName)) {
+          return true
+        }
+      }
+      if (targetProdName) {
+        const tLower = targetProdName.toLowerCase()
+        const isWaAutonomous =
+          tLower.includes('whatsapp') &&
+          (tLower.includes('autônomo') || tLower.includes('autonomo'))
+        if (isWaAutonomous && s.product_name) {
+          const sLower = s.product_name.toLowerCase()
+          if (
+            sLower.includes('whatsapp') &&
+            (sLower.includes('autônomo') || sLower.includes('autonomo'))
+          ) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    let waScript: (typeof waScripts)[0] | undefined
+
+    if (targetProdId || targetProdName) {
+      // Regra (a): se a opp/seletor tem produto -> preferir script do MESMO produto
+      waScript = waScripts.find(matchesProduct)
+      // Regra (b): se não houver script daquele produto no canal, cair para script sem produto (genérico)
+      if (!waScript) {
+        waScript = waScripts.find((s) => !s.product && !s.product_name)
+      }
+    }
+
+    // Regra (c): se a opp/seletor não tem produto ou se ainda não achou, primeiro WhatsApp da lista
     if (!waScript) {
-      waScript = playbook.scripts.find((s) => s.channel === 'WhatsApp' && s.is_active)
+      waScript = waScripts[0]
     }
 
     return buildWhatsAppMessage({
@@ -257,7 +363,7 @@ export default function ApproachFlow() {
       context: interpolationContext,
       hasOpportunity: Boolean(selectedOppId),
     })
-  }, [playbook.scripts, interpolationContext, selectedOppId, opportunities])
+  }, [playbook.scripts, interpolationContext, selectedOppId, opportunities, activeProduct])
 
   // Iniciar Copiloto
   const handleStartCopilot = () => {
@@ -587,6 +693,51 @@ export default function ApproachFlow() {
               </div>
             </div>
 
+            {/* Etapa 4: Produto da Abordagem */}
+            {productsList.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                    4. Produto da Abordagem
+                  </Label>
+                  {Boolean(
+                    selectedOppId &&
+                    opportunities.find((o) => o.id === selectedOppId)?.product_name,
+                  ) && (
+                    <span className="text-[11px] text-indigo-400 font-medium">
+                      Definido pela oportunidade vinculada
+                    </span>
+                  )}
+                </div>
+                <Select
+                  value={activeProduct?.id || selectedProductId}
+                  onValueChange={(val) => setSelectedProductId(val)}
+                  disabled={Boolean(
+                    selectedOppId &&
+                    opportunities.find(
+                      (o) => o.id === selectedOppId && (o.product || o.product_name),
+                    ),
+                  )}
+                >
+                  <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white text-xs h-11 rounded-xl disabled:opacity-75 disabled:cursor-not-allowed">
+                    <SelectValue placeholder="Selecione o produto da abordagem" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                    {productsList.map((prod) => (
+                      <SelectItem key={prod.id} value={prod.id}>
+                        {prod.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {activeProduct?.description && (
+                  <p className="text-[11px] text-gray-400 leading-relaxed italic">
+                    {activeProduct.description}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Escolha da Oportunidade da Carteira com Filtro/Busca e Campos de Personalização */}
             <OpportunitySelectorSection
               opportunities={opportunities}
@@ -640,6 +791,11 @@ export default function ApproachFlow() {
               <span className="px-2.5 py-0.5 rounded-lg bg-[#181B24] border border-[#262A33] text-gray-300">
                 Segmento: <strong className="text-white">{selectedSegment}</strong>
               </span>
+              {(decision.currentScriptProductName || activeProduct?.name) && (
+                <span className="px-2.5 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold">
+                  Produto: {decision.currentScriptProductName || activeProduct?.name}
+                </span>
+              )}
             </div>
           </div>
 
@@ -694,6 +850,7 @@ export default function ApproachFlow() {
             scriptText={decision.currentScript}
             instructions="Fale de forma natural e com entusiasmo moderado. Pare imediatamente ao terminar para escutar o cliente."
             highlight
+            productBadge={decision.currentScriptProductName || activeProduct?.name}
           />
 
           {/* 4. CARD: PERGUNTE AGORA (UMA PERGUNTA POR VEZ COM RESPOSTAS RÁPIDAS) */}

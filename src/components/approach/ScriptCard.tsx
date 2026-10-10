@@ -9,6 +9,7 @@ export interface ScriptCardProps {
   instructions?: string
   onCopySuccess?: () => void
   highlight?: boolean
+  productBadge?: string
 }
 
 export const ScriptCard: React.FC<ScriptCardProps> = ({
@@ -18,6 +19,7 @@ export const ScriptCard: React.FC<ScriptCardProps> = ({
   instructions,
   onCopySuccess,
   highlight = false,
+  productBadge,
 }) => {
   const [copied, setCopied] = useState(false)
 
@@ -42,9 +44,14 @@ export const ScriptCard: React.FC<ScriptCardProps> = ({
     >
       <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#262A33]/70">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <MessageSquare className="w-4 h-4 text-indigo-400" />
             <h3 className="text-sm font-bold text-white tracking-wide uppercase">{title}</h3>
+            {productBadge && (
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
+                Produto: {productBadge}
+              </span>
+            )}
           </div>
           {situation && <p className="text-xs text-gray-400 mt-0.5">{situation}</p>}
         </div>
