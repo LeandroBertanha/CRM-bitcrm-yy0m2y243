@@ -259,6 +259,7 @@ describe('BatchWhatsAppModal — Fila de Envio Assistido, Cópia Agrupada e Rela
     vi.spyOn(whatsappCloudService, 'getWhatsAppCloudStatus').mockResolvedValue({
       configured: false,
       phoneNumberIdMasked: null,
+      graphApiVersion: 'v26.0',
       settings: {
         initialTemplateName: 'bit_abordagem_inicial',
         initialTemplateLanguage: 'pt_BR',
@@ -291,6 +292,7 @@ describe('BatchWhatsAppModal — Fila de Envio Assistido, Cópia Agrupada e Rela
     vi.spyOn(whatsappCloudService, 'getWhatsAppCloudStatus').mockResolvedValue({
       configured: true,
       phoneNumberIdMasked: '10••••89',
+      graphApiVersion: 'v26.0',
       settings: {
         initialTemplateName: 'bit_abordagem_inicial',
         initialTemplateLanguage: 'pt_BR',
