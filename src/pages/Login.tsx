@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { TermsModal } from '@/components/TermsModal'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { CURRENT_TERMS_VERSION } from '@/lib/terms-content'
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, ShieldCheck } from 'lucide-react'
 
@@ -121,6 +122,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[#0A0B0E]">
+      <ThemeToggle className="absolute right-4 top-4 z-20" />
+
       {/* Glows de fundo no estilo lbertanha.com */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />

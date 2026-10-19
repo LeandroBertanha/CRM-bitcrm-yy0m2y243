@@ -84,6 +84,47 @@
     --ring: 239 84% 67%;
   }
 
+  .light {
+    color-scheme: light;
+
+    --background: 210 33% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 239 84% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 32% 94%;
+    --secondary-foreground: 222 47% 16%;
+
+    --muted: 214 32% 94%;
+    --muted-foreground: 215 20% 40%;
+
+    --accent: 239 84% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 27% 86%;
+    --input: 214 27% 86%;
+    --ring: 239 84% 60%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 239 84% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 32% 94%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 27% 86%;
+    --sidebar-ring: 239 84% 60%;
+  }
+
   * {
     @apply border-border;
   }
@@ -112,6 +153,28 @@
     min-height: 100vh;
     scrollbar-width: thin;
     scrollbar-color: #2a2c38 #0a0b0e;
+  }
+
+  .light body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    background-image:
+      radial-gradient(at 0% 0%, rgba(34, 197, 194, 0.08) 0px, transparent 48%),
+      radial-gradient(at 100% 100%, rgba(74, 173, 55, 0.06) 0px, transparent 48%);
+    scrollbar-color: #a8b3c4 #f8fafc;
+  }
+
+  .light,
+  .light * {
+    scrollbar-color: #a8b3c4 transparent;
+  }
+
+  .light ::-webkit-scrollbar-thumb {
+    background: #a8b3c4;
+  }
+
+  .light ::-webkit-scrollbar-thumb:hover {
+    background: #7c899d;
   }
 
   /* Global WebKit Scrollbars (Chrome, Edge, Safari, Opera) */
@@ -162,6 +225,107 @@
     padding: 0 !important;
     margin: 0 !important;
   }
+}
+
+/*
+ * Camada de compatibilidade para as telas legadas do bitCRM que ainda usam
+ * cores escuras literais do Tailwind. Os componentes novos devem preferir os
+ * tokens bg-background, bg-card, text-foreground e border-border.
+ */
+.light [class*='bg-[#0A0B0E]'],
+.light [class*='bg-[#0A0C11]'] {
+  background-color: rgb(248 250 252 / 0.94) !important;
+}
+
+.light [class*='bg-[#0E1017]'],
+.light [class*='bg-[#0E1322]'],
+.light [class*='bg-[#131622]'],
+.light [class*='bg-[#141722]'],
+.light [class*='bg-[#141824]'],
+.light [class*='bg-[#151722]'] {
+  background-color: rgb(241 245 249 / 0.96) !important;
+}
+
+.light [class*='bg-[#12141A]'],
+.light [class*='bg-[#161922]'] {
+  background-color: #ffffff !important;
+}
+
+.light [class*='bg-[#171A24]'],
+.light [class*='bg-[#181B24]'],
+.light [class*='bg-[#181B26]'],
+.light [class*='bg-[#1A1D27]'],
+.light [class*='bg-[#1E2330]'],
+.light [class*='bg-[#1E2332]'],
+.light [class*='bg-[#1E2333]'],
+.light [class*='bg-[#1F2430]'],
+.light [class*='bg-[#202430]'],
+.light [class*='bg-[#202533]'] {
+  background-color: #e8edf4 !important;
+}
+
+.light [class*='hover:bg-[#171A24]']:hover,
+.light [class*='hover:bg-[#181B24]']:hover,
+.light [class*='hover:bg-[#1A1D27]']:hover,
+.light [class*='focus:bg-[#1A1D27]']:focus {
+  background-color: #e2e8f0 !important;
+}
+
+.light [class*='border-[#262A33]'],
+.light [class*='border-[#2E3342]'],
+.light [class*='border-[#383D4D]'],
+.light [class*='border-[#383E4E]'],
+.light [class*='border-[#3A3F50]'],
+.light [class*='border-[#3A4050]'] {
+  border-color: #d6dee9 !important;
+}
+
+.light [class*='text-[#F5F6F8]'],
+.light .text-gray-100,
+.light .text-gray-200 {
+  color: #172033 !important;
+}
+
+.light .text-gray-300 {
+  color: #334155 !important;
+}
+
+.light .text-gray-400 {
+  color: #475569 !important;
+}
+
+.light .text-gray-500,
+.light .text-gray-600 {
+  color: #64748b !important;
+}
+
+.light h1.text-white,
+.light h2.text-white,
+.light h3.text-white,
+.light h4.text-white,
+.light h5.text-white,
+.light h6.text-white,
+.light label.text-white,
+.light input.text-white,
+.light textarea.text-white,
+.light [role='dialog'][class*='text-white'] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.light input,
+.light textarea,
+.light select {
+  color: hsl(var(--foreground));
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #7c899d !important;
+}
+
+.light .shadow-black\/40,
+.light .shadow-black\/70 {
+  --tw-shadow-color: rgb(15 23 42 / 0.12) !important;
 }
 
 @layer utilities {
