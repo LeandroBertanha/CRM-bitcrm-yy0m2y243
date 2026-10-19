@@ -62,10 +62,13 @@ import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 import { BatchWhatsAppModal } from '@/components/approach/BatchWhatsAppModal'
 import type { WhatsAppActionType } from '@/lib/whatsappApproachHelper'
 import {
+  DEFAULT_WHATSAPP_SETUP_VALUE,
   DEFAULT_WHATSAPP_RECURRING_VALUE,
   getMaxPaymentInstallments,
   isWhatsAppAutonomousProductName,
   isWhatsAppRecurringOptionValue,
+  isWhatsAppSetupOptionValue,
+  WHATSAPP_SETUP_OPTIONS,
   WHATSAPP_RECURRING_OPTIONS,
 } from '@/lib/whatsappPricing'
 
@@ -280,7 +283,11 @@ export default function Opportunities() {
         (p.name.toLowerCase().includes('autônomo') || p.name.toLowerCase().includes('autonomo')),
     )
     const defaultProduct = waProduct || (productsList.length > 0 ? productsList[0] : null)
-    const setupVal = (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 350
+    const catalogSetupVal =
+      (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 350
+    const setupVal = isWhatsAppAutonomousProductName(defaultProduct?.name)
+      ? DEFAULT_WHATSAPP_SETUP_VALUE
+      : catalogSetupVal
     const catalogRecVal =
       (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
     const recVal = isWhatsAppAutonomousProductName(defaultProduct?.name)
@@ -1349,7 +1356,10 @@ export default function Opportunities() {
                   onValueChange={(val) => {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
-                      const setupVal = (sel as any).setup_price ?? sel.setup_value ?? 350
+                      const catalogSetupVal = (sel as any).setup_price ?? sel.setup_value ?? 350
+                      const setupVal = isWhatsAppAutonomousProductName(sel.name)
+                        ? DEFAULT_WHATSAPP_SETUP_VALUE
+                        : catalogSetupVal
                       const catalogRecVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
                       const recVal = isWhatsAppAutonomousProductName(sel.name)
                         ? DEFAULT_WHATSAPP_RECURRING_VALUE
@@ -1397,14 +1407,37 @@ export default function Opportunities() {
                   <Label className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                     Setup / Implantação (R$) *
                   </Label>
-                  <Input
-                    placeholder="Ex: 350"
-                    type="number"
-                    step="any"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
-                  />
+                  {isWhatsAppProduct ? (
+                    <Select
+                      value={formData.value}
+                      onValueChange={(value) => setFormData({ ...formData, value })}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o setup" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isWhatsAppSetupOptionValue(formData.value) && formData.value && (
+                          <SelectItem value={formData.value}>
+                            Valor atual - {formatBRL(Number(formData.value))}
+                          </SelectItem>
+                        )}
+                        {WHATSAPP_SETUP_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Ex: 350"
+                      type="number"
+                      step="any"
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                    />
+                  )}
                   <span className="text-[10px] text-emerald-400/80 block">
                     ✓ Base exclusiva para comissão
                   </span>
@@ -1677,6 +1710,10 @@ export default function Opportunities() {
                   onValueChange={(val) => {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
+                      const catalogSetupVal = sel.setup_value ?? 350
+                      const setupVal = isWhatsAppAutonomousProductName(sel.name)
+                        ? DEFAULT_WHATSAPP_SETUP_VALUE
+                        : catalogSetupVal
                       const catalogRecVal = sel.recurring_value ?? 55
                       const recVal = isWhatsAppAutonomousProductName(sel.name)
                         ? DEFAULT_WHATSAPP_RECURRING_VALUE
@@ -1686,7 +1723,7 @@ export default function Opportunities() {
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
-                        value: String(sel.setup_value ?? 350),
+                        value: String(setupVal),
                         recurring_value: String(recVal),
                         payment_installments: String(
                           Math.min(
@@ -1723,13 +1760,36 @@ export default function Opportunities() {
                   <Label className="text-xs text-emerald-400 font-semibold">
                     Setup / Implantação (R$) *
                   </Label>
-                  <Input
-                    type="number"
-                    step="any"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
-                  />
+                  {isWhatsAppProduct ? (
+                    <Select
+                      value={formData.value}
+                      onValueChange={(value) => setFormData({ ...formData, value })}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o setup" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isWhatsAppSetupOptionValue(formData.value) && formData.value && (
+                          <SelectItem value={formData.value}>
+                            Valor atual - {formatBRL(Number(formData.value))}
+                          </SelectItem>
+                        )}
+                        {WHATSAPP_SETUP_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      type="number"
+                      step="any"
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                    />
+                  )}
                   <span className="text-[10px] text-emerald-400/80 block">
                     ✓ Base exclusiva para comissão
                   </span>

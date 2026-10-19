@@ -5,6 +5,37 @@ export type WhatsAppRecurringOption = {
   annualValue?: number
 }
 
+export type WhatsAppSetupOption = {
+  id: string
+  label: string
+  value: number
+}
+
+export const WHATSAPP_SETUP_OPTIONS: WhatsAppSetupOption[] = [
+  {
+    id: 'setup-497',
+    label: 'R$ 497,00',
+    value: 497,
+  },
+  {
+    id: 'setup-997',
+    label: 'R$ 997,00',
+    value: 997,
+  },
+  {
+    id: 'setup-1997',
+    label: 'R$ 1.997,00',
+    value: 1997,
+  },
+  {
+    id: 'setup-adesao-2026',
+    label: 'R$ 350,00 (Adesão até 31/10/2026)',
+    value: 350,
+  },
+]
+
+export const DEFAULT_WHATSAPP_SETUP_VALUE = '350'
+
 // Planos anuais gravam a parcela mensal equivalente para manter MRR e recorrência consistentes.
 export const WHATSAPP_RECURRING_OPTIONS: WhatsAppRecurringOption[] = [
   {
@@ -68,6 +99,14 @@ export function isWhatsAppRecurringOptionValue(value?: string | number | null): 
   return WHATSAPP_RECURRING_OPTIONS.some(
     (option) => Math.abs(option.monthlyValue - numericValue) < 0.001,
   )
+}
+
+export function isWhatsAppSetupOptionValue(value?: string | number | null): boolean {
+  if (value === null || value === undefined || value === '') return false
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) return false
+
+  return WHATSAPP_SETUP_OPTIONS.some((option) => Math.abs(option.value - numericValue) < 0.001)
 }
 
 export function getMaxPaymentInstallments(productName?: string | null): number {
