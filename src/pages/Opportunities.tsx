@@ -61,6 +61,13 @@ import {
 import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 import { BatchWhatsAppModal } from '@/components/approach/BatchWhatsAppModal'
 import type { WhatsAppActionType } from '@/lib/whatsappApproachHelper'
+import {
+  DEFAULT_WHATSAPP_RECURRING_VALUE,
+  getMaxPaymentInstallments,
+  isWhatsAppAutonomousProductName,
+  isWhatsAppRecurringOptionValue,
+  WHATSAPP_RECURRING_OPTIONS,
+} from '@/lib/whatsappPricing'
 
 export default function Opportunities() {
   const { user, isAdmin } = useAuth()
@@ -134,6 +141,9 @@ export default function Opportunities() {
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const isWhatsAppProduct = isWhatsAppAutonomousProductName(formData.product_name)
+  const maxPaymentInstallments = getMaxPaymentInstallments(formData.product_name)
+  const installmentOptions = Array.from({ length: maxPaymentInstallments }, (_, index) => index + 1)
 
   const fetchOpportunities = useCallback(async () => {
     try {
@@ -271,7 +281,11 @@ export default function Opportunities() {
     )
     const defaultProduct = waProduct || (productsList.length > 0 ? productsList[0] : null)
     const setupVal = (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 350
-    const recVal = (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
+    const catalogRecVal =
+      (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
+    const recVal = isWhatsAppAutonomousProductName(defaultProduct?.name)
+      ? DEFAULT_WHATSAPP_RECURRING_VALUE
+      : catalogRecVal
 
     setFormData({
       company: '',
@@ -545,7 +559,10 @@ export default function Opportunities() {
         payment_type: formData.payment_type || null,
         payment_installments:
           formData.payment_type === 'Parcelado' && formData.payment_installments
-            ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
+            ? Math.min(
+                getMaxPaymentInstallments(finalProdName),
+                Math.max(1, parseInt(formData.payment_installments, 10)),
+              )
             : null,
         message: formData.message.trim(),
       })
@@ -605,7 +622,10 @@ export default function Opportunities() {
         payment_type: formData.payment_type || null,
         payment_installments:
           formData.payment_type === 'Parcelado' && formData.payment_installments
-            ? Math.min(10, Math.max(1, parseInt(formData.payment_installments, 10)))
+            ? Math.min(
+                getMaxPaymentInstallments(finalProdName),
+                Math.max(1, parseInt(formData.payment_installments, 10)),
+              )
             : null,
         message: formData.message.trim(),
         return_at: returnAtIso,
@@ -1330,13 +1350,23 @@ export default function Opportunities() {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
                       const setupVal = (sel as any).setup_price ?? sel.setup_value ?? 350
-                      const recVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
+                      const catalogRecVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
+                      const recVal = isWhatsAppAutonomousProductName(sel.name)
+                        ? DEFAULT_WHATSAPP_RECURRING_VALUE
+                        : catalogRecVal
+                      const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
                         value: String(setupVal),
                         recurring_value: String(recVal),
+                        payment_installments: String(
+                          Math.min(
+                            selectedMaxInstallments,
+                            Math.max(1, Number(formData.payment_installments) || 1),
+                          ),
+                        ),
                       })
                     } else {
                       setFormData({
@@ -1362,7 +1392,7 @@ export default function Opportunities() {
               </div>
 
               {/* Dois componentes: Configuração (Setup) e Hospedagem/Suporte (Mensalidade) */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
                   <Label className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
                     Setup / Implantação (R$) *
@@ -1384,14 +1414,42 @@ export default function Opportunities() {
                   <Label className="text-xs text-cyan-400 font-semibold flex items-center gap-1">
                     Mensalidade / Suporte (R$/mês)
                   </Label>
-                  <Input
-                    placeholder="Ex: 55"
-                    type="number"
-                    step="any"
-                    value={formData.recurring_value}
-                    onChange={(e) => setFormData({ ...formData, recurring_value: e.target.value })}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
-                  />
+                  {isWhatsAppProduct ? (
+                    <Select
+                      value={formData.recurring_value}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, recurring_value: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o plano" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isWhatsAppRecurringOptionValue(formData.recurring_value) &&
+                          formData.recurring_value && (
+                            <SelectItem value={formData.recurring_value}>
+                              Valor atual - {formatBRL(Number(formData.recurring_value))}/mês
+                            </SelectItem>
+                          )}
+                        {WHATSAPP_RECURRING_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.monthlyValue)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Ex: 55"
+                      type="number"
+                      step="any"
+                      value={formData.recurring_value}
+                      onChange={(e) =>
+                        setFormData({ ...formData, recurring_value: e.target.value })
+                      }
+                      className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                    />
+                  )}
                   <span className="text-[10px] text-gray-400 block">
                     ℹ Recorrência (nunca entra na comissão)
                   </span>
@@ -1481,7 +1539,9 @@ export default function Opportunities() {
 
               {formData.payment_type === 'Parcelado' ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-indigo-300">Parcelas (até 10x)</Label>
+                  <Label className="text-xs text-indigo-300">
+                    Parcelas (até {maxPaymentInstallments}x)
+                  </Label>
                   <Select
                     value={formData.payment_installments || '1'}
                     onValueChange={(val) => setFormData({ ...formData, payment_installments: val })}
@@ -1490,7 +1550,7 @@ export default function Opportunities() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      {installmentOptions.map((n) => (
                         <SelectItem key={n} value={String(n)}>
                           {n}x {n === 1 ? '(à vista)' : ''}
                         </SelectItem>
@@ -1617,12 +1677,23 @@ export default function Opportunities() {
                   onValueChange={(val) => {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
+                      const catalogRecVal = sel.recurring_value ?? 55
+                      const recVal = isWhatsAppAutonomousProductName(sel.name)
+                        ? DEFAULT_WHATSAPP_RECURRING_VALUE
+                        : catalogRecVal
+                      const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
                         value: String(sel.setup_value ?? 350),
-                        recurring_value: String(sel.recurring_value ?? 55),
+                        recurring_value: String(recVal),
+                        payment_installments: String(
+                          Math.min(
+                            selectedMaxInstallments,
+                            Math.max(1, Number(formData.payment_installments) || 1),
+                          ),
+                        ),
                       })
                     } else {
                       setFormData({
@@ -1647,7 +1718,7 @@ export default function Opportunities() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
                   <Label className="text-xs text-emerald-400 font-semibold">
                     Setup / Implantação (R$) *
@@ -1668,13 +1739,41 @@ export default function Opportunities() {
                   <Label className="text-xs text-cyan-400 font-semibold">
                     Mensalidade / Suporte (R$/mês)
                   </Label>
-                  <Input
-                    type="number"
-                    step="any"
-                    value={formData.recurring_value}
-                    onChange={(e) => setFormData({ ...formData, recurring_value: e.target.value })}
-                    className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
-                  />
+                  {isWhatsAppProduct ? (
+                    <Select
+                      value={formData.recurring_value}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, recurring_value: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o plano" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isWhatsAppRecurringOptionValue(formData.recurring_value) &&
+                          formData.recurring_value && (
+                            <SelectItem value={formData.recurring_value}>
+                              Valor atual - {formatBRL(Number(formData.recurring_value))}/mês
+                            </SelectItem>
+                          )}
+                        {WHATSAPP_RECURRING_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.monthlyValue)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      type="number"
+                      step="any"
+                      value={formData.recurring_value}
+                      onChange={(e) =>
+                        setFormData({ ...formData, recurring_value: e.target.value })
+                      }
+                      className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9"
+                    />
+                  )}
                   <span className="text-[10px] text-gray-400 block">
                     ℹ Recorrência (fora da comissão)
                   </span>
@@ -1765,7 +1864,9 @@ export default function Opportunities() {
 
               {formData.payment_type === 'Parcelado' ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-indigo-300">Parcelas (até 10x)</Label>
+                  <Label className="text-xs text-indigo-300">
+                    Parcelas (até {maxPaymentInstallments}x)
+                  </Label>
                   <Select
                     value={formData.payment_installments || '1'}
                     onValueChange={(val) => setFormData({ ...formData, payment_installments: val })}
@@ -1774,7 +1875,7 @@ export default function Opportunities() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                      {installmentOptions.map((n) => (
                         <SelectItem key={n} value={String(n)}>
                           {n}x {n === 1 ? '(à vista)' : ''}
                         </SelectItem>
