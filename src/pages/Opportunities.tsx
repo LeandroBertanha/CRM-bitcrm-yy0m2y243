@@ -61,9 +61,8 @@ import {
 import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 import { BatchWhatsAppModal } from '@/components/approach/BatchWhatsAppModal'
 import type { WhatsAppActionType } from '@/lib/whatsappApproachHelper'
+import { getProductDefaultPricing } from '@/lib/productDefaultPricing'
 import {
-  DEFAULT_WHATSAPP_SETUP_VALUE,
-  DEFAULT_WHATSAPP_RECURRING_VALUE,
   getMaxPaymentInstallments,
   isWhatsAppAutonomousProductName,
   isWhatsAppRecurringOptionValue,
@@ -285,14 +284,13 @@ export default function Opportunities() {
     const defaultProduct = waProduct || (productsList.length > 0 ? productsList[0] : null)
     const catalogSetupVal =
       (defaultProduct as any)?.setup_price ?? defaultProduct?.setup_value ?? 350
-    const setupVal = isWhatsAppAutonomousProductName(defaultProduct?.name)
-      ? DEFAULT_WHATSAPP_SETUP_VALUE
-      : catalogSetupVal
     const catalogRecVal =
       (defaultProduct as any)?.monthly_price ?? defaultProduct?.recurring_value ?? 55
-    const recVal = isWhatsAppAutonomousProductName(defaultProduct?.name)
-      ? DEFAULT_WHATSAPP_RECURRING_VALUE
-      : catalogRecVal
+    const { setupValue, recurringValue } = getProductDefaultPricing(
+      defaultProduct?.name,
+      catalogSetupVal,
+      catalogRecVal,
+    )
 
     setFormData({
       company: '',
@@ -300,8 +298,8 @@ export default function Opportunities() {
       source: 'Indicação',
       product: defaultProduct?.id || '',
       product_name: defaultProduct?.name || '',
-      value: String(setupVal),
-      recurring_value: String(recVal),
+      value: setupValue,
+      recurring_value: recurringValue,
       seller: user?.id || '',
       contact_name: '',
       contact_email: '',
@@ -1357,20 +1355,19 @@ export default function Opportunities() {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
                       const catalogSetupVal = (sel as any).setup_price ?? sel.setup_value ?? 350
-                      const setupVal = isWhatsAppAutonomousProductName(sel.name)
-                        ? DEFAULT_WHATSAPP_SETUP_VALUE
-                        : catalogSetupVal
                       const catalogRecVal = (sel as any).monthly_price ?? sel.recurring_value ?? 55
-                      const recVal = isWhatsAppAutonomousProductName(sel.name)
-                        ? DEFAULT_WHATSAPP_RECURRING_VALUE
-                        : catalogRecVal
+                      const { setupValue, recurringValue } = getProductDefaultPricing(
+                        sel.name,
+                        catalogSetupVal,
+                        catalogRecVal,
+                      )
                       const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
-                        value: String(setupVal),
-                        recurring_value: String(recVal),
+                        value: setupValue,
+                        recurring_value: recurringValue,
                         payment_installments: String(
                           Math.min(
                             selectedMaxInstallments,
@@ -1711,20 +1708,19 @@ export default function Opportunities() {
                     const sel = productsList.find((p) => p.id === val)
                     if (sel) {
                       const catalogSetupVal = sel.setup_value ?? 350
-                      const setupVal = isWhatsAppAutonomousProductName(sel.name)
-                        ? DEFAULT_WHATSAPP_SETUP_VALUE
-                        : catalogSetupVal
                       const catalogRecVal = sel.recurring_value ?? 55
-                      const recVal = isWhatsAppAutonomousProductName(sel.name)
-                        ? DEFAULT_WHATSAPP_RECURRING_VALUE
-                        : catalogRecVal
+                      const { setupValue, recurringValue } = getProductDefaultPricing(
+                        sel.name,
+                        catalogSetupVal,
+                        catalogRecVal,
+                      )
                       const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({
                         ...formData,
                         product: sel.id,
                         product_name: sel.name,
-                        value: String(setupVal),
-                        recurring_value: String(recVal),
+                        value: setupValue,
+                        recurring_value: recurringValue,
                         payment_installments: String(
                           Math.min(
                             selectedMaxInstallments,
