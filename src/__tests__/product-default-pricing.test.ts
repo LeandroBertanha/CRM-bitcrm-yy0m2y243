@@ -4,6 +4,10 @@ import {
   DEFAULT_SITE_SETUP_VALUE,
   getProductDefaultPricing,
   isCustomSiteProductName,
+  isSiteRecurringOptionValue,
+  isSiteSetupOptionValue,
+  SITE_RECURRING_OPTIONS,
+  SITE_SETUP_OPTIONS,
 } from '@/lib/productDefaultPricing'
 
 describe('precos padrao por produto', () => {
@@ -21,6 +25,10 @@ describe('precos padrao por produto', () => {
       setupValue: DEFAULT_SITE_SETUP_VALUE,
       recurringValue: DEFAULT_SITE_RECURRING_VALUE,
     })
+    expect(SITE_SETUP_OPTIONS.map((option) => option.value)).toEqual([500])
+    expect(SITE_RECURRING_OPTIONS.map((option) => option.value)).toEqual([55])
+    expect(isSiteSetupOptionValue('500.00')).toBe(true)
+    expect(isSiteRecurringOptionValue('55.00')).toBe(true)
   })
 
   it('mantem os valores do catalogo para os demais produtos', () => {
