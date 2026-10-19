@@ -308,6 +308,12 @@
 .light label.text-white,
 .light input.text-white,
 .light textarea.text-white,
+.light p.text-white,
+.light strong.text-white,
+.light span.text-white:not([class*='bg-']),
+.light div.text-white:not([class*='bg-']):not([class*='from-']),
+.light td.text-white,
+.light th.text-white,
 .light [role='dialog'][class*='text-white'] {
   color: hsl(var(--foreground)) !important;
 }
