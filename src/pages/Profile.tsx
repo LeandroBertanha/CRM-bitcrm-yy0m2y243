@@ -27,6 +27,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { buildCalendarFeedUrls } from '@/lib/calendarHelper'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Profile() {
   const { user, updateProfile, requestEmailChange, changePassword } = useAuth()
@@ -395,6 +396,17 @@ export default function Profile() {
           </p>
         </div>
       </div>
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Aparência</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Escolha como o bitCRM será exibido neste navegador.
+            </p>
+          </div>
+          <ThemeToggle variant="segmented" />
+        </div>
+      </section>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Formulário: Alterar Senha (Requisito Principal do Usuário) */}
         <div

@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function Layout() {
   const { user, isAdmin, signOut, isLoading } = useAuth()
@@ -186,6 +187,8 @@ export default function Layout() {
                   )}
                 </NavLink>
               )}
+
+              <ThemeToggle />
 
               {user ? (
                 <DropdownMenu>

@@ -4,6 +4,8 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
+import { ThemeProvider } from '@/components/theme-provider'
+import { THEME_STORAGE_KEY } from '@/lib/theme'
 
 import Index from './pages/Index'
 import Login from './pages/Login'
@@ -147,110 +149,117 @@ const UnauthenticatedOnly = ({ children }: { children: React.ReactNode }) => {
 }
 
 const App = () => (
-  <BrowserRouter>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          {/* Rota Raiz */}
-          <Route path="/" element={<Index />} />
+  <ThemeProvider
+    attribute="class"
+    defaultTheme="dark"
+    enableSystem={false}
+    storageKey={THEME_STORAGE_KEY}
+  >
+    <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            {/* Rota Raiz */}
+            <Route path="/" element={<Index />} />
 
-          {/* Rota Pública de Termos e Política de Privacidade */}
-          <Route path="/termos" element={<Terms />} />
+            {/* Rota Pública de Termos e Política de Privacidade */}
+            <Route path="/termos" element={<Terms />} />
 
-          {/* Rota Protegida de Primeiro Acesso (Definir Nova Senha) */}
-          <Route
-            path="/definir-senha"
-            element={
-              <FirstAccessRoute>
-                <SetPassword />
-              </FirstAccessRoute>
-            }
-          />
-
-          {/* Rotas de Autenticação Públicas */}
-          <Route
-            path="/login"
-            element={
-              <UnauthenticatedOnly>
-                <Login />
-              </UnauthenticatedOnly>
-            }
-          />
-          <Route
-            path="/esqueci-senha"
-            element={
-              <UnauthenticatedOnly>
-                <ForgotPassword />
-              </UnauthenticatedOnly>
-            }
-          />
-          <Route path="/resetar-senha" element={<ResetPassword />} />
-          <Route path="/verificar-email" element={<VerifyEmail />} />
-          <Route path="/confirmar-alteracao-email" element={<ConfirmEmailChange />} />
-
-          {/* Rota Pública do Formulário de Captação do Cliente */}
-          <Route path="/formulario/publico" element={<PublicForm />} />
-          <Route path="/formulario/:vendedorId" element={<PublicForm />} />
-
-          {/* Rotas Autenticadas protegidas com Layout Global */}
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/painel" element={<Dashboard />} />
-            <Route path="/oportunidades" element={<Opportunities />} />
-            <Route path="/comissionamento" element={<Commission />} />
-            <Route path="/formulario" element={<FormManager />} />
-
-            {/* Rotas do Guia de Abordagem Comercial */}
-            <Route path="/abordagem" element={<ApproachFlow />} />
-            <Route path="/abordagem/telefone" element={<PhoneApproachPage />} />
-            <Route path="/abordagem/presencial" element={<InPersonApproachPage />} />
-            <Route path="/abordagem/whatsapp" element={<WhatsAppApproachPage />} />
-            <Route path="/abordagem/pitch" element={<PitchPage />} />
-            <Route path="/abordagem/diagnostico" element={<DiagnosisPage />} />
-            <Route path="/abordagem/objecoes" element={<ObjectionsPage />} />
-            <Route path="/abordagem/valores" element={<ValuesPage />} />
-            <Route path="/abordagem/historico" element={<HistoryPage />} />
+            {/* Rota Protegida de Primeiro Acesso (Definir Nova Senha) */}
             <Route
-              path="/abordagem/configuracoes"
+              path="/definir-senha"
               element={
-                <AdminRoute>
-                  <ApproachSettingsPage />
-                </AdminRoute>
+                <FirstAccessRoute>
+                  <SetPassword />
+                </FirstAccessRoute>
               }
             />
 
+            {/* Rotas de Autenticação Públicas */}
             <Route
-              path="/metricas"
+              path="/login"
               element={
-                <AdminRoute>
-                  <AdminMetrics />
-                </AdminRoute>
+                <UnauthenticatedOnly>
+                  <Login />
+                </UnauthenticatedOnly>
               }
             />
             <Route
-              path="/usuarios"
+              path="/esqueci-senha"
               element={
-                <AdminRoute>
-                  <UserManagement />
-                </AdminRoute>
+                <UnauthenticatedOnly>
+                  <ForgotPassword />
+                </UnauthenticatedOnly>
               }
             />
-            <Route path="/perfil" element={<Profile />} />
-          </Route>
+            <Route path="/resetar-senha" element={<ResetPassword />} />
+            <Route path="/verificar-email" element={<VerifyEmail />} />
+            <Route path="/confirmar-alteracao-email" element={<ConfirmEmailChange />} />
 
-          {/* Rota 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </AuthProvider>
-  </BrowserRouter>
+            {/* Rota Pública do Formulário de Captação do Cliente */}
+            <Route path="/formulario/publico" element={<PublicForm />} />
+            <Route path="/formulario/:vendedorId" element={<PublicForm />} />
+
+            {/* Rotas Autenticadas protegidas com Layout Global */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="/painel" element={<Dashboard />} />
+              <Route path="/oportunidades" element={<Opportunities />} />
+              <Route path="/comissionamento" element={<Commission />} />
+              <Route path="/formulario" element={<FormManager />} />
+
+              {/* Rotas do Guia de Abordagem Comercial */}
+              <Route path="/abordagem" element={<ApproachFlow />} />
+              <Route path="/abordagem/telefone" element={<PhoneApproachPage />} />
+              <Route path="/abordagem/presencial" element={<InPersonApproachPage />} />
+              <Route path="/abordagem/whatsapp" element={<WhatsAppApproachPage />} />
+              <Route path="/abordagem/pitch" element={<PitchPage />} />
+              <Route path="/abordagem/diagnostico" element={<DiagnosisPage />} />
+              <Route path="/abordagem/objecoes" element={<ObjectionsPage />} />
+              <Route path="/abordagem/valores" element={<ValuesPage />} />
+              <Route path="/abordagem/historico" element={<HistoryPage />} />
+              <Route
+                path="/abordagem/configuracoes"
+                element={
+                  <AdminRoute>
+                    <ApproachSettingsPage />
+                  </AdminRoute>
+                }
+              />
+
+              <Route
+                path="/metricas"
+                element={
+                  <AdminRoute>
+                    <AdminMetrics />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/usuarios"
+                element={
+                  <AdminRoute>
+                    <UserManagement />
+                  </AdminRoute>
+                }
+              />
+              <Route path="/perfil" element={<Profile />} />
+            </Route>
+
+            {/* Rota 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  </ThemeProvider>
 )
 
 export default App
