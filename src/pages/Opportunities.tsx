@@ -61,7 +61,14 @@ import {
 import { ImportOpportunitiesModal } from '@/components/ImportOpportunitiesModal'
 import { BatchWhatsAppModal } from '@/components/approach/BatchWhatsAppModal'
 import type { WhatsAppActionType } from '@/lib/whatsappApproachHelper'
-import { getProductDefaultPricing } from '@/lib/productDefaultPricing'
+import {
+  getProductDefaultPricing,
+  isCustomSiteProductName,
+  isSiteRecurringOptionValue,
+  isSiteSetupOptionValue,
+  SITE_RECURRING_OPTIONS,
+  SITE_SETUP_OPTIONS,
+} from '@/lib/productDefaultPricing'
 import {
   getMaxPaymentInstallments,
   isWhatsAppAutonomousProductName,
@@ -144,6 +151,7 @@ export default function Opportunities() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const isWhatsAppProduct = isWhatsAppAutonomousProductName(formData.product_name)
+  const isSiteProduct = isCustomSiteProductName(formData.product_name)
   const maxPaymentInstallments = getMaxPaymentInstallments(formData.product_name)
   const installmentOptions = Array.from({ length: maxPaymentInstallments }, (_, index) => index + 1)
 
@@ -1425,6 +1433,27 @@ export default function Opportunities() {
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : isSiteProduct ? (
+                    <Select
+                      value={formData.value}
+                      onValueChange={(value) => setFormData({ ...formData, value })}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o setup" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isSiteSetupOptionValue(formData.value) && formData.value && (
+                          <SelectItem value={formData.value}>
+                            Valor atual - {formatBRL(Number(formData.value))}
+                          </SelectItem>
+                        )}
+                        {SITE_SETUP_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input
                       placeholder="Ex: 350"
@@ -1463,6 +1492,30 @@ export default function Opportunities() {
                           )}
                         {WHATSAPP_RECURRING_OPTIONS.map((option) => (
                           <SelectItem key={option.id} value={String(option.monthlyValue)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : isSiteProduct ? (
+                    <Select
+                      value={formData.recurring_value}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, recurring_value: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione a mensalidade" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isSiteRecurringOptionValue(formData.recurring_value) &&
+                          formData.recurring_value && (
+                            <SelectItem value={formData.recurring_value}>
+                              Valor atual - {formatBRL(Number(formData.recurring_value))}/mês
+                            </SelectItem>
+                          )}
+                        {SITE_RECURRING_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
                             {option.label}
                           </SelectItem>
                         ))}
@@ -1777,6 +1830,27 @@ export default function Opportunities() {
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : isSiteProduct ? (
+                    <Select
+                      value={formData.value}
+                      onValueChange={(value) => setFormData({ ...formData, value })}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione o setup" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isSiteSetupOptionValue(formData.value) && formData.value && (
+                          <SelectItem value={formData.value}>
+                            Valor atual - {formatBRL(Number(formData.value))}
+                          </SelectItem>
+                        )}
+                        {SITE_SETUP_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Input
                       type="number"
@@ -1814,6 +1888,30 @@ export default function Opportunities() {
                           )}
                         {WHATSAPP_RECURRING_OPTIONS.map((option) => (
                           <SelectItem key={option.id} value={String(option.monthlyValue)}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : isSiteProduct ? (
+                    <Select
+                      value={formData.recurring_value}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, recurring_value: value })
+                      }
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs rounded-xl h-9 min-w-0">
+                        <SelectValue placeholder="Selecione a mensalidade" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        {!isSiteRecurringOptionValue(formData.recurring_value) &&
+                          formData.recurring_value && (
+                            <SelectItem value={formData.recurring_value}>
+                              Valor atual - {formatBRL(Number(formData.recurring_value))}/mês
+                            </SelectItem>
+                          )}
+                        {SITE_RECURRING_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={String(option.value)}>
                             {option.label}
                           </SelectItem>
                         ))}
