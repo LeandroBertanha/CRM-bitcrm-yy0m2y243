@@ -1,4 +1,6 @@
 import React from 'react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -28,5 +30,15 @@ describe('preferencia de tema do bitCRM', () => {
     expect(html).toContain('Modo Claro')
     expect(html).toContain('Modo Escuro')
     expect(html).toContain('aria-label="Escolha do tema do bitCRM"')
+  })
+
+  it('mantem os ajustes de contraste restritos ao modo claro', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/main.css'), 'utf8')
+
+    expect(css).toContain(".light [class*='bg-rose-950']")
+    expect(css).toContain(".light [class*='bg-amber-950']")
+    expect(css).toContain(".light [class*='bg-indigo-950']")
+    expect(css).toContain(".light [class*='bg-emerald-950']")
+    expect(css).not.toMatch(/(^|\n)\.dark \[class\*='bg-(rose|amber|indigo|emerald)-950'/)
   })
 })

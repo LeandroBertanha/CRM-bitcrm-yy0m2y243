@@ -334,6 +334,128 @@
   --tw-shadow-color: rgb(15 23 42 / 0.12) !important;
 }
 
+/*
+ * Estados semanticos legados foram desenhados sobre o fundo escuro. No tema
+ * claro, cada familia recebe uma superficie suave e texto com contraste AA.
+ */
+.light [class*='bg-indigo-950'],
+.light [class*='bg-indigo-900'] {
+  background-color: #eef2ff !important;
+}
+
+.light [class*='bg-rose-950'],
+.light [class*='bg-rose-900'],
+.light [class*='bg-red-950'],
+.light [class*='bg-red-900'] {
+  background-color: #fff1f2 !important;
+}
+
+.light [class*='bg-amber-950'],
+.light [class*='bg-amber-900'] {
+  background-color: #fffbeb !important;
+}
+
+.light [class*='bg-emerald-950'],
+.light [class*='bg-emerald-900'],
+.light [class*='bg-green-950'],
+.light [class*='bg-green-900'] {
+  background-color: #ecfdf5 !important;
+}
+
+.light [class*='text-indigo-100'],
+.light [class*='text-indigo-200'],
+.light [class*='text-indigo-300'],
+.light [class*='text-indigo-400'] {
+  color: #4338ca !important;
+}
+
+.light [class*='text-rose-100'],
+.light [class*='text-rose-200'],
+.light [class*='text-rose-300'],
+.light [class*='text-rose-400'],
+.light [class*='text-red-200'],
+.light [class*='text-red-300'],
+.light [class*='text-red-400'] {
+  color: #be123c !important;
+}
+
+.light [class*='text-amber-100'],
+.light [class*='text-amber-200'],
+.light [class*='text-amber-300'],
+.light [class*='text-amber-400'] {
+  color: #92400e !important;
+}
+
+.light [class*='text-emerald-100'],
+.light [class*='text-emerald-200'],
+.light [class*='text-emerald-300'],
+.light [class*='text-emerald-400'],
+.light [class*='text-green-200'],
+.light [class*='text-green-300'],
+.light [class*='text-green-400'] {
+  color: #047857 !important;
+}
+
+.light [class*='border-indigo-8'],
+.light [class*='border-indigo-9'] {
+  border-color: #a5b4fc !important;
+}
+
+.light [class*='border-rose-8'],
+.light [class*='border-rose-9'],
+.light [class*='border-red-8'],
+.light [class*='border-red-9'] {
+  border-color: #fda4af !important;
+}
+
+.light [class*='border-amber-8'],
+.light [class*='border-amber-9'] {
+  border-color: #fcd34d !important;
+}
+
+.light [class*='border-emerald-8'],
+.light [class*='border-emerald-9'],
+.light [class*='border-green-8'],
+.light [class*='border-green-9'] {
+  border-color: #6ee7b7 !important;
+}
+
+.light [class*='from-[#171529]'],
+.light [class*='from-[#151928]'],
+.light [class*='from-[#141824]'],
+.light [class*='from-[#131b26]'],
+.light [class*='from-[#131622]'] {
+  --tw-gradient-from: #eef2ff var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(238 242 255 / 0) var(--tw-gradient-to-position) !important;
+}
+
+.light [class*='via-[#161928]'],
+.light [class*='via-[#121422]'],
+.light [class*='via-[#10131c]'] {
+  --tw-gradient-to: rgb(248 250 252 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops:
+    var(--tw-gradient-from), #f8fafc var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+.light [class*='to-[#12141A]'],
+.light [class*='to-[#0E1017]'] {
+  --tw-gradient-to: #ffffff var(--tw-gradient-to-position) !important;
+}
+
+.light a.text-white[class*='border-rose'] {
+  color: #9f1239 !important;
+}
+
+.light a.text-white[class*='border-amber'] {
+  color: #92400e !important;
+}
+
+.light button:disabled,
+.light [aria-disabled='true'] {
+  color: #64748b !important;
+  opacity: 0.72 !important;
+}
+
 @layer utilities {
   @keyframes accordion-down {
     from {
