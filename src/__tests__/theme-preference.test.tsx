@@ -41,4 +41,21 @@ describe('preferencia de tema do bitCRM', () => {
     expect(css).toContain(".light [class*='bg-emerald-950']")
     expect(css).not.toMatch(/(^|\n)\.dark \[class\*='bg-(rose|amber|indigo|emerald)-950'/)
   })
+
+  it('garante contraste nos filtros e controles legados do modo claro', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/main.css'), 'utf8')
+
+    expect(css).toContain(".light [role='combobox']")
+    expect(css).toContain(".light [role='listbox']")
+    expect(css).toContain(".light [role='option']")
+    expect(css).toContain(".light [class*='bg-white/10']")
+    expect(css).toContain(".light [class*='bg-slate-800']")
+    expect(css).toContain(".light [class*='text-blue-300']")
+    expect(css).toContain(".light [class*='text-cyan-300']")
+    expect(css).toContain(".light [class*='border-blue-7']")
+    expect(css).toContain("[class~='text-white']")
+    expect(css).not.toContain("[class*='text-white']")
+    expect(css).toContain('color: #172033 !important;')
+    expect(css).not.toMatch(/(^|\n)\.dark \[role='(combobox|listbox|option)'\]/)
+  })
 })
