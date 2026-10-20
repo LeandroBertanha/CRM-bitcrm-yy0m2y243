@@ -314,7 +314,7 @@
 .light div.text-white:not([class*='bg-']):not([class*='from-']),
 .light td.text-white,
 .light th.text-white,
-.light [role='dialog'][class*='text-white'] {
+.light [role='dialog'][class~='text-white'] {
   color: hsl(var(--foreground)) !important;
 }
 
@@ -362,6 +362,34 @@
   background-color: #ecfdf5 !important;
 }
 
+.light [class*='bg-blue-950'],
+.light [class*='bg-blue-900'],
+.light [class*='bg-sky-950'],
+.light [class*='bg-sky-900'] {
+  background-color: #eff6ff !important;
+}
+
+.light [class*='bg-cyan-950'],
+.light [class*='bg-cyan-900'],
+.light [class*='bg-teal-950'],
+.light [class*='bg-teal-900'] {
+  background-color: #ecfeff !important;
+}
+
+.light [class*='bg-violet-950'],
+.light [class*='bg-violet-900'],
+.light [class*='bg-purple-950'],
+.light [class*='bg-purple-900'] {
+  background-color: #f5f3ff !important;
+}
+
+.light [class*='bg-orange-950'],
+.light [class*='bg-orange-900'],
+.light [class*='bg-yellow-950'],
+.light [class*='bg-yellow-900'] {
+  background-color: #fff7ed !important;
+}
+
 .light [class*='text-indigo-100'],
 .light [class*='text-indigo-200'],
 .light [class*='text-indigo-300'],
@@ -396,6 +424,50 @@
   color: #047857 !important;
 }
 
+.light [class*='text-blue-100'],
+.light [class*='text-blue-200'],
+.light [class*='text-blue-300'],
+.light [class*='text-blue-400'],
+.light [class*='text-sky-100'],
+.light [class*='text-sky-200'],
+.light [class*='text-sky-300'],
+.light [class*='text-sky-400'] {
+  color: #1d4ed8 !important;
+}
+
+.light [class*='text-cyan-100'],
+.light [class*='text-cyan-200'],
+.light [class*='text-cyan-300'],
+.light [class*='text-cyan-400'],
+.light [class*='text-teal-100'],
+.light [class*='text-teal-200'],
+.light [class*='text-teal-300'],
+.light [class*='text-teal-400'] {
+  color: #0e7490 !important;
+}
+
+.light [class*='text-violet-100'],
+.light [class*='text-violet-200'],
+.light [class*='text-violet-300'],
+.light [class*='text-violet-400'],
+.light [class*='text-purple-100'],
+.light [class*='text-purple-200'],
+.light [class*='text-purple-300'],
+.light [class*='text-purple-400'] {
+  color: #6d28d9 !important;
+}
+
+.light [class*='text-orange-100'],
+.light [class*='text-orange-200'],
+.light [class*='text-orange-300'],
+.light [class*='text-orange-400'],
+.light [class*='text-yellow-100'],
+.light [class*='text-yellow-200'],
+.light [class*='text-yellow-300'],
+.light [class*='text-yellow-400'] {
+  color: #9a3412 !important;
+}
+
 .light [class*='border-indigo-8'],
 .light [class*='border-indigo-9'] {
   border-color: #a5b4fc !important;
@@ -418,6 +490,42 @@
 .light [class*='border-green-8'],
 .light [class*='border-green-9'] {
   border-color: #6ee7b7 !important;
+}
+
+.light [class*='border-blue-7'],
+.light [class*='border-blue-8'],
+.light [class*='border-blue-9'],
+.light [class*='border-sky-7'],
+.light [class*='border-sky-8'],
+.light [class*='border-sky-9'] {
+  border-color: #93c5fd !important;
+}
+
+.light [class*='border-cyan-7'],
+.light [class*='border-cyan-8'],
+.light [class*='border-cyan-9'],
+.light [class*='border-teal-7'],
+.light [class*='border-teal-8'],
+.light [class*='border-teal-9'] {
+  border-color: #67e8f9 !important;
+}
+
+.light [class*='border-violet-7'],
+.light [class*='border-violet-8'],
+.light [class*='border-violet-9'],
+.light [class*='border-purple-7'],
+.light [class*='border-purple-8'],
+.light [class*='border-purple-9'] {
+  border-color: #c4b5fd !important;
+}
+
+.light [class*='border-orange-7'],
+.light [class*='border-orange-8'],
+.light [class*='border-orange-9'],
+.light [class*='border-yellow-7'],
+.light [class*='border-yellow-8'],
+.light [class*='border-yellow-9'] {
+  border-color: #fdba74 !important;
 }
 
 .light [class*='from-[#171529]'],
@@ -454,6 +562,150 @@
 .light [aria-disabled='true'] {
   color: #64748b !important;
   opacity: 0.72 !important;
+}
+
+/*
+ * Contraste estrutural do tema claro.
+ *
+ * O CRM ainda possui telas antigas com utilitarios pensados exclusivamente
+ * para o tema escuro. Esta camada converte esses controles de forma global,
+ * evitando correcoes pontuais por pagina e mantendo o modo escuro intacto.
+ */
+.light .bg-gray-800,
+.light .bg-zinc-800,
+.light .bg-neutral-800,
+.light .bg-gray-900,
+.light .bg-slate-900,
+.light .bg-zinc-900,
+.light .bg-neutral-900 {
+  background-color: #ffffff !important;
+}
+
+.light [class*='bg-slate-800'] {
+  background-color: #f1f5f9 !important;
+}
+
+.light [class*='bg-white/5'],
+.light [class*='bg-white/10'],
+.light [class*='bg-white/15'],
+.light [class*='bg-white/20'] {
+  background-color: #eef2f7 !important;
+}
+
+.light [class*='border-white/5'],
+.light [class*='border-white/10'],
+.light [class*='border-white/15'],
+.light [class*='border-white/20'],
+.light [class*='border-white/30'] {
+  border-color: #cbd5e1 !important;
+}
+
+.light .text-slate-200,
+.light .text-slate-300,
+.light .text-zinc-200,
+.light .text-zinc-300 {
+  color: #334155 !important;
+}
+
+.light .text-slate-400,
+.light .text-zinc-400,
+.light .text-neutral-400 {
+  color: #475569 !important;
+}
+
+/* Inputs e filtros legados: fundo claro + texto herdado escuro. */
+.light :is(input, textarea, select, button, [role='combobox'])[class*='bg-[#0'],
+.light :is(input, textarea, select, button, [role='combobox'])[class*='bg-[#1'],
+.light :is(input, textarea, select, button, [role='combobox'])[class*='bg-[#2'] {
+  color: #172033 !important;
+  caret-color: #172033;
+}
+
+.light [role='combobox'] {
+  color: #172033;
+}
+
+.light [role='combobox'] > span,
+.light [role='option'] {
+  color: inherit;
+}
+
+.light [role='listbox'],
+.light [role='menu'] {
+  background-color: #ffffff;
+  color: #172033;
+  border-color: #cbd5e1;
+  box-shadow: 0 16px 40px rgb(15 23 42 / 0.14);
+}
+
+.light [role='option']:focus,
+.light [role='option'][data-highlighted],
+.light [role='menuitem']:focus,
+.light [role='menuitem'][data-highlighted] {
+  background-color: #eef2ff !important;
+  color: #312e81 !important;
+}
+
+/* Botoes neutros com texto branco eram clareados e ficavam ilegiveis. */
+.light
+  button.text-white:not([class*='bg-indigo-']):not([class*='bg-blue-']):not(
+    [class*='bg-violet-']
+  ):not([class*='bg-purple-']):not([class*='bg-emerald-']):not([class*='bg-green-']):not(
+    [class*='bg-rose-']
+  ):not([class*='bg-red-']):not([class*='bg-amber-']):not([class*='bg-orange-']):not(
+    [class*='from-']
+  ) {
+  color: #172033 !important;
+}
+
+/* Em acoes coloridas, o branco continua sendo o contraste correto. */
+.light :is(button, a)[class*='bg-indigo-'][class~='text-white'],
+.light :is(button, a)[class*='bg-blue-'][class~='text-white'],
+.light :is(button, a)[class*='bg-violet-'][class~='text-white'],
+.light :is(button, a)[class*='bg-purple-'][class~='text-white'],
+.light :is(button, a)[class*='bg-emerald-'][class~='text-white'],
+.light :is(button, a)[class*='bg-green-'][class~='text-white'],
+.light :is(button, a)[class*='bg-rose-'][class~='text-white'],
+.light :is(button, a)[class*='bg-red-'][class~='text-white'],
+.light :is(button, a)[class*='from-'][class~='text-white'] {
+  color: #ffffff !important;
+}
+
+.light :is(input, textarea, select, button, [role='combobox']):focus-visible {
+  outline: none;
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2) !important;
+}
+
+.light :is(input, textarea, select, button, [role='combobox']):disabled {
+  background-color: #e8edf4 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light table thead,
+.light [role='rowgroup']:first-of-type {
+  color: #334155;
+}
+
+.light table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.light .custom-scrollbar {
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.light .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgb(226 232 240 / 0.65);
+}
+
+.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+}
+
+.light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 @layer utilities {
