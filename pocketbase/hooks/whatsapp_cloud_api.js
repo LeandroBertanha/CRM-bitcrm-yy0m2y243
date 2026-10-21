@@ -127,6 +127,47 @@ routerAdd(
     const requestedTemplateName = (body.templateName || '').trim()
     const requestedLanguage = (body.templateLanguage || 'pt_BR').trim()
     const opportunityIds = Array.isArray(body.opportunityIds) ? body.opportunityIds : []
+    const selectedProductId =
+      body.selectedProductPricing && typeof body.selectedProductPricing.productId === 'string'
+        ? body.selectedProductPricing.productId.trim()
+        : ''
+
+    let selectedProductPricing = null
+    if (selectedProductId) {
+      try {
+        const productRecord = $app.findRecordById('products', selectedProductId)
+        if (!productRecord.getBool('is_active')) {
+          return e.json(400, { error: 'O produto selecionado está inativo.' })
+        }
+
+        const productName = productRecord.getString('name')
+        const normalizedProductName = productName
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+        const isWhatsAppAutonomous =
+          normalizedProductName.includes('whatsapp') && normalizedProductName.includes('autonomo')
+        const isCustomSite =
+          normalizedProductName.includes('site') && normalizedProductName.includes('landing page')
+
+        selectedProductPricing = {
+          productId: productRecord.id,
+          productName,
+          setupValue: isWhatsAppAutonomous
+            ? 350
+            : isCustomSite
+              ? 500
+              : productRecord.getFloat('setup_value'),
+          recurringValue: isWhatsAppAutonomous
+            ? 69.9
+            : isCustomSite
+              ? 55
+              : productRecord.getFloat('recurring_value'),
+        }
+      } catch (_) {
+        return e.json(400, { error: 'Produto selecionado não encontrado.' })
+      }
+    }
 
     if (opportunityIds.length === 0) {
       return e.json(400, { error: 'Nenhuma oportunidade fornecida para envio.' })
@@ -404,25 +445,43 @@ routerAdd(
           console.warn('Erro ao criar approach_session no disparo automático:', sessErr)
         }
 
+        // Persiste o produto/script escolhido somente após envio confirmado pela Meta.
+        let shouldSaveOpportunity = false
+        if (selectedProductPricing) {
+          oppRecord.set('product', selectedProductPricing.productId)
+          oppRecord.set('product_name', selectedProductPricing.productName)
+          oppRecord.set('value', selectedProductPricing.setupValue)
+          oppRecord.set('recurring_value', selectedProductPricing.recurringValue)
+          shouldSaveOpportunity = true
+        }
+
         // Se Abordagem Inicial: avança Novo -> Qualificado (sem retroceder)
+        let stageChanged = false
         if (actionType === 'initial') {
           const currentStage = oppRecord.getString('stage')
           if (currentStage === 'Novo') {
             oppRecord.set('stage', 'Qualificado')
-            $app.save(oppRecord)
-
-            // Nota de mudança de estágio
-            const stageNoteRec = new Record(notesCol)
-            stageNoteRec.set('opportunity', oppId)
-            stageNoteRec.set('author', userId)
-            stageNoteRec.set('type', 'outro')
-            stageNoteRec.set(
-              'text',
-              '[Mudança de estágio] Estágio alterado automaticamente de "Novo" para "Qualificado" após disparo automático via WhatsApp Cloud API.',
-            )
-            stageNoteRec.set('date', new Date().toISOString())
-            $app.save(stageNoteRec)
+            shouldSaveOpportunity = true
+            stageChanged = true
           }
+        }
+
+        if (shouldSaveOpportunity) {
+          $app.save(oppRecord)
+        }
+
+        if (stageChanged) {
+          // Nota de mudança de estágio
+          const stageNoteRec = new Record(notesCol)
+          stageNoteRec.set('opportunity', oppId)
+          stageNoteRec.set('author', userId)
+          stageNoteRec.set('type', 'outro')
+          stageNoteRec.set(
+            'text',
+            '[Mudança de estágio] Estágio alterado automaticamente de "Novo" para "Qualificado" após disparo automático via WhatsApp Cloud API.',
+          )
+          stageNoteRec.set('date', new Date().toISOString())
+          $app.save(stageNoteRec)
         }
 
         sentCount++

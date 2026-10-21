@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import pb from '@/lib/pocketbase/client'
 import type { Opportunity } from '@/types/crm'
+import type { Product } from '@/types/crm'
 import type { PlaybookScript } from '@/types/playbook'
 import {
   normalizePhoneForWhatsApp,
@@ -9,7 +10,9 @@ import {
   logWhatsAppInteractionToOpportunity,
   formatInteractionDateShort,
   type WhatsAppActionType,
+  type SelectedProductPricing,
 } from '@/lib/whatsappApproachHelper'
+import { getProductDefaultPricing } from '@/lib/productDefaultPricing'
 import {
   getWhatsAppCloudStatus,
   sendWhatsAppBatchAuto,
@@ -169,9 +172,7 @@ export function BatchWhatsAppModal({
   }, [skippedIds, skippedKey])
 
   // Produtos carregados do banco (coleção products)
-  const [availableProducts, setAvailableProducts] = useState<Array<{ id: string; name: string }>>(
-    [],
-  )
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([])
   // 'auto' = detecção automática por oportunidade (padrão); ou id do produto selecionado manualmente
   const [selectedProductFilter, setSelectedProductFilter] = useState<string>('auto')
 
@@ -230,8 +231,11 @@ export function BatchWhatsAppModal({
       })
       setAvailableProducts(
         records.map((r) => ({
+          ...r,
           id: r.id,
           name: r.name,
+          setup_value: Number(r.setup_value ?? r.setup_price) || 0,
+          recurring_value: Number(r.recurring_value ?? r.monthly_price) || 0,
         })),
       )
     } catch (err) {
@@ -381,6 +385,26 @@ export function BatchWhatsAppModal({
       fetchCloudStatus()
     }
   }, [open, fetchProducts, fetchScripts, fetchNotesHistory, fetchCloudStatus])
+
+  const selectedProductPricing = useMemo<SelectedProductPricing | null>(() => {
+    if (selectedProductFilter === 'auto') return null
+
+    const product = availableProducts.find((item) => item.id === selectedProductFilter)
+    if (!product) return null
+
+    const defaults = getProductDefaultPricing(
+      product.name,
+      product.setup_value,
+      product.recurring_value,
+    )
+
+    return {
+      productId: product.id,
+      productName: product.name,
+      setupValue: Number(defaults.setupValue),
+      recurringValue: Number(defaults.recurringValue),
+    }
+  }, [availableProducts, selectedProductFilter])
 
   // Helper para buscar script por ID ou nome do produto com fallback seguro para genérico
   const findScriptForProduct = useCallback(
@@ -730,12 +754,13 @@ export function BatchWhatsAppModal({
     try {
       const effectiveUserId = currentUserId || pb.authStore.record?.id || ''
 
-      await logWhatsAppInteractionToOpportunity({
+      const interactionLogged = await logWhatsAppInteractionToOpportunity({
         opportunityId: item.opp.id,
         authorId: effectiveUserId,
         message: item.message,
         phone: item.opp.contact_phone,
         actionType,
+        selectedProductPricing,
         opportunityDetails: {
           company: item.opp.company,
           contact_name: item.opp.contact_name,
@@ -744,6 +769,10 @@ export function BatchWhatsAppModal({
           stage: item.opp.stage,
         },
       })
+
+      if (!interactionLogged) {
+        throw new Error('Não foi possível persistir a interação e os valores da oportunidade.')
+      }
 
       setAwaitingConfirmationIds((prev) => prev.filter((id) => id !== item.opp.id))
       setSessionSentIds((prev) => (prev.includes(item.opp.id) ? prev : [...prev, item.opp.id]))
@@ -1070,6 +1099,7 @@ bit Consulting CRM · bitCRM`
         opportunityIds: targetOppIds,
         templateName: templateInputName.trim(),
         templateLanguage: cloudStatus.settings?.initialTemplateLanguage || 'pt_BR',
+        selectedProductPricing,
       })
 
       setAutoBatchResult(res)
