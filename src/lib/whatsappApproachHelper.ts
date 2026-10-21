@@ -169,6 +169,13 @@ export function interpolateVariables(
 
 export type WhatsAppActionType = 'initial' | 'followup'
 
+export type SelectedProductPricing = {
+  productId: string
+  productName: string
+  setupValue: number
+  recurringValue: number
+}
+
 /**
  * Constrói a mensagem completa de abordagem em lote (Inicial ou Follow-up) com rodapé rastreável.
  */
@@ -256,6 +263,7 @@ export async function logWhatsAppInteractionToOpportunity(params: {
   phone?: string
   actionType?: WhatsAppActionType
   autoQualify?: boolean
+  selectedProductPricing?: SelectedProductPricing | null
   opportunityDetails?: {
     company?: string
     contact_name?: string
@@ -271,6 +279,7 @@ export async function logWhatsAppInteractionToOpportunity(params: {
     phone,
     actionType = 'initial',
     autoQualify = true,
+    selectedProductPricing,
     opportunityDetails,
   } = params
   if (!opportunityId || !authorId) return false
@@ -341,13 +350,21 @@ export async function logWhatsAppInteractionToOpportunity(params: {
       }
     }
 
-    // 3. Regra de negócio: Após envio de Abordagem Inicial via WhatsApp, mover a oportunidade
-    // automaticamente para QUALIFICADO e registrar a mudança de estágio na timeline da oportunidade.
-    if (actionType === 'initial' && autoQualify) {
+    // 3. Persiste o produto escolhido e seus valores padrão. Na abordagem inicial,
+    // a mesma atualização também pode avançar Novo -> Qualificado.
+    if (selectedProductPricing || (actionType === 'initial' && autoQualify)) {
       try {
-        let shouldUpdate = true
+        const opportunityUpdate: Record<string, string | number> = {}
+        if (selectedProductPricing) {
+          opportunityUpdate.product = selectedProductPricing.productId
+          opportunityUpdate.product_name = selectedProductPricing.productName
+          opportunityUpdate.value = selectedProductPricing.setupValue
+          opportunityUpdate.recurring_value = selectedProductPricing.recurringValue
+        }
+
+        let shouldQualify = actionType === 'initial' && autoQualify
         let oldStage = opportunityDetails?.stage
-        if (!oldStage) {
+        if (shouldQualify && !oldStage) {
           try {
             const oppRecord = await pb.collection('opportunities').getOne(opportunityId)
             oldStage = oppRecord.stage
@@ -358,15 +375,19 @@ export async function logWhatsAppInteractionToOpportunity(params: {
 
         // Se já está Qualificado ou em estágios mais avançados (Agendado, Proposta, Ganho),
         // não faz downgrade nem duplica se já for Qualificado
-        if (oldStage && oldStage !== 'Novo') {
-          shouldUpdate = false
+        if (shouldQualify && oldStage && oldStage !== 'Novo') {
+          shouldQualify = false
         }
 
-        if (shouldUpdate) {
-          await pb.collection('opportunities').update(opportunityId, {
-            stage: 'Qualificado',
-          })
+        if (shouldQualify) {
+          opportunityUpdate.stage = 'Qualificado'
+        }
 
+        if (Object.keys(opportunityUpdate).length > 0) {
+          await pb.collection('opportunities').update(opportunityId, opportunityUpdate)
+        }
+
+        if (shouldQualify) {
           // Registrar a mudança de estágio na timeline (opportunity_notes)
           await pb.collection('opportunity_notes').create({
             opportunity: opportunityId,
@@ -377,7 +398,8 @@ export async function logWhatsAppInteractionToOpportunity(params: {
           })
         }
       } catch (stageErr) {
-        console.warn('Erro ao mover oportunidade para Qualificado pós-envio inicial:', stageErr)
+        console.warn('Erro ao persistir produto/preços ou estágio após o envio:', stageErr)
+        return false
       }
     }
 

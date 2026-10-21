@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import type { SelectedProductPricing } from '@/lib/whatsappApproachHelper'
 
 export interface WhatsAppCloudSettings {
   id?: string
@@ -69,6 +70,7 @@ export async function sendWhatsAppBatchAuto(params: {
   opportunityIds: string[]
   templateName?: string
   templateLanguage?: string
+  selectedProductPricing?: SelectedProductPricing | null
 }): Promise<WhatsAppBatchSendResponse> {
   const res = await pb.send<WhatsAppBatchSendResponse>('/backend/v1/whatsapp/batch-send', {
     method: 'POST',

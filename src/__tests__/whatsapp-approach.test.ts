@@ -212,12 +212,91 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
   })
 
   describe('logWhatsAppInteractionToOpportunity', () => {
-    it('registra mensagem inicial com tag [WhatsApp inicial] na timeline', async () => {
-      const createSpy = vi
+    it('grava produto WhatsApp e valores padrão na abordagem inicial', async () => {
+      const noteCreateSpy = vi
         .spyOn(pb.collection('opportunity_notes'), 'create')
-        .mockResolvedValueOnce({
-          id: 'note_123',
-        } as any)
+        .mockResolvedValue({ id: 'note_whatsapp' } as any)
+      const sessionCreateSpy = vi
+        .spyOn(pb.collection('approach_sessions'), 'create')
+        .mockResolvedValue({ id: 'session_whatsapp' } as any)
+      const updateSpy = vi
+        .spyOn(pb.collection('opportunities'), 'update')
+        .mockResolvedValueOnce({ id: 'opp_whatsapp' } as any)
+
+      const success = await logWhatsAppInteractionToOpportunity({
+        opportunityId: 'opp_whatsapp',
+        authorId: 'user_456',
+        message: 'Mensagem inicial',
+        actionType: 'initial',
+        opportunityDetails: { stage: 'Novo' },
+        selectedProductPricing: {
+          productId: 'product_whatsapp',
+          productName: 'WhatsApp Autônomo e Humanizado',
+          setupValue: 350,
+          recurringValue: 69.9,
+        },
+      })
+
+      expect(success).toBe(true)
+      expect(updateSpy).toHaveBeenCalledWith('opp_whatsapp', {
+        product: 'product_whatsapp',
+        product_name: 'WhatsApp Autônomo e Humanizado',
+        value: 350,
+        recurring_value: 69.9,
+        stage: 'Qualificado',
+      })
+      noteCreateSpy.mockRestore()
+      sessionCreateSpy.mockRestore()
+      updateSpy.mockRestore()
+    })
+
+    it('grava produto Site e valores padrão no follow-up sem alterar o estágio', async () => {
+      const noteCreateSpy = vi
+        .spyOn(pb.collection('opportunity_notes'), 'create')
+        .mockResolvedValue({ id: 'note_site' } as any)
+      const sessionCreateSpy = vi
+        .spyOn(pb.collection('approach_sessions'), 'create')
+        .mockResolvedValue({ id: 'session_site' } as any)
+      const updateSpy = vi
+        .spyOn(pb.collection('opportunities'), 'update')
+        .mockResolvedValueOnce({ id: 'opp_site' } as any)
+
+      const success = await logWhatsAppInteractionToOpportunity({
+        opportunityId: 'opp_site',
+        authorId: 'user_456',
+        message: 'Mensagem de follow-up',
+        actionType: 'followup',
+        opportunityDetails: { stage: 'Qualificado' },
+        selectedProductPricing: {
+          productId: 'product_site',
+          productName: 'Site ou Landing Page sob medida',
+          setupValue: 500,
+          recurringValue: 55,
+        },
+      })
+
+      expect(success).toBe(true)
+      expect(updateSpy).toHaveBeenCalledWith('opp_site', {
+        product: 'product_site',
+        product_name: 'Site ou Landing Page sob medida',
+        value: 500,
+        recurring_value: 55,
+      })
+      noteCreateSpy.mockRestore()
+      sessionCreateSpy.mockRestore()
+      updateSpy.mockRestore()
+    })
+
+    it('registra mensagem inicial com tag [WhatsApp inicial] na timeline', async () => {
+      const createSpy = vi.spyOn(pb.collection('opportunity_notes'), 'create').mockResolvedValue({
+        id: 'note_123',
+      } as any)
+      const sessionCreateSpy = vi
+        .spyOn(pb.collection('approach_sessions'), 'create')
+        .mockResolvedValueOnce({ id: 'session_123' } as any)
+      const updateSpy = vi
+        .spyOn(pb.collection('opportunities'), 'update')
+        .mockResolvedValueOnce({ id: 'opp_123' } as any)
 
       const success = await logWhatsAppInteractionToOpportunity({
         opportunityId: 'opp_123',
@@ -225,6 +304,7 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
         message: 'Olá contato',
         phone: '(11) 99999-8888',
         actionType: 'initial',
+        opportunityDetails: { stage: 'Novo' },
       })
 
       expect(success).toBe(true)
@@ -236,6 +316,8 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
           text: expect.stringContaining('[WhatsApp inicial] Mensagem inicial via WhatsApp'),
         }),
       )
+      updateSpy.mockRestore()
+      sessionCreateSpy.mockRestore()
       createSpy.mockRestore()
     })
 
@@ -245,6 +327,9 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
         .mockResolvedValueOnce({
           id: 'note_456',
         } as any)
+      const sessionCreateSpy = vi
+        .spyOn(pb.collection('approach_sessions'), 'create')
+        .mockResolvedValueOnce({ id: 'session_456' } as any)
 
       const success = await logWhatsAppInteractionToOpportunity({
         opportunityId: 'opp_789',
@@ -264,6 +349,7 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
         }),
       )
 
+      sessionCreateSpy.mockRestore()
       createSpy.mockRestore()
     })
   })

@@ -21,4 +21,18 @@ describe('WhatsApp Cloud API hook contract', () => {
     expect(hookSource).not.toContain("noteText.includes('cliente respondeu')")
     expect(hookSource).not.toMatch(/type:\s*'text',\s*text:\s*\{\s*body:/)
   })
+
+  it('persists the selected product default pricing only after Meta confirms the send', () => {
+    expect(hookSource).toContain("oppRecord.set('product', selectedProductPricing.productId)")
+    expect(hookSource).toContain(
+      "oppRecord.set('product_name', selectedProductPricing.productName)",
+    )
+    expect(hookSource).toContain("oppRecord.set('value', selectedProductPricing.setupValue)")
+    expect(hookSource).toContain(
+      "oppRecord.set('recurring_value', selectedProductPricing.recurringValue)",
+    )
+    expect(hookSource.indexOf('if (!sendSuccess)')).toBeLessThan(
+      hookSource.indexOf("oppRecord.set('product', selectedProductPricing.productId)"),
+    )
+  })
 })
