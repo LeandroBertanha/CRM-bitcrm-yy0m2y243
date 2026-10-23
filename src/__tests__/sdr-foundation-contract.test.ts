@@ -15,6 +15,10 @@ const campaignPreparationSource = readFileSync(
   new URL('../services/sdrCampaignPreparation.ts', import.meta.url),
   'utf8',
 )
+const campaignSimulatorSource = readFileSync(
+  new URL('../components/sdr/SdrCampaignSimulator.tsx', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -72,5 +76,13 @@ describe('SDR foundation safety contract', () => {
     expect(campaignPreparationSource).not.toContain('.create(')
     expect(campaignPreparationSource).not.toContain('.update(')
     expect(campaignPreparationSource).not.toContain('.delete(')
+  })
+
+  it('offers a local-only simulator without persistence or sending actions', () => {
+    expect(campaignSimulatorSource).toContain('Somente memoria local')
+    expect(campaignSimulatorSource).toContain('Validar simulacao')
+    expect(campaignSimulatorSource).toContain('prepareSdrMessageQueue')
+    expect(campaignSimulatorSource).not.toContain('@/lib/pocketbase')
+    expect(campaignSimulatorSource).not.toContain('fetch(')
   })
 })

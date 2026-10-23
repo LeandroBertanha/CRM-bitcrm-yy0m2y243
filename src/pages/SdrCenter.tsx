@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SdrCampaignSimulator } from '@/components/sdr/SdrCampaignSimulator'
 import { getSdrDashboardSnapshot, getSdrFoundationStatus } from '@/services/sdrSettingsService'
 import type { SdrDashboardSnapshot, SdrFoundationStatus } from '@/types/sdr'
 
@@ -241,6 +242,8 @@ export default function SdrCenter() {
           </div>
         </div>
       </section>
+
+      <SdrCampaignSimulator />
 
       <section className="border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
         A ativacao permanecera indisponivel ate existirem evidencias de backup restaurado,

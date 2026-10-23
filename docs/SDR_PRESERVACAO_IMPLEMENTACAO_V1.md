@@ -3,7 +3,7 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.99
+Versao da implementacao local: 0.0.100
 Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
@@ -203,6 +203,8 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Parcial local: estados claros para colecoes indisponiveis e nova tentativa sem escrita silenciosa.
 - Parcial local: motor puro de preparacao, normalizacao e deduplicacao de contatos.
 - Parcial local: fila preparada sempre em `aguardando_confirmacao`, sem envio ou persistencia.
+- Parcial local: simulador administrativo para validar contatos e mensagens somente em memoria.
+- Validado localmente: contato sem autorizacao foi rejeitado e contato autorizado gerou fila simulada em `aguardando_confirmacao`.
 - Criar campanhas e contatos de teste autorizados.
 - Implementar fila e mensagens em estruturas SDR.
 - Integrar WhatsApp em ambiente autorizado.
