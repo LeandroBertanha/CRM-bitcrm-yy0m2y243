@@ -25,6 +25,7 @@ import NotFound from './pages/NotFound'
 import AdminMetrics from './pages/AdminMetrics'
 import UserManagement from './pages/UserManagement'
 import Commission from './pages/Commission'
+import SdrCenter from './pages/SdrCenter'
 import Layout from './components/Layout'
 
 // Módulo Guia de Abordagem Comercial
@@ -247,6 +248,14 @@ const App = () => (
                 element={
                   <AdminRoute>
                     <UserManagement />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/sdr"
+                element={
+                  <AdminRoute>
+                    <SdrCenter />
                   </AdminRoute>
                 }
               />

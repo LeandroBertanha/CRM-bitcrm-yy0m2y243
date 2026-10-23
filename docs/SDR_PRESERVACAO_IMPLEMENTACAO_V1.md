@@ -1,9 +1,10 @@
 # bitCRM - Relatorio previo de implementacao do SDR Inteligente
 
-Versao do relatorio: 1.0  
-Versao-base do bitCRM: 0.0.96  
-Commit-base: 9e8ab89  
-Status: planejamento obrigatorio, sem alteracao estrutural aplicada
+Versao do relatorio: 1.1
+Versao-base do bitCRM: 0.0.96
+Commit-base: 9e8ab89
+Versao da implementacao local: 0.0.97
+Status: Fase 1 implementada localmente; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
 
@@ -189,10 +190,12 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 
 ### Fase 1 - Estrutura segura desativada
 
-- Criar colecoes SDR aditivas.
-- Criar feature flag desativada.
-- Criar permissoes e auditoria.
-- Criar central administrativa sem campanhas reais.
+- Concluido localmente: colecoes SDR aditivas.
+- Concluido localmente: feature flag desativada.
+- Concluido localmente: regras de leitura administrativa e escrita bloqueada no backend.
+- Concluido localmente: modelo de auditoria imutavel.
+- Concluido localmente: central administrativa sem campanhas reais.
+- Pendente: aplicar a migracao somente em homologacao apos restauracao validada do backup.
 
 ### Fase 2 - Campanhas em homologacao
 
@@ -226,13 +229,13 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Testes demonstram que oportunidades existentes permanecem imutaveis.
 - Backup restauravel e homologacao comprovados antes da migracao.
 
-## 13. Decisao necessaria
+## 13. Situacao da aprovacao e bloqueios
 
-Para iniciar a Fase 1, e necessario aprovar este relatorio e fornecer evidencia de:
+O relatorio foi aprovado para implementacao local da Fase 1. Antes de aplicar a migracao ou publicar o modulo, ainda e necessario fornecer evidencia de:
 
 1. backup recente do PocketBase;
 2. teste de restauracao bem-sucedido;
 3. ambiente de homologacao separado;
 4. contatos e numeros autorizados para testes de WhatsApp.
 
-Sem esses itens, nenhuma alteracao estrutural ou publicacao do SDR sera executada.
+Sem esses itens, nenhuma migracao, alteracao estrutural no banco ou publicacao do SDR sera executada. O codigo local permanece com escrita operacional bloqueada e feature flag desativada.
