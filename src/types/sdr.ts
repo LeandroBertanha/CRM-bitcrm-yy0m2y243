@@ -137,3 +137,28 @@ export interface SdrOpportunityAssociationSuggestion {
   requiresHumanConfirmation: true
   readOnly: true
 }
+
+export interface SdrOpportunityCreationPayload {
+  company: string
+  stage: 'Novo'
+  source: 'Prospecção'
+  value: 0
+  contact_name: string
+  contact_phone: string
+  contact_email: string
+}
+
+export interface SdrOpportunityCreationPlan {
+  correlationId: string
+  status: 'ready_for_confirmation' | 'blocked'
+  reason: string
+  idempotencyKey: string
+  payload: SdrOpportunityCreationPayload
+  guards: {
+    featureFlagRequired: true
+    backendDeduplicationRequired: true
+    auditRequired: true
+    humanConfirmationRequired: true
+  }
+  executionAllowed: false
+}

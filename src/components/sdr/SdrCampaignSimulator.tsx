@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
+  FilePlus2,
   Link2,
   Loader2,
   Plus,
@@ -16,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampaignPreparation'
 import { buildSdrOpportunityAssociationSuggestions } from '@/services/sdrOpportunityAssociation'
+import { buildSdrOpportunityCreationPlans } from '@/services/sdrOpportunityCreationPlan'
 import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
 import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
 import type {
@@ -23,6 +25,7 @@ import type {
   SdrCampaignPreparationResult,
   SdrOpportunityAssociationSuggestion,
   SdrOpportunityConflictResult,
+  SdrOpportunityCreationPlan,
   SdrPreparedMessage,
 } from '@/types/sdr'
 
@@ -51,6 +54,8 @@ export function SdrCampaignSimulator() {
     SdrOpportunityAssociationSuggestion[]
   >([])
   const [reviewedAssociations, setReviewedAssociations] = useState<Set<string>>(new Set())
+  const [creationPlans, setCreationPlans] = useState<SdrOpportunityCreationPlan[]>([])
+  const [confirmedCreationPlans, setConfirmedCreationPlans] = useState<Set<string>>(new Set())
   const [conflictError, setConflictError] = useState('')
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
 
@@ -60,6 +65,8 @@ export function SdrCampaignSimulator() {
     setConflicts([])
     setAssociationSuggestions([])
     setReviewedAssociations(new Set())
+    setCreationPlans([])
+    setConfirmedCreationPlans(new Set())
     setConflictError('')
   }
 
@@ -111,12 +118,15 @@ export function SdrCampaignSimulator() {
     setConflicts([])
     setAssociationSuggestions([])
     setReviewedAssociations(new Set())
+    setCreationPlans([])
+    setConfirmedCreationPlans(new Set())
 
     try {
       const opportunities = await getSdrOpportunityReadModel()
       const detectedConflicts = findSdrOpportunityConflicts(result.accepted, opportunities)
       setConflicts(detectedConflicts)
       setAssociationSuggestions(buildSdrOpportunityAssociationSuggestions(detectedConflicts))
+      setCreationPlans(buildSdrOpportunityCreationPlans(result.accepted, detectedConflicts))
     } catch (error) {
       setConflictError(
         error instanceof Error
@@ -132,6 +142,15 @@ export function SdrCampaignSimulator() {
     setReviewedAssociations((current) => {
       const next = new Set(current)
       if (reviewed) next.add(correlationId)
+      else next.delete(correlationId)
+      return next
+    })
+  }
+
+  const setCreationPlanConfirmed = (correlationId: string, confirmed: boolean) => {
+    setConfirmedCreationPlans((current) => {
+      const next = new Set(current)
+      if (confirmed) next.add(correlationId)
       else next.delete(correlationId)
       return next
     })
@@ -383,6 +402,9 @@ export function SdrCampaignSimulator() {
                 const suggestion = associationSuggestions.find(
                   (item) => item.correlationId === conflict.correlationId,
                 )
+                const creationPlan = creationPlans.find(
+                  (item) => item.correlationId === conflict.correlationId,
+                )
                 const stateClass =
                   conflict.level === 'blocking'
                     ? 'border-rose-400/50 bg-rose-50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-100'
@@ -471,6 +493,72 @@ export function SdrCampaignSimulator() {
                             {reviewedAssociations.has(conflict.correlationId) && (
                               <p className="mt-3 text-xs font-semibold">
                                 Revisao humana simulada concluida. Persistencia continua bloqueada.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {creationPlan && (
+                      <div className="mt-3 border-t border-current/20 pt-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 font-semibold">
+                            <FilePlus2 className="h-4 w-4" />
+                            Proposta de nova oportunidade
+                          </div>
+                          <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
+                            Execucao bloqueada
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs opacity-90">{creationPlan.reason}</p>
+
+                        {creationPlan.status === 'ready_for_confirmation' && (
+                          <div className="mt-3 border border-current/25 p-3">
+                            <dl className="grid gap-3 text-xs sm:grid-cols-2">
+                              <div>
+                                <dt className="opacity-70">Empresa</dt>
+                                <dd className="mt-1 font-semibold">
+                                  {creationPlan.payload.company}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="opacity-70">Etapa e origem</dt>
+                                <dd className="mt-1 font-semibold">
+                                  {creationPlan.payload.stage} - {creationPlan.payload.source}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="opacity-70">Contato</dt>
+                                <dd className="mt-1 font-semibold">
+                                  {creationPlan.payload.contact_name}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="opacity-70">Valor inicial</dt>
+                                <dd className="mt-1 font-semibold">R$ 0,00</dd>
+                              </div>
+                            </dl>
+                            <div className="mt-3 flex items-start gap-3 border-t border-current/20 pt-3">
+                              <Checkbox
+                                id={`sdr-creation-confirm-${conflict.correlationId}`}
+                                checked={confirmedCreationPlans.has(conflict.correlationId)}
+                                onCheckedChange={(checked) =>
+                                  setCreationPlanConfirmed(conflict.correlationId, checked === true)
+                                }
+                              />
+                              <Label
+                                htmlFor={`sdr-creation-confirm-${conflict.correlationId}`}
+                                className="cursor-pointer text-xs font-normal leading-5"
+                              >
+                                Confirmo que revisei os dados desta proposta. A confirmacao e local
+                                e nao cria oportunidade no CRM.
+                              </Label>
+                            </div>
+                            {confirmedCreationPlans.has(conflict.correlationId) && (
+                              <p className="mt-3 text-xs font-semibold">
+                                Confirmacao local registrada. Feature flag, nova deduplicacao,
+                                auditoria e backend continuam obrigatorios para executar.
                               </p>
                             )}
                           </div>

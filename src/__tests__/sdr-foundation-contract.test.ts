@@ -31,6 +31,10 @@ const opportunityAssociationSource = readFileSync(
   new URL('../services/sdrOpportunityAssociation.ts', import.meta.url),
   'utf8',
 )
+const opportunityCreationPlanSource = readFileSync(
+  new URL('../services/sdrOpportunityCreationPlan.ts', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -126,5 +130,19 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityAssociationSource).not.toContain('.update(')
     expect(opportunityAssociationSource).not.toContain('.delete(')
     expect(campaignSimulatorSource).toContain('Esta marcacao e apenas local')
+  })
+
+  it('prepares opportunity creation without allowing execution', () => {
+    expect(opportunityCreationPlanSource).toContain('buildSdrOpportunityCreationPlans')
+    expect(opportunityCreationPlanSource).toContain('executionAllowed: false')
+    expect(opportunityCreationPlanSource).toContain('featureFlagRequired: true')
+    expect(opportunityCreationPlanSource).toContain('backendDeduplicationRequired: true')
+    expect(opportunityCreationPlanSource).toContain('auditRequired: true')
+    expect(opportunityCreationPlanSource).not.toContain('@/lib/pocketbase')
+    expect(opportunityCreationPlanSource).not.toContain('fetch(')
+    expect(opportunityCreationPlanSource).not.toContain('.create(')
+    expect(opportunityCreationPlanSource).not.toContain('.update(')
+    expect(opportunityCreationPlanSource).not.toContain('.delete(')
+    expect(campaignSimulatorSource).toContain('nao cria oportunidade no CRM')
   })
 })

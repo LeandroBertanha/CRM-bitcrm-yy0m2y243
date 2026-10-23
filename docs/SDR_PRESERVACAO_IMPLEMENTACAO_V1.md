@@ -3,7 +3,7 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.102
+Versao da implementacao local: 0.0.103
 Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
@@ -220,9 +220,13 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Parcial local: empates nao pre-selecionam oportunidade e exigem escolha manual futura.
 - Parcial local: confirmacao de revisao humana existe somente em memoria e nao persiste associacao.
 - Validado localmente: correspondencia somente por empresa gerou sugestao de confianca media; a revisao humana foi marcada sem qualquer persistencia no CRM.
+- Aprovado pelo usuario: fluxo local de revisao humana da sugestao de associacao.
+- Parcial local: proposta de nova oportunidade somente para resultado `Livre`, com payload previsivel e chave de idempotencia.
+- Parcial local: confirmacao da proposta existe somente em memoria e `executionAllowed` permanece `false`.
+- Validado localmente: contato ficticio `Livre` gerou proposta `Novo / Prospeccao / R$ 0,00`; a confirmacao humana manteve a execucao bloqueada.
 - Pendente: repetir a protecao no servidor antes de qualquer persistencia futura.
 - Pendente: persistir uma associacao somente apos backend protegido, auditoria e aprovacao explicita.
-- Implementar criacao de oportunidade mediante confirmacao humana.
+- Pendente: implementar execucao de criacao no backend somente apos feature flag, nova deduplicacao, auditoria e homologacao.
 - Manter alteracao de oportunidade existente desativada.
 
 ### Fase 4 - Regressao e liberacao
