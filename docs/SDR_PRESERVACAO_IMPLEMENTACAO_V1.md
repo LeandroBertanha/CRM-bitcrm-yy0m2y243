@@ -3,7 +3,7 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.101
+Versao da implementacao local: 0.0.102
 Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
@@ -216,8 +216,12 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 ### Fase 3 - Integracao controlada com CRM
 
 - Parcial local: deteccao de duplicidade no simulador, sem escrita ou associacao automatica.
+- Parcial local: sugestao de candidata aberta por relevancia, com confianca alta ou media.
+- Parcial local: empates nao pre-selecionam oportunidade e exigem escolha manual futura.
+- Parcial local: confirmacao de revisao humana existe somente em memoria e nao persiste associacao.
+- Validado localmente: correspondencia somente por empresa gerou sugestao de confianca media; a revisao humana foi marcada sem qualquer persistencia no CRM.
 - Pendente: repetir a protecao no servidor antes de qualquer persistencia futura.
-- Implementar sugestao de associacao.
+- Pendente: persistir uma associacao somente apos backend protegido, auditoria e aprovacao explicita.
 - Implementar criacao de oportunidade mediante confirmacao humana.
 - Manter alteracao de oportunidade existente desativada.
 

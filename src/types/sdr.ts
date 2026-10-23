@@ -122,3 +122,18 @@ export interface SdrOpportunityConflictResult {
   reason: string
   candidates: SdrOpportunityConflictCandidate[]
 }
+
+export type SdrAssociationSuggestionStatus = 'suggested' | 'ambiguous' | 'none'
+export type SdrAssociationConfidence = 'high' | 'medium' | 'none'
+
+export interface SdrOpportunityAssociationSuggestion {
+  correlationId: string
+  companyName: string
+  status: SdrAssociationSuggestionStatus
+  confidence: SdrAssociationConfidence
+  reason: string
+  recommendedCandidate?: SdrOpportunityConflictCandidate
+  alternatives: SdrOpportunityConflictCandidate[]
+  requiresHumanConfirmation: true
+  readOnly: true
+}

@@ -27,6 +27,10 @@ const opportunityGuardSource = readFileSync(
   new URL('../services/sdrOpportunityGuard.ts', import.meta.url),
   'utf8',
 )
+const opportunityAssociationSource = readFileSync(
+  new URL('../services/sdrOpportunityAssociation.ts', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -110,5 +114,17 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityGuardSource).not.toContain('.create(')
     expect(opportunityGuardSource).not.toContain('.update(')
     expect(opportunityGuardSource).not.toContain('.delete(')
+  })
+
+  it('keeps association suggestions local, read-only and human-reviewed', () => {
+    expect(opportunityAssociationSource).toContain('buildSdrOpportunityAssociationSuggestions')
+    expect(opportunityAssociationSource).toContain('requiresHumanConfirmation: true')
+    expect(opportunityAssociationSource).toContain('readOnly: true')
+    expect(opportunityAssociationSource).not.toContain('@/lib/pocketbase')
+    expect(opportunityAssociationSource).not.toContain('fetch(')
+    expect(opportunityAssociationSource).not.toContain('.create(')
+    expect(opportunityAssociationSource).not.toContain('.update(')
+    expect(opportunityAssociationSource).not.toContain('.delete(')
+    expect(campaignSimulatorSource).toContain('Esta marcacao e apenas local')
   })
 })

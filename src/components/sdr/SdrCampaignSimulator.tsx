@@ -1,16 +1,27 @@
 import { useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, Loader2, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Link2,
+  Loader2,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampaignPreparation'
+import { buildSdrOpportunityAssociationSuggestions } from '@/services/sdrOpportunityAssociation'
 import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
 import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
 import type {
   SdrCampaignContactInput,
   SdrCampaignPreparationResult,
+  SdrOpportunityAssociationSuggestion,
   SdrOpportunityConflictResult,
   SdrPreparedMessage,
 } from '@/types/sdr'
@@ -36,6 +47,10 @@ export function SdrCampaignSimulator() {
   const [result, setResult] = useState<SdrCampaignPreparationResult | null>(null)
   const [queue, setQueue] = useState<SdrPreparedMessage[]>([])
   const [conflicts, setConflicts] = useState<SdrOpportunityConflictResult[]>([])
+  const [associationSuggestions, setAssociationSuggestions] = useState<
+    SdrOpportunityAssociationSuggestion[]
+  >([])
+  const [reviewedAssociations, setReviewedAssociations] = useState<Set<string>>(new Set())
   const [conflictError, setConflictError] = useState('')
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
 
@@ -43,6 +58,8 @@ export function SdrCampaignSimulator() {
     setResult(null)
     setQueue([])
     setConflicts([])
+    setAssociationSuggestions([])
+    setReviewedAssociations(new Set())
     setConflictError('')
   }
 
@@ -92,10 +109,14 @@ export function SdrCampaignSimulator() {
     setIsCheckingConflicts(true)
     setConflictError('')
     setConflicts([])
+    setAssociationSuggestions([])
+    setReviewedAssociations(new Set())
 
     try {
       const opportunities = await getSdrOpportunityReadModel()
-      setConflicts(findSdrOpportunityConflicts(result.accepted, opportunities))
+      const detectedConflicts = findSdrOpportunityConflicts(result.accepted, opportunities)
+      setConflicts(detectedConflicts)
+      setAssociationSuggestions(buildSdrOpportunityAssociationSuggestions(detectedConflicts))
     } catch (error) {
       setConflictError(
         error instanceof Error
@@ -105,6 +126,15 @@ export function SdrCampaignSimulator() {
     } finally {
       setIsCheckingConflicts(false)
     }
+  }
+
+  const setAssociationReviewed = (correlationId: string, reviewed: boolean) => {
+    setReviewedAssociations((current) => {
+      const next = new Set(current)
+      if (reviewed) next.add(correlationId)
+      else next.delete(correlationId)
+      return next
+    })
   }
 
   return (
@@ -350,6 +380,9 @@ export function SdrCampaignSimulator() {
                 </p>
               </div>
               {conflicts.map((conflict) => {
+                const suggestion = associationSuggestions.find(
+                  (item) => item.correlationId === conflict.correlationId,
+                )
                 const stateClass =
                   conflict.level === 'blocking'
                     ? 'border-rose-400/50 bg-rose-50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-100'
@@ -380,10 +413,69 @@ export function SdrCampaignSimulator() {
                         {conflict.candidates.map((candidate) => (
                           <li key={candidate.opportunityId}>
                             {candidate.company} - {candidate.stage} - correspondencia:{' '}
-                            {candidate.matchedBy.join(', ')}
+                            {candidate.matchedBy
+                              .map((field) =>
+                                field === 'phone'
+                                  ? 'telefone'
+                                  : field === 'email'
+                                    ? 'e-mail'
+                                    : 'empresa',
+                              )
+                              .join(', ')}
                           </li>
                         ))}
                       </ul>
+                    )}
+
+                    {suggestion && suggestion.status !== 'none' && (
+                      <div className="mt-3 border-t border-current/20 pt-3">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <Link2 className="h-4 w-4" />
+                          Sugestao de associacao em modo leitura
+                        </div>
+                        <p className="mt-2 text-xs opacity-90">{suggestion.reason}</p>
+
+                        {suggestion.status === 'ambiguous' && (
+                          <p className="mt-2 text-xs font-semibold">
+                            Nenhuma candidata foi pre-selecionada devido ao empate.
+                          </p>
+                        )}
+
+                        {suggestion.recommendedCandidate && (
+                          <div className="mt-3 border border-current/25 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold">
+                                {suggestion.recommendedCandidate.company} -{' '}
+                                {suggestion.recommendedCandidate.stage}
+                              </span>
+                              <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
+                                Confianca {suggestion.confidence === 'high' ? 'alta' : 'media'}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex items-start gap-3">
+                              <Checkbox
+                                id={`sdr-association-review-${conflict.correlationId}`}
+                                checked={reviewedAssociations.has(conflict.correlationId)}
+                                onCheckedChange={(checked) =>
+                                  setAssociationReviewed(conflict.correlationId, checked === true)
+                                }
+                              />
+                              <Label
+                                htmlFor={`sdr-association-review-${conflict.correlationId}`}
+                                className="cursor-pointer text-xs font-normal leading-5"
+                              >
+                                Confirmo que revisei esta candidata. Esta marcacao e apenas local e
+                                nao salva associacao no CRM.
+                              </Label>
+                            </div>
+                            {reviewedAssociations.has(conflict.correlationId) && (
+                              <p className="mt-3 text-xs font-semibold">
+                                Revisao humana simulada concluida. Persistencia continua bloqueada.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </article>
                 )
