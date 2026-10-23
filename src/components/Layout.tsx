@@ -31,6 +31,7 @@ import {
   DollarSign,
   History,
   Settings,
+  Bot,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -131,6 +132,7 @@ export default function Layout() {
       ? [
           { label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 },
           { label: 'Usuários', to: '/usuarios', icon: Users },
+          { label: 'SDR Inteligente', to: '/sdr', icon: Bot },
         ]
       : []),
     { label: 'Formulário', to: '/formulario', icon: QrCode },
