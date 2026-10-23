@@ -56,15 +56,15 @@ Conclusao: nenhuma migracao do SDR deve ser executada em producao antes da compr
 
 Todas as colecoes abaixo sao novas e usam relacoes para os identificadores existentes. Nenhuma colecao atual precisa ser recriada.
 
-| Colecao | Finalidade | Relacoes principais |
-| --- | --- | --- |
-| `sdr_settings` | Feature flag e regras globais | usuario administrador responsavel |
-| `sdr_campaigns` | Campanhas SDR | criador, responsavel comercial |
-| `sdr_campaign_contacts` | Participantes e estado na campanha | campanha, oportunidade opcional, responsavel |
-| `sdr_messages` | Mensagens preparadas, enviadas e retornos | campanha, contato, oportunidade opcional |
-| `sdr_scores` | Scores calculados pelo SDR | contato, campanha, oportunidade opcional |
-| `sdr_tasks` | Tarefas internas do SDR | campanha, contato, responsavel |
-| `sdr_audit_logs` | Auditoria completa das operacoes | usuario, campanha, registro afetado |
+| Colecao                 | Finalidade                                | Relacoes principais                          |
+| ----------------------- | ----------------------------------------- | -------------------------------------------- |
+| `sdr_settings`          | Feature flag e regras globais             | usuario administrador responsavel            |
+| `sdr_campaigns`         | Campanhas SDR                             | criador, responsavel comercial               |
+| `sdr_campaign_contacts` | Participantes e estado na campanha        | campanha, oportunidade opcional, responsavel |
+| `sdr_messages`          | Mensagens preparadas, enviadas e retornos | campanha, contato, oportunidade opcional     |
+| `sdr_scores`            | Scores calculados pelo SDR                | contato, campanha, oportunidade opcional     |
+| `sdr_tasks`             | Tarefas internas do SDR                   | campanha, contato, responsavel               |
+| `sdr_audit_logs`        | Auditoria completa das operacoes          | usuario, campanha, registro afetado          |
 
 Campos de controle obrigatorios em todas as colecoes aplicaveis:
 
@@ -97,16 +97,16 @@ Se uma alteracao futura em colecao existente se tornar indispensavel, ela exigir
 
 ## 7. Riscos identificados
 
-| Risco | Impacto | Mitigacao |
-| --- | --- | --- |
-| Executar migracao diretamente na producao | perda ou indisponibilidade | homologacao, backup restauravel e migracoes apenas aditivas |
-| Duplicar oportunidades | conflito comercial | verificador de duplicidade e confirmacao humana |
-| Alterar oportunidade existente por engano | perda de contexto comercial | bloqueio server-side e modo somente leitura |
-| Feature flag apenas no frontend | chamadas indevidas ao backend | validacao obrigatoria no hook/endpoint |
-| Reutilizar hook atual sem isolamento | regressao em disparos existentes | endpoint e servicos SDR separados |
-| Logs incompletos | baixa rastreabilidade | `sdr_audit_logs` obrigatorio e correlacao por campanha |
-| Falha no WhatsApp ou limite da Meta | fila inconsistente | idempotencia, status por mensagem e reprocessamento controlado |
-| Regras multiusuario insuficientes | acesso indevido | regras PocketBase e testes de autorizacao por perfil |
+| Risco                                     | Impacto                          | Mitigacao                                                      |
+| ----------------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| Executar migracao diretamente na producao | perda ou indisponibilidade       | homologacao, backup restauravel e migracoes apenas aditivas    |
+| Duplicar oportunidades                    | conflito comercial               | verificador de duplicidade e confirmacao humana                |
+| Alterar oportunidade existente por engano | perda de contexto comercial      | bloqueio server-side e modo somente leitura                    |
+| Feature flag apenas no frontend           | chamadas indevidas ao backend    | validacao obrigatoria no hook/endpoint                         |
+| Reutilizar hook atual sem isolamento      | regressao em disparos existentes | endpoint e servicos SDR separados                              |
+| Logs incompletos                          | baixa rastreabilidade            | `sdr_audit_logs` obrigatorio e correlacao por campanha         |
+| Falha no WhatsApp ou limite da Meta       | fila inconsistente               | idempotencia, status por mensagem e reprocessamento controlado |
+| Regras multiusuario insuficientes         | acesso indevido                  | regras PocketBase e testes de autorizacao por perfil           |
 
 ## 8. Estrategia de backup e recuperacao
 

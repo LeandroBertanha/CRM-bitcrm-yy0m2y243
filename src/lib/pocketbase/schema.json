@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T18:14:38.812Z",
+  "generatedAt": "2026-10-23T19:19:53.705Z",
   "collections": [
     {
       "name": "users",
@@ -29,21 +29,29 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["admin", "seller"]
+          "selectValues": [
+            "admin",
+            "seller"
+          ]
         },
         {
           "name": "mustChangePassword",
@@ -109,7 +117,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Novo", "Qualificado", "Agendado", "Proposta", "Ganho", "Perdido"]
+          "selectValues": [
+            "Novo",
+            "Qualificado",
+            "Agendado",
+            "Proposta",
+            "Ganho",
+            "Perdido"
+          ]
         },
         {
           "name": "source",
@@ -168,21 +183,30 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "payment_type",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["Débito", "PIX", "Parcelado"]
+          "selectValues": [
+            "Débito",
+            "PIX",
+            "Parcelado"
+          ]
         },
         {
           "name": "payment_installments",
@@ -259,7 +283,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["ligacao", "whatsapp", "reuniao", "nota", "outro"]
+          "selectValues": [
+            "ligacao",
+            "whatsapp",
+            "reuniao",
+            "nota",
+            "outro"
+          ]
         },
         {
           "name": "text",
@@ -278,14 +308,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -352,17 +387,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"]
+      "indexes": [
+        "CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"
+      ]
     },
     {
       "name": "commission_tiers",
@@ -422,14 +464,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -471,17 +518,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"
+      ]
     },
     {
       "name": "playbook_scripts",
@@ -499,7 +553,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+          "selectValues": [
+            "Telefone",
+            "Presencial",
+            "WhatsApp",
+            "Reunião",
+            "Retorno"
+          ]
         },
         {
           "name": "situation",
@@ -542,14 +602,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -585,7 +650,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["diagnóstico", "qualificação", "fluxo"]
+          "selectValues": [
+            "diagnóstico",
+            "qualificação",
+            "fluxo"
+          ]
         },
         {
           "name": "text",
@@ -622,14 +691,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -708,17 +782,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"
+      ]
     },
     {
       "name": "playbook_objections",
@@ -772,14 +853,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -839,14 +925,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -862,7 +953,9 @@
           "system": false
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"
+      ]
     },
     {
       "name": "playbook_values",
@@ -922,14 +1015,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -993,14 +1091,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -1074,7 +1177,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+          "selectValues": [
+            "Telefone",
+            "Presencial",
+            "WhatsApp",
+            "Reunião",
+            "Retorno"
+          ]
         },
         {
           "name": "segment",
@@ -1115,7 +1224,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["frio", "morno", "quente"]
+          "selectValues": [
+            "frio",
+            "morno",
+            "quente"
+          ]
         },
         {
           "name": "temperature_reason",
@@ -1200,14 +1313,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1281,14 +1399,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": []
@@ -1363,17 +1486,750 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_products_active ON products (is_active)"]
+      "indexes": [
+        "CREATE INDEX idx_products_active ON products (is_active)"
+      ]
+    },
+    {
+      "name": "sdr_settings",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allow_existing_opportunity_update",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "allow_opportunity_creation",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "require_human_confirmation",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "environment",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "homologacao",
+            "producao"
+          ]
+        },
+        {
+          "name": "created_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "sdr_campaigns",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "rascunho",
+            "em_revisao",
+            "aprovada",
+            "ativa",
+            "pausada",
+            "concluida",
+            "cancelada"
+          ]
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "channel",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "whatsapp"
+          ]
+        },
+        {
+          "name": "created_by",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "owner",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "starts_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ends_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_campaigns_status ON sdr_campaigns (status)",
+        "CREATE INDEX idx_sdr_campaigns_owner ON sdr_campaigns (owner)"
+      ]
+    },
+    {
+      "name": "sdr_campaign_contacts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "campaign",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaigns"
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "company_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "contact_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_email",
+          "type": "email",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contact_phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "owner",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "pendente",
+            "em_revisao",
+            "aprovado",
+            "processando",
+            "concluido",
+            "falhou"
+          ]
+        },
+        {
+          "name": "deduplication_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "requires_human_review",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "source_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_contacts_campaign ON sdr_campaign_contacts (campaign)",
+        "CREATE INDEX idx_sdr_contacts_opportunity ON sdr_campaign_contacts (opportunity)",
+        "CREATE INDEX idx_sdr_contacts_dedup ON sdr_campaign_contacts (deduplication_key)"
+      ]
+    },
+    {
+      "name": "sdr_messages",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "campaign",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaigns"
+        },
+        {
+          "name": "contact",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaign_contacts"
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "direction",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "outbound",
+            "inbound"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "preparada",
+            "aguardando_confirmacao",
+            "enviando",
+            "enviada",
+            "entregue",
+            "falhou"
+          ]
+        },
+        {
+          "name": "template_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "provider_message_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "correlation_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "error_code",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "attempt_count",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "sent_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "delivered_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_messages_contact ON sdr_messages (contact)",
+        "CREATE INDEX idx_sdr_messages_correlation ON sdr_messages (correlation_id)"
+      ]
+    },
+    {
+      "name": "sdr_scores",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "campaign",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaigns"
+        },
+        {
+          "name": "contact",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaign_contacts"
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "score",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "rationale",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "model_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "calculated_at",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_scores_contact ON sdr_scores (contact)"
+      ]
+    },
+    {
+      "name": "sdr_tasks",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "campaign",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaigns"
+        },
+        {
+          "name": "contact",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "sdr_campaign_contacts"
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "assigned_to",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "pendente",
+            "em_andamento",
+            "concluida",
+            "cancelada"
+          ]
+        },
+        {
+          "name": "due_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "completed_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_tasks_assigned ON sdr_tasks (assigned_to)",
+        "CREATE INDEX idx_sdr_tasks_due ON sdr_tasks (due_at)"
+      ]
+    },
+    {
+      "name": "sdr_audit_logs",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "view": "@request.auth.id != '' && @request.auth.role = 'admin'",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "campaign",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "sdr_campaigns"
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "actor_user",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "actor_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "user",
+            "ai",
+            "system"
+          ]
+        },
+        {
+          "name": "agent_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "operation",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_collection",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "target_record_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "result",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "success",
+            "rejected",
+            "error"
+          ]
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "previous_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "new_value",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "error_message",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "correlation_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "event_at",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_sdr_audit_event ON sdr_audit_logs (event_at DESC)",
+        "CREATE INDEX idx_sdr_audit_correlation ON sdr_audit_logs (correlation_id)"
+      ]
     }
   ]
 }
