@@ -1,10 +1,10 @@
 # bitCRM - Relatorio previo de implementacao do SDR Inteligente
 
-Versao do relatorio: 1.1
+Versao do relatorio: 1.2
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.104
-Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
+Versao da implementacao local: 0.0.105
+Status: fundacao publicada; ativacao operacional e persistencia auditada preparadas para producao
 
 ## 1. Objetivo
 
@@ -257,5 +257,19 @@ O relatorio foi aprovado para implementacao local da Fase 1. Antes de aplicar a 
 2. teste de restauracao bem-sucedido;
 3. ambiente de homologacao separado;
 4. contatos e numeros autorizados para testes de WhatsApp.
+
+## 14. Evolucao operacional da versao 0.0.105
+
+- Ativacao e desativacao administrativa passam por endpoint autenticado e auditado.
+- Producao exige a frase explicita `ATIVAR SDR EM PRODUCAO`.
+- Confirmacao humana e auditoria permanecem obrigatorias no servidor.
+- Alteracao de oportunidades existentes permanece desabilitada e nao pode ser ligada pela tela.
+- Campanhas, contatos e mensagens sao gravados apenas nas colecoes SDR, em uma unica transacao.
+- A fila nasce em `aguardando_confirmacao`; registrar campanha nao dispara WhatsApp.
+- O backend repete a verificacao de oportunidade aberta imediatamente antes da persistencia.
+- Criacao de oportunidade nova pode operar em homologacao ou producao, sempre com deduplicacao,
+  idempotencia, confirmacao humana e auditoria atomica.
+- A tela informa o estado real da WhatsApp Cloud API. Sem secrets e template aprovado, campanhas e
+  oportunidades podem ser preparadas, mas o envio automatico permanece bloqueado.
 
 Sem esses itens, nenhuma migracao, alteracao estrutural no banco ou publicacao do SDR sera executada. O codigo local da versao 0.0.104 esta pronto para a criacao controlada, mas o ambiente permanece com escrita operacional bloqueada e feature flag desativada.

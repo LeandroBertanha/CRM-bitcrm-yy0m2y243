@@ -52,7 +52,7 @@ function validateContact(
       rejected,
       index,
       'CONTACT_NOT_AUTHORIZED',
-      'O contato nao possui autorizacao explicita para testes.',
+      'O contato nao possui autorizacao explicita para esta abordagem.',
     )
   }
   if (!companyName) {

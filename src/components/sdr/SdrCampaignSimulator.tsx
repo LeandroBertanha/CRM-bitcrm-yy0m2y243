@@ -6,6 +6,7 @@ import {
   Link2,
   Loader2,
   Plus,
+  Save,
   Search,
   ShieldCheck,
   Trash2,
@@ -19,6 +20,7 @@ import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampai
 import { buildSdrOpportunityAssociationSuggestions } from '@/services/sdrOpportunityAssociation'
 import { buildSdrOpportunityCreationPlans } from '@/services/sdrOpportunityCreationPlan'
 import { createSdrOpportunity } from '@/services/sdrOpportunityCreateService'
+import { createSdrCampaign } from '@/services/sdrOperationsService'
 import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
 import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
 import type {
@@ -45,6 +47,7 @@ const createEmptyContact = (id: number): DraftContact => ({
 interface SdrCampaignSimulatorProps {
   foundationAvailable: boolean
   settings: SdrSettings
+  onCampaignCreated?: () => void
 }
 
 interface CreationOutcome {
@@ -53,11 +56,15 @@ interface CreationOutcome {
   opportunityId?: string
 }
 
-export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampaignSimulatorProps) {
+export function SdrCampaignSimulator({
+  foundationAvailable,
+  settings,
+  onCampaignCreated,
+}: SdrCampaignSimulatorProps) {
   const nextContactId = useRef(2)
-  const [campaignName, setCampaignName] = useState('Campanha de homologacao')
+  const [campaignName, setCampaignName] = useState('Campanha SDR')
   const [template, setTemplate] = useState(
-    'Ola, {contato}. Esta e uma mensagem de teste autorizada para a {empresa}.',
+    'Ola, {contato}. Esta e uma abordagem comercial autorizada para a {empresa}.',
   )
   const [contacts, setContacts] = useState<DraftContact[]>([createEmptyContact(1)])
   const [result, setResult] = useState<SdrCampaignPreparationResult | null>(null)
@@ -73,6 +80,9 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
   const [creatingPlans, setCreatingPlans] = useState<Set<string>>(new Set())
   const [creationOutcomes, setCreationOutcomes] = useState<Record<string, CreationOutcome>>({})
+  const [campaignConfirmed, setCampaignConfirmed] = useState(false)
+  const [isSavingCampaign, setIsSavingCampaign] = useState(false)
+  const [campaignOutcome, setCampaignOutcome] = useState<CreationOutcome | null>(null)
 
   const resetResult = () => {
     setResult(null)
@@ -85,6 +95,8 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
     setConflictError('')
     setCreatingPlans(new Set())
     setCreationOutcomes({})
+    setCampaignConfirmed(false)
+    setCampaignOutcome(null)
   }
 
   const updateContact = (
@@ -121,8 +133,8 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
 
   const clearSimulation = () => {
     nextContactId.current = 2
-    setCampaignName('Campanha de homologacao')
-    setTemplate('Ola, {contato}. Esta e uma mensagem de teste autorizada para a {empresa}.')
+    setCampaignName('Campanha SDR')
+    setTemplate('Ola, {contato}. Esta e uma abordagem comercial autorizada para a {empresa}.')
     setContacts([createEmptyContact(1)])
     resetResult()
   }
@@ -175,15 +187,54 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
 
   const creationBlockReason = !foundationAvailable
     ? 'A fundacao SDR ainda nao foi aplicada neste ambiente.'
-    : settings.environment !== 'homologacao'
-      ? 'A criacao permanece bloqueada fora da homologacao.'
+    : settings.environment !== 'homologacao' && settings.environment !== 'producao'
+      ? 'O ambiente do SDR e invalido.'
       : !settings.enabled
-        ? 'Ative o SDR na configuracao de homologacao.'
+        ? 'Ative o SDR na configuracao administrativa.'
         : !settings.allow_opportunity_creation
           ? 'Libere a criacao de oportunidades na feature flag do SDR.'
           : !settings.require_human_confirmation
             ? 'A configuracao esta insegura: reative a confirmacao humana.'
             : ''
+
+  const campaignBlockReason = !foundationAvailable
+    ? 'A fundacao SDR ainda nao foi aplicada neste ambiente.'
+    : !settings.enabled
+      ? 'Ative o SDR antes de registrar a campanha.'
+      : !result?.accepted.length || queue.length !== result.accepted.length
+        ? 'Valide pelo menos um contato antes de registrar a campanha.'
+        : conflicts.length !== result.accepted.length
+          ? 'Verifique as duplicidades no CRM antes de registrar a campanha.'
+          : conflicts.some((conflict) => conflict.level !== 'clear')
+            ? 'Resolva os contatos marcados para revisao ou bloqueio antes de registrar.'
+            : ''
+
+  const saveCampaign = async () => {
+    if (!result || campaignBlockReason || !campaignConfirmed) return
+    setIsSavingCampaign(true)
+    setCampaignOutcome(null)
+    try {
+      const response = await createSdrCampaign({
+        name: result.campaignName,
+        template,
+        contacts: result.accepted,
+        messages: queue,
+      })
+      setCampaignOutcome({
+        status: 'success',
+        opportunityId: response.campaignId,
+        message: response.message,
+      })
+      onCampaignCreated?.()
+    } catch (error) {
+      setCampaignOutcome({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Nao foi possivel registrar a campanha.',
+      })
+    } finally {
+      setIsSavingCampaign(false)
+    }
+  }
 
   const executeCreationPlan = async (plan: SdrOpportunityCreationPlan) => {
     if (creationBlockReason || !confirmedCreationPlans.has(plan.correlationId)) return
@@ -238,7 +289,7 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
           </div>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
             Valide contatos, consulte possiveis duplicidades e prepare a fila. A criacao de uma
-            oportunidade exige homologacao ativa, confirmacao humana e auditoria no servidor.
+            oportunidade exige SDR ativo, confirmacao humana e auditoria no servidor.
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-md border border-emerald-400/40 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
@@ -278,9 +329,9 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
       <div className="mt-6 border-t border-border pt-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Contatos de teste</h3>
+            <h3 className="font-semibold">Contatos da campanha</h3>
             <p className="text-sm text-muted-foreground">
-              A autorizacao deve ser marcada individualmente.
+              A autorizacao de contato deve ser confirmada individualmente.
             </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={addContact} className="gap-2">
@@ -360,7 +411,7 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
                   htmlFor={`sdr-authorized-${contact.id}`}
                   className="cursor-pointer text-sm font-normal leading-5"
                 >
-                  Confirmo que este numero esta autorizado para teste em homologacao.
+                  Confirmo que este numero pode receber esta abordagem comercial.
                 </Label>
               </div>
             </div>
@@ -672,6 +723,67 @@ export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampa
                   </article>
                 )
               })}
+            </div>
+          )}
+
+          {queue.length > 0 && (
+            <div className="mt-5 border border-border p-4">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="sdr-campaign-confirm"
+                  checked={campaignConfirmed}
+                  onCheckedChange={(checked) => setCampaignConfirmed(checked === true)}
+                />
+                <div>
+                  <Label htmlFor="sdr-campaign-confirm" className="cursor-pointer">
+                    Confirmo que revisei os contatos e autorizo o registro desta campanha.
+                  </Label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    As mensagens serao persistidas como aguardando confirmacao. Este botao nao
+                    dispara WhatsApp automaticamente.
+                  </p>
+                </div>
+              </div>
+              {campaignBlockReason && (
+                <p className="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                  {campaignBlockReason}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+                {campaignOutcome && (
+                  <p
+                    className={`mr-auto text-xs font-semibold ${
+                      campaignOutcome.status === 'success'
+                        ? 'text-emerald-700 dark:text-emerald-300'
+                        : 'text-rose-700 dark:text-rose-300'
+                    }`}
+                  >
+                    {campaignOutcome.message}
+                    {campaignOutcome.opportunityId
+                      ? ` Campanha: ${campaignOutcome.opportunityId}`
+                      : ''}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={saveCampaign}
+                  disabled={
+                    Boolean(campaignBlockReason) ||
+                    !campaignConfirmed ||
+                    isSavingCampaign ||
+                    campaignOutcome?.status === 'success'
+                  }
+                >
+                  {isSavingCampaign ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Registrar campanha{' '}
+                  {settings.environment === 'producao' ? 'real' : 'de homologacao'}
+                </Button>
+              </div>
             </div>
           )}
         </div>

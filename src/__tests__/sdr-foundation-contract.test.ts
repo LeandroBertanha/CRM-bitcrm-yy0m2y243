@@ -43,6 +43,18 @@ const opportunityCreateHookSource = readFileSync(
   new URL('../../pocketbase/hooks/sdr_opportunity_create.js', import.meta.url),
   'utf8',
 )
+const operationsHookSource = readFileSync(
+  new URL('../../pocketbase/hooks/sdr_operations.js', import.meta.url),
+  'utf8',
+)
+const operationsServiceSource = readFileSync(
+  new URL('../services/sdrOperationsService.ts', import.meta.url),
+  'utf8',
+)
+const activationPanelSource = readFileSync(
+  new URL('../components/sdr/SdrActivationPanel.tsx', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -162,9 +174,8 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityCreateHookSource).toContain("settings.getBool('enabled')")
     expect(opportunityCreateHookSource).toContain("settings.getBool('allow_opportunity_creation')")
     expect(opportunityCreateHookSource).toContain("settings.getBool('require_human_confirmation')")
-    expect(opportunityCreateHookSource).toContain(
-      "settings.getString('environment') !== 'homologacao'",
-    )
+    expect(opportunityCreateHookSource).toContain("sdrEnvironment !== 'homologacao'")
+    expect(opportunityCreateHookSource).toContain("sdrEnvironment !== 'producao'")
     expect(opportunityCreateHookSource).toContain('body.humanConfirmed !== true')
   })
 
@@ -176,5 +187,33 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityCreateHookSource).toContain('sdrWriteAudit(txApp')
     expect(opportunityCreateHookSource).toContain("correlation_id = '")
     expect(opportunityCreateHookSource).not.toContain('app.delete(')
+  })
+
+  it('allows only an administrator to activate production with an explicit phrase', () => {
+    expect(operationsHookSource).toContain('/backend/v1/sdr/settings/update')
+    expect(operationsHookSource).toContain('sdrOpsIsAdmin(authRecord)')
+    expect(operationsHookSource).toContain("confirmationPhrase !== 'ATIVAR SDR EM PRODUCAO'")
+    expect(operationsHookSource).toContain(
+      "txSettings.set('allow_existing_opportunity_update', false)",
+    )
+    expect(operationsHookSource).toContain("txSettings.set('require_human_confirmation', true)")
+    expect(operationsHookSource).toContain('$app.runInTransaction((txApp) => {')
+    expect(activationPanelSource).toContain('ATIVAR SDR EM PRODUCAO')
+    expect(operationsServiceSource).toContain('/backend/v1/sdr/settings/update')
+  })
+
+  it('persists a campaign and its queue only through an audited transaction', () => {
+    expect(operationsHookSource).toContain('/backend/v1/sdr/campaigns/create')
+    expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_campaigns')")
+    expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_campaign_contacts')")
+    expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_messages')")
+    expect(operationsHookSource).toContain("message.set('status', 'aguardando_confirmacao')")
+    expect(operationsHookSource).toContain("operation: 'sdr_campaign_create'")
+    expect(operationsHookSource).toContain('sdrOpsFindOpenOpportunityConflict($app')
+    expect(operationsHookSource).toContain('sdrOpsFindOpenOpportunityConflict(txApp')
+    expect(operationsHookSource).toContain('SDR_ACTIVE_CONTACT_CONFLICT')
+    expect(operationsHookSource).not.toContain("collection('opportunities').update")
+    expect(operationsServiceSource).toContain('/backend/v1/sdr/campaigns/create')
+    expect(campaignSimulatorSource).toContain('Registrar campanha')
   })
 })
