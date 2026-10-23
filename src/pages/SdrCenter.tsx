@@ -214,7 +214,7 @@ export default function SdrCenter() {
             Escrita bloqueada nesta fase
           </span>
         </div>
-        <div className="mt-5 grid gap-4 border-t border-border pt-5 md:grid-cols-3">
+        <div className="mt-5 grid gap-4 border-t border-border pt-5 md:grid-cols-4">
           <div>
             <h3 className="text-sm font-semibold">1. Campanha</h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -231,6 +231,12 @@ export default function SdrCenter() {
             <h3 className="text-sm font-semibold">3. Fila auditavel</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Mensagens exigirao confirmacao humana, correlacao e registro do resultado.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold">4. Preparacao segura</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Normalizacao, autorizacao de teste e deduplicacao estao prontas sem envio real.
             </p>
           </div>
         </div>

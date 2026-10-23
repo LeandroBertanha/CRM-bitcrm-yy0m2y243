@@ -11,6 +11,10 @@ const serviceSource = readFileSync(
 )
 const appSource = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8')
 const layoutSource = readFileSync(new URL('../components/Layout.tsx', import.meta.url), 'utf8')
+const campaignPreparationSource = readFileSync(
+  new URL('../services/sdrCampaignPreparation.ts', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -60,5 +64,13 @@ describe('SDR foundation safety contract', () => {
     expect(serviceSource).not.toContain('.create(')
     expect(serviceSource).not.toContain('.update(')
     expect(serviceSource).not.toContain('.delete(')
+  })
+
+  it('keeps campaign preparation isolated from database and network mutations', () => {
+    expect(campaignPreparationSource).not.toContain('@/lib/pocketbase')
+    expect(campaignPreparationSource).not.toContain('fetch(')
+    expect(campaignPreparationSource).not.toContain('.create(')
+    expect(campaignPreparationSource).not.toContain('.update(')
+    expect(campaignPreparationSource).not.toContain('.delete(')
   })
 })

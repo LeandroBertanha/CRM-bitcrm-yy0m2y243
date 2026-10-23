@@ -31,3 +31,63 @@ export interface SdrDashboardSnapshot {
   counts: SdrDashboardCounts
   unavailableCollections: string[]
 }
+
+export interface SdrCampaignContactInput {
+  companyName: string
+  contactName?: string
+  phone: string
+  email?: string
+  authorizedForTest: boolean
+}
+
+export interface SdrCampaignPreparationInput {
+  name: string
+  channel: 'whatsapp'
+  contacts: SdrCampaignContactInput[]
+}
+
+export type SdrPreparationRejectionCode =
+  | 'CAMPAIGN_NAME_REQUIRED'
+  | 'CONTACT_NOT_AUTHORIZED'
+  | 'COMPANY_NAME_REQUIRED'
+  | 'INVALID_PHONE'
+  | 'INVALID_EMAIL'
+  | 'DUPLICATE_CONTACT'
+
+export interface SdrPreparationRejection {
+  index: number
+  code: SdrPreparationRejectionCode
+  reason: string
+}
+
+export interface SdrPreparedContact extends SdrCampaignContactInput {
+  companyName: string
+  contactName: string
+  normalizedPhone: string
+  normalizedEmail: string
+  deduplicationKey: string
+  correlationId: string
+  requiresHumanReview: true
+}
+
+export interface SdrCampaignPreparationResult {
+  valid: boolean
+  campaignName: string
+  accepted: SdrPreparedContact[]
+  rejected: SdrPreparationRejection[]
+  totals: {
+    received: number
+    accepted: number
+    rejected: number
+  }
+}
+
+export interface SdrPreparedMessage {
+  correlationId: string
+  deduplicationKey: string
+  phone: string
+  body: string
+  status: 'aguardando_confirmacao'
+  attemptCount: 0
+  requiresHumanConfirmation: true
+}
