@@ -1,4 +1,5 @@
 import type { RecordModel } from 'pocketbase'
+import type { Opportunity } from '@/types/crm'
 
 export type SdrEnvironment = 'homologacao' | 'producao'
 
@@ -90,4 +91,34 @@ export interface SdrPreparedMessage {
   status: 'aguardando_confirmacao'
   attemptCount: 0
   requiresHumanConfirmation: true
+}
+
+export interface SdrOpportunityReadModel {
+  id: string
+  company: string
+  stage: Opportunity['stage']
+  seller?: string
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  updated?: string
+}
+
+export type SdrOpportunityMatchField = 'phone' | 'email' | 'company'
+export type SdrOpportunityConflictLevel = 'clear' | 'review' | 'blocking'
+
+export interface SdrOpportunityConflictCandidate {
+  opportunityId: string
+  company: string
+  stage: Opportunity['stage']
+  isOpen: boolean
+  matchedBy: SdrOpportunityMatchField[]
+}
+
+export interface SdrOpportunityConflictResult {
+  correlationId: string
+  companyName: string
+  level: SdrOpportunityConflictLevel
+  reason: string
+  candidates: SdrOpportunityConflictCandidate[]
 }

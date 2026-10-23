@@ -3,7 +3,7 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.100
+Versao da implementacao local: 0.0.101
 Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
@@ -204,7 +204,10 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Parcial local: motor puro de preparacao, normalizacao e deduplicacao de contatos.
 - Parcial local: fila preparada sempre em `aguardando_confirmacao`, sem envio ou persistencia.
 - Parcial local: simulador administrativo para validar contatos e mensagens somente em memoria.
+- Parcial local: consulta explicita e somente leitura das oportunidades existentes.
+- Parcial local: classificacao de duplicidade por telefone, e-mail e empresa em `Bloquear`, `Revisar` ou `Livre`.
 - Validado localmente: contato sem autorizacao foi rejeitado e contato autorizado gerou fila simulada em `aguardando_confirmacao`.
+- Validado localmente: contato ficticio autorizado foi comparado com as oportunidades por leitura e recebeu classificacao `Livre`, sem persistencia, associacao ou alteracao no CRM.
 - Criar campanhas e contatos de teste autorizados.
 - Implementar fila e mensagens em estruturas SDR.
 - Integrar WhatsApp em ambiente autorizado.
@@ -212,7 +215,8 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 
 ### Fase 3 - Integracao controlada com CRM
 
-- Implementar deteccao de duplicidade.
+- Parcial local: deteccao de duplicidade no simulador, sem escrita ou associacao automatica.
+- Pendente: repetir a protecao no servidor antes de qualquer persistencia futura.
 - Implementar sugestao de associacao.
 - Implementar criacao de oportunidade mediante confirmacao humana.
 - Manter alteracao de oportunidade existente desativada.

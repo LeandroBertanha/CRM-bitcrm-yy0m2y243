@@ -19,6 +19,14 @@ const campaignSimulatorSource = readFileSync(
   new URL('../components/sdr/SdrCampaignSimulator.tsx', import.meta.url),
   'utf8',
 )
+const opportunityReadSource = readFileSync(
+  new URL('../services/sdrOpportunityReadService.ts', import.meta.url),
+  'utf8',
+)
+const opportunityGuardSource = readFileSync(
+  new URL('../services/sdrOpportunityGuard.ts', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -79,10 +87,28 @@ describe('SDR foundation safety contract', () => {
   })
 
   it('offers a local-only simulator without persistence or sending actions', () => {
-    expect(campaignSimulatorSource).toContain('Somente memoria local')
+    expect(campaignSimulatorSource).toContain('Sem escrita no CRM')
     expect(campaignSimulatorSource).toContain('Validar simulacao')
     expect(campaignSimulatorSource).toContain('prepareSdrMessageQueue')
     expect(campaignSimulatorSource).not.toContain('@/lib/pocketbase')
     expect(campaignSimulatorSource).not.toContain('fetch(')
+  })
+
+  it('checks existing opportunities through a read-only service', () => {
+    expect(opportunityReadSource).toContain("collection('opportunities').getFullList")
+    expect(opportunityReadSource).toContain('fields:')
+    expect(opportunityReadSource).not.toContain('.create(')
+    expect(opportunityReadSource).not.toContain('.update(')
+    expect(opportunityReadSource).not.toContain('.delete(')
+    expect(campaignSimulatorSource).toContain('Verificar duplicidades no CRM')
+  })
+
+  it('keeps duplicate classification pure and isolated from network access', () => {
+    expect(opportunityGuardSource).toContain('findSdrOpportunityConflicts')
+    expect(opportunityGuardSource).not.toContain('@/lib/pocketbase')
+    expect(opportunityGuardSource).not.toContain('fetch(')
+    expect(opportunityGuardSource).not.toContain('.create(')
+    expect(opportunityGuardSource).not.toContain('.update(')
+    expect(opportunityGuardSource).not.toContain('.delete(')
   })
 })

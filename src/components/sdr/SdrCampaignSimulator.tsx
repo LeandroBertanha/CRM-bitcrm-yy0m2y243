@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react'
-import { AlertCircle, CheckCircle2, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampaignPreparation'
+import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
+import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
 import type {
   SdrCampaignContactInput,
   SdrCampaignPreparationResult,
+  SdrOpportunityConflictResult,
   SdrPreparedMessage,
 } from '@/types/sdr'
 
@@ -32,10 +35,15 @@ export function SdrCampaignSimulator() {
   const [contacts, setContacts] = useState<DraftContact[]>([createEmptyContact(1)])
   const [result, setResult] = useState<SdrCampaignPreparationResult | null>(null)
   const [queue, setQueue] = useState<SdrPreparedMessage[]>([])
+  const [conflicts, setConflicts] = useState<SdrOpportunityConflictResult[]>([])
+  const [conflictError, setConflictError] = useState('')
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
 
   const resetResult = () => {
     setResult(null)
     setQueue([])
+    setConflicts([])
+    setConflictError('')
   }
 
   const updateContact = (
@@ -78,6 +86,27 @@ export function SdrCampaignSimulator() {
     resetResult()
   }
 
+  const checkOpportunityConflicts = async () => {
+    if (!result?.accepted.length) return
+
+    setIsCheckingConflicts(true)
+    setConflictError('')
+    setConflicts([])
+
+    try {
+      const opportunities = await getSdrOpportunityReadModel()
+      setConflicts(findSdrOpportunityConflicts(result.accepted, opportunities))
+    } catch (error) {
+      setConflictError(
+        error instanceof Error
+          ? `Nao foi possivel consultar as oportunidades: ${error.message}`
+          : 'Nao foi possivel consultar as oportunidades. Tente novamente.',
+      )
+    } finally {
+      setIsCheckingConflicts(false)
+    }
+  }
+
   return (
     <section className="border border-border bg-card p-5 text-card-foreground sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -87,12 +116,12 @@ export function SdrCampaignSimulator() {
             <h2 className="text-xl font-semibold">Simulador local de campanha</h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Valide contatos, duplicidades e a fila preparada. Nenhum dado sera salvo e nenhuma
-            mensagem sera enviada.
+            Valide contatos, consulte possiveis duplicidades e prepare a fila. Nenhum dado sera
+            salvo e nenhuma mensagem sera enviada.
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-md border border-emerald-400/40 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
-          Somente memoria local
+          Sem escrita no CRM
         </span>
       </div>
 
@@ -268,10 +297,27 @@ export function SdrCampaignSimulator() {
 
           {queue.length > 0 && (
             <div className="mt-5 space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" />
-                Fila simulada aguardando confirmacao
-              </h3>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Fila simulada aguardando confirmacao
+                </h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={checkOpportunityConflicts}
+                  disabled={isCheckingConflicts}
+                  className="gap-2"
+                >
+                  {isCheckingConflicts ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Verificar duplicidades no CRM
+                </Button>
+              </div>
               <div className="divide-y divide-border border-y border-border">
                 {queue.map((message) => (
                   <div key={message.correlationId} className="py-3">
@@ -283,6 +329,65 @@ export function SdrCampaignSimulator() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {conflictError && (
+            <div className="mt-5 border border-rose-400/50 bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950/20 dark:text-rose-100">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{conflictError}</p>
+              </div>
+            </div>
+          )}
+
+          {conflicts.length > 0 && (
+            <div className="mt-5 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold">Resultado da verificacao somente leitura</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  O resultado orienta a revisao humana e nao associa nem altera oportunidades.
+                </p>
+              </div>
+              {conflicts.map((conflict) => {
+                const stateClass =
+                  conflict.level === 'blocking'
+                    ? 'border-rose-400/50 bg-rose-50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-100'
+                    : conflict.level === 'review'
+                      ? 'border-amber-400/50 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100'
+                      : 'border-emerald-400/50 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-100'
+                const stateLabel =
+                  conflict.level === 'blocking'
+                    ? 'Bloquear'
+                    : conflict.level === 'review'
+                      ? 'Revisar'
+                      : 'Livre'
+
+                return (
+                  <article
+                    key={conflict.correlationId}
+                    className={`border p-4 text-sm ${stateClass}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <strong>{conflict.companyName}</strong>
+                      <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
+                        {stateLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 opacity-90">{conflict.reason}</p>
+                    {conflict.candidates.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t border-current/20 pt-3 text-xs opacity-90">
+                        {conflict.candidates.map((candidate) => (
+                          <li key={candidate.opportunityId}>
+                            {candidate.company} - {candidate.stage} - correspondencia:{' '}
+                            {candidate.matchedBy.join(', ')}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </article>
+                )
+              })}
             </div>
           )}
         </div>
