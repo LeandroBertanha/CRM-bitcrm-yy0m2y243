@@ -53,4 +53,12 @@ describe('SDR foundation safety contract', () => {
     expect(appSource).toContain('<SdrCenter />')
     expect(layoutSource).toContain("{ label: 'SDR Inteligente', to: '/sdr', icon: Bot }")
   })
+
+  it('keeps the phase 2 dashboard read-only', () => {
+    expect(serviceSource).toContain('getSdrDashboardSnapshot')
+    expect(serviceSource).toContain('.getList(1, 1, {')
+    expect(serviceSource).not.toContain('.create(')
+    expect(serviceSource).not.toContain('.update(')
+    expect(serviceSource).not.toContain('.delete(')
+  })
 })

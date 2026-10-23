@@ -3,8 +3,8 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.97
-Status: Fase 1 implementada localmente; migracao e publicacao bloqueadas ate backup e homologacao
+Versao da implementacao local: 0.0.98
+Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
 
@@ -199,6 +199,8 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 
 ### Fase 2 - Campanhas em homologacao
 
+- Parcial local: painel somente leitura com contagens de campanhas, contatos, mensagens, scores, tarefas e auditoria.
+- Parcial local: estados claros para colecoes indisponiveis e nova tentativa sem escrita silenciosa.
 - Criar campanhas e contatos de teste autorizados.
 - Implementar fila e mensagens em estruturas SDR.
 - Integrar WhatsApp em ambiente autorizado.

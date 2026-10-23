@@ -17,3 +17,17 @@ export interface SdrFoundationStatus {
   settings: SdrSettings
   reason?: string
 }
+
+export interface SdrDashboardCounts {
+  campaigns: number
+  contacts: number
+  messages: number
+  scores: number
+  tasks: number
+  auditLogs: number
+}
+
+export interface SdrDashboardSnapshot {
+  counts: SdrDashboardCounts
+  unavailableCollections: string[]
+}
