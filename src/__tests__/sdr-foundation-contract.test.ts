@@ -35,6 +35,14 @@ const opportunityCreationPlanSource = readFileSync(
   new URL('../services/sdrOpportunityCreationPlan.ts', import.meta.url),
   'utf8',
 )
+const opportunityCreateServiceSource = readFileSync(
+  new URL('../services/sdrOpportunityCreateService.ts', import.meta.url),
+  'utf8',
+)
+const opportunityCreateHookSource = readFileSync(
+  new URL('../../pocketbase/hooks/sdr_opportunity_create.js', import.meta.url),
+  'utf8',
+)
 
 describe('SDR foundation safety contract', () => {
   it('creates only the isolated SDR collections required by phase 1', () => {
@@ -94,8 +102,8 @@ describe('SDR foundation safety contract', () => {
     expect(campaignPreparationSource).not.toContain('.delete(')
   })
 
-  it('offers a local-only simulator without persistence or sending actions', () => {
-    expect(campaignSimulatorSource).toContain('Sem escrita no CRM')
+  it('offers a guarded simulator without direct database mutations or sending actions', () => {
+    expect(campaignSimulatorSource).toContain('Escrita protegida')
     expect(campaignSimulatorSource).toContain('Validar simulacao')
     expect(campaignSimulatorSource).toContain('prepareSdrMessageQueue')
     expect(campaignSimulatorSource).not.toContain('@/lib/pocketbase')
@@ -143,6 +151,30 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityCreationPlanSource).not.toContain('.create(')
     expect(opportunityCreationPlanSource).not.toContain('.update(')
     expect(opportunityCreationPlanSource).not.toContain('.delete(')
-    expect(campaignSimulatorSource).toContain('nao cria oportunidade no CRM')
+    expect(campaignSimulatorSource).toContain('Criar oportunidade com auditoria')
+  })
+
+  it('creates opportunities only through the guarded server endpoint', () => {
+    expect(opportunityCreateServiceSource).toContain('/backend/v1/sdr/opportunities/create')
+    expect(opportunityCreateServiceSource).not.toContain("collection('opportunities').create")
+    expect(opportunityCreateHookSource).toContain('$apis.requireAuth()')
+    expect(opportunityCreateHookSource).toContain("role !== 'admin' && !isMasterAdmin")
+    expect(opportunityCreateHookSource).toContain("settings.getBool('enabled')")
+    expect(opportunityCreateHookSource).toContain("settings.getBool('allow_opportunity_creation')")
+    expect(opportunityCreateHookSource).toContain("settings.getBool('require_human_confirmation')")
+    expect(opportunityCreateHookSource).toContain(
+      "settings.getString('environment') !== 'homologacao'",
+    )
+    expect(opportunityCreateHookSource).toContain('body.humanConfirmed !== true')
+  })
+
+  it('rechecks duplicate state and saves opportunity plus audit atomically', () => {
+    expect(opportunityCreateHookSource).toContain('sdrFindOpenConflict($app, payload)')
+    expect(opportunityCreateHookSource).toContain('sdrFindOpenConflict(txApp, payload)')
+    expect(opportunityCreateHookSource).toContain('$app.runInTransaction((txApp) => {')
+    expect(opportunityCreateHookSource).toContain("txApp.findCollectionByNameOrId('opportunities')")
+    expect(opportunityCreateHookSource).toContain('sdrWriteAudit(txApp')
+    expect(opportunityCreateHookSource).toContain("correlation_id = '")
+    expect(opportunityCreateHookSource).not.toContain('app.delete(')
   })
 })

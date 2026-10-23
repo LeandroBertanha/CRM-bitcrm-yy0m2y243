@@ -170,7 +170,8 @@ export default function SdrCenter() {
           <ShieldCheck className="h-6 w-6 text-emerald-500" />
           <h2 className="mt-4 text-lg font-semibold">Protecao do CRM</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Nenhuma colecao atual foi alterada e nenhuma oportunidade e modificada por esta fase.
+            A criacao exige endpoint protegido, homologacao ativa, nova deduplicacao, confirmacao
+            humana e auditoria transacional.
           </p>
         </div>
         <div className="border border-border bg-card p-5 text-card-foreground">
@@ -212,7 +213,7 @@ export default function SdrCenter() {
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
             <LockKeyhole className="h-3.5 w-3.5" />
-            Escrita bloqueada nesta fase
+            {isProtected ? 'Escrita bloqueada neste ambiente' : 'Escrita protegida habilitada'}
           </span>
         </div>
         <div className="mt-5 grid gap-4 border-t border-border pt-5 md:grid-cols-4">
@@ -243,7 +244,7 @@ export default function SdrCenter() {
         </div>
       </section>
 
-      <SdrCampaignSimulator />
+      <SdrCampaignSimulator foundationAvailable={status.available} settings={status.settings} />
 
       <section className="border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
         A ativacao permanecera indisponivel ate existirem evidencias de backup restaurado,

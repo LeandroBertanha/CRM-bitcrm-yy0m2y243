@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampaignPreparation'
 import { buildSdrOpportunityAssociationSuggestions } from '@/services/sdrOpportunityAssociation'
 import { buildSdrOpportunityCreationPlans } from '@/services/sdrOpportunityCreationPlan'
+import { createSdrOpportunity } from '@/services/sdrOpportunityCreateService'
 import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
 import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
 import type {
@@ -27,6 +28,7 @@ import type {
   SdrOpportunityConflictResult,
   SdrOpportunityCreationPlan,
   SdrPreparedMessage,
+  SdrSettings,
 } from '@/types/sdr'
 
 type DraftContact = SdrCampaignContactInput & { id: number }
@@ -40,7 +42,18 @@ const createEmptyContact = (id: number): DraftContact => ({
   authorizedForTest: false,
 })
 
-export function SdrCampaignSimulator() {
+interface SdrCampaignSimulatorProps {
+  foundationAvailable: boolean
+  settings: SdrSettings
+}
+
+interface CreationOutcome {
+  status: 'success' | 'error'
+  message: string
+  opportunityId?: string
+}
+
+export function SdrCampaignSimulator({ foundationAvailable, settings }: SdrCampaignSimulatorProps) {
   const nextContactId = useRef(2)
   const [campaignName, setCampaignName] = useState('Campanha de homologacao')
   const [template, setTemplate] = useState(
@@ -58,6 +71,8 @@ export function SdrCampaignSimulator() {
   const [confirmedCreationPlans, setConfirmedCreationPlans] = useState<Set<string>>(new Set())
   const [conflictError, setConflictError] = useState('')
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
+  const [creatingPlans, setCreatingPlans] = useState<Set<string>>(new Set())
+  const [creationOutcomes, setCreationOutcomes] = useState<Record<string, CreationOutcome>>({})
 
   const resetResult = () => {
     setResult(null)
@@ -68,6 +83,8 @@ export function SdrCampaignSimulator() {
     setCreationPlans([])
     setConfirmedCreationPlans(new Set())
     setConflictError('')
+    setCreatingPlans(new Set())
+    setCreationOutcomes({})
   }
 
   const updateContact = (
@@ -156,21 +173,76 @@ export function SdrCampaignSimulator() {
     })
   }
 
+  const creationBlockReason = !foundationAvailable
+    ? 'A fundacao SDR ainda nao foi aplicada neste ambiente.'
+    : settings.environment !== 'homologacao'
+      ? 'A criacao permanece bloqueada fora da homologacao.'
+      : !settings.enabled
+        ? 'Ative o SDR na configuracao de homologacao.'
+        : !settings.allow_opportunity_creation
+          ? 'Libere a criacao de oportunidades na feature flag do SDR.'
+          : !settings.require_human_confirmation
+            ? 'A configuracao esta insegura: reative a confirmacao humana.'
+            : ''
+
+  const executeCreationPlan = async (plan: SdrOpportunityCreationPlan) => {
+    if (creationBlockReason || !confirmedCreationPlans.has(plan.correlationId)) return
+
+    setCreatingPlans((current) => new Set(current).add(plan.correlationId))
+    setCreationOutcomes((current) => {
+      const next = { ...current }
+      delete next[plan.correlationId]
+      return next
+    })
+
+    try {
+      const response = await createSdrOpportunity({
+        ...plan.payload,
+        correlationId: plan.correlationId,
+        idempotencyKey: plan.idempotencyKey,
+        humanConfirmed: true,
+      })
+      setCreationOutcomes((current) => ({
+        ...current,
+        [plan.correlationId]: {
+          status: 'success',
+          opportunityId: response.opportunityId,
+          message: response.message,
+        },
+      }))
+    } catch (error) {
+      setCreationOutcomes((current) => ({
+        ...current,
+        [plan.correlationId]: {
+          status: 'error',
+          message:
+            error instanceof Error ? error.message : 'Nao foi possivel criar a oportunidade.',
+        },
+      }))
+    } finally {
+      setCreatingPlans((current) => {
+        const next = new Set(current)
+        next.delete(plan.correlationId)
+        return next
+      })
+    }
+  }
+
   return (
     <section className="border border-border bg-card p-5 text-card-foreground sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-500" />
-            <h2 className="text-xl font-semibold">Simulador local de campanha</h2>
+            <h2 className="text-xl font-semibold">Simulador e criacao controlada</h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Valide contatos, consulte possiveis duplicidades e prepare a fila. Nenhum dado sera
-            salvo e nenhuma mensagem sera enviada.
+            Valide contatos, consulte possiveis duplicidades e prepare a fila. A criacao de uma
+            oportunidade exige homologacao ativa, confirmacao humana e auditoria no servidor.
           </p>
         </div>
         <span className="inline-flex w-fit items-center rounded-md border border-emerald-400/40 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
-          Sem escrita no CRM
+          Escrita protegida
         </span>
       </div>
 
@@ -508,7 +580,7 @@ export function SdrCampaignSimulator() {
                             Proposta de nova oportunidade
                           </div>
                           <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
-                            Execucao bloqueada
+                            {creationBlockReason ? 'Execucao bloqueada' : 'Pronta no servidor'}
                           </span>
                         </div>
                         <p className="mt-2 text-xs opacity-90">{creationPlan.reason}</p>
@@ -551,16 +623,48 @@ export function SdrCampaignSimulator() {
                                 htmlFor={`sdr-creation-confirm-${conflict.correlationId}`}
                                 className="cursor-pointer text-xs font-normal leading-5"
                               >
-                                Confirmo que revisei os dados desta proposta. A confirmacao e local
-                                e nao cria oportunidade no CRM.
+                                Confirmo que revisei os dados desta proposta e autorizo a criacao
+                                controlada em homologacao.
                               </Label>
                             </div>
-                            {confirmedCreationPlans.has(conflict.correlationId) && (
-                              <p className="mt-3 text-xs font-semibold">
-                                Confirmacao local registrada. Feature flag, nova deduplicacao,
-                                auditoria e backend continuam obrigatorios para executar.
-                              </p>
-                            )}
+                            <div className="mt-3 border-t border-current/20 pt-3">
+                              {creationBlockReason && (
+                                <p className="mb-3 text-xs font-semibold">{creationBlockReason}</p>
+                              )}
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="gap-2"
+                                disabled={
+                                  Boolean(creationBlockReason) ||
+                                  !confirmedCreationPlans.has(conflict.correlationId) ||
+                                  creatingPlans.has(conflict.correlationId) ||
+                                  creationOutcomes[conflict.correlationId]?.status === 'success'
+                                }
+                                onClick={() => executeCreationPlan(creationPlan)}
+                              >
+                                {creatingPlans.has(conflict.correlationId) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <FilePlus2 className="h-4 w-4" />
+                                )}
+                                Criar oportunidade com auditoria
+                              </Button>
+                              {creationOutcomes[conflict.correlationId] && (
+                                <p
+                                  className={`mt-3 text-xs font-semibold ${
+                                    creationOutcomes[conflict.correlationId].status === 'success'
+                                      ? 'text-emerald-800 dark:text-emerald-200'
+                                      : 'text-rose-800 dark:text-rose-200'
+                                  }`}
+                                >
+                                  {creationOutcomes[conflict.correlationId].message}
+                                  {creationOutcomes[conflict.correlationId].opportunityId
+                                    ? ` ID: ${creationOutcomes[conflict.correlationId].opportunityId}`
+                                    : ''}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

@@ -3,7 +3,7 @@
 Versao do relatorio: 1.1
 Versao-base do bitCRM: 0.0.96
 Commit-base: 9e8ab89
-Versao da implementacao local: 0.0.103
+Versao da implementacao local: 0.0.104
 Status: Fase 1 concluida e Fase 2 parcial local; migracao e publicacao bloqueadas ate backup e homologacao
 
 ## 1. Objetivo
@@ -203,11 +203,12 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Parcial local: estados claros para colecoes indisponiveis e nova tentativa sem escrita silenciosa.
 - Parcial local: motor puro de preparacao, normalizacao e deduplicacao de contatos.
 - Parcial local: fila preparada sempre em `aguardando_confirmacao`, sem envio ou persistencia.
-- Parcial local: simulador administrativo para validar contatos e mensagens somente em memoria.
+- Parcial local: simulador administrativo para validar contatos e mensagens, com criacao protegida de oportunidade disponivel somente quando a homologacao estiver habilitada.
 - Parcial local: consulta explicita e somente leitura das oportunidades existentes.
 - Parcial local: classificacao de duplicidade por telefone, e-mail e empresa em `Bloquear`, `Revisar` ou `Livre`.
 - Validado localmente: contato sem autorizacao foi rejeitado e contato autorizado gerou fila simulada em `aguardando_confirmacao`.
 - Validado localmente: contato ficticio autorizado foi comparado com as oportunidades por leitura e recebeu classificacao `Livre`, sem persistencia, associacao ou alteracao no CRM.
+- Concluido localmente: servico cliente chama exclusivamente o endpoint protegido do SDR, sem gravacao direta do navegador em `opportunities`.
 - Criar campanhas e contatos de teste autorizados.
 - Implementar fila e mensagens em estruturas SDR.
 - Integrar WhatsApp em ambiente autorizado.
@@ -222,11 +223,12 @@ Como o SDR nao altera colecoes existentes na primeira fase, a reversao funcional
 - Validado localmente: correspondencia somente por empresa gerou sugestao de confianca media; a revisao humana foi marcada sem qualquer persistencia no CRM.
 - Aprovado pelo usuario: fluxo local de revisao humana da sugestao de associacao.
 - Parcial local: proposta de nova oportunidade somente para resultado `Livre`, com payload previsivel e chave de idempotencia.
-- Parcial local: confirmacao da proposta existe somente em memoria e `executionAllowed` permanece `false`.
-- Validado localmente: contato ficticio `Livre` gerou proposta `Novo / Prospeccao / R$ 0,00`; a confirmacao humana manteve a execucao bloqueada.
-- Pendente: repetir a protecao no servidor antes de qualquer persistencia futura.
+- Concluido localmente: endpoint `POST /backend/v1/sdr/opportunities/create` exige autenticacao administrativa, homologacao, feature flags e confirmacao humana.
+- Concluido localmente: o backend repete a deduplicacao antes e dentro da transacao, usa chave de idempotencia e grava oportunidade e auditoria atomicamente.
+- Concluido localmente: qualquer falha na auditoria reverte a criacao da oportunidade.
+- Validado localmente: contato ficticio `Livre` gerou proposta `Novo / Prospeccao / R$ 0,00`; a confirmacao humana foi aprovada pelo usuario e o botao respeita todas as travas do ambiente.
+- Pendente ambiental: aplicar a fundacao SDR em homologacao restaurada e ativar `enabled` e `allow_opportunity_creation` para executar o primeiro teste real autorizado.
 - Pendente: persistir uma associacao somente apos backend protegido, auditoria e aprovacao explicita.
-- Pendente: implementar execucao de criacao no backend somente apos feature flag, nova deduplicacao, auditoria e homologacao.
 - Manter alteracao de oportunidade existente desativada.
 
 ### Fase 4 - Regressao e liberacao
@@ -256,4 +258,4 @@ O relatorio foi aprovado para implementacao local da Fase 1. Antes de aplicar a 
 3. ambiente de homologacao separado;
 4. contatos e numeros autorizados para testes de WhatsApp.
 
-Sem esses itens, nenhuma migracao, alteracao estrutural no banco ou publicacao do SDR sera executada. O codigo local permanece com escrita operacional bloqueada e feature flag desativada.
+Sem esses itens, nenhuma migracao, alteracao estrutural no banco ou publicacao do SDR sera executada. O codigo local da versao 0.0.104 esta pronto para a criacao controlada, mas o ambiente permanece com escrita operacional bloqueada e feature flag desativada.
