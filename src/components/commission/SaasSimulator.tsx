@@ -13,10 +13,7 @@ import {
   type SaasHostingModel,
   type SaasPolicyTier,
 } from '@/types/commissionSaas'
-import {
-  createSaasCommission,
-  type SaasCommissionRecord,
-} from '@/services/commissionSaas'
+import { createSaasCommission, type SaasCommissionRecord } from '@/services/commissionSaas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -215,7 +212,9 @@ export default function SaasSimulator({
             <Calculator className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight">Simulador de Comissão SaaS</h2>
+            <h2 className="text-base font-bold text-white tracking-tight">
+              Simulador de Comissão SaaS
+            </h2>
             <p className="text-xs text-gray-400">
               Cálculo em tempo real sobre a política ativa (v{policy?.policy_version ?? '—'})
             </p>
@@ -272,7 +271,9 @@ export default function SaasSimulator({
             </Select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Nome do sistema SaaS *</label>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Nome do sistema SaaS *
+            </label>
             <Input
               value={systemName}
               onChange={(e) => setSystemName(e.target.value)}
@@ -283,7 +284,9 @@ export default function SaasSimulator({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Descrição do projeto</label>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Descrição do projeto
+          </label>
           <Textarea
             value={systemDescription}
             onChange={(e) => setSystemDescription(e.target.value)}
@@ -300,7 +303,11 @@ export default function SaasSimulator({
             value={listValueInput}
             onChange={setListValueInput}
           />
-          <MoneyField label="Desconto comercial" value={discountInput} onChange={setDiscountInput} />
+          <MoneyField
+            label="Desconto comercial"
+            value={discountInput}
+            onChange={setDiscountInput}
+          />
           <MoneyField
             label="Valor contratado (tabela − desconto)"
             value={contractInput}
@@ -309,7 +316,12 @@ export default function SaasSimulator({
             hint="Deixe vazio para usar tabela − desconto"
           />
           <MoneyField label="Custo direto estimado" value={costsInput} onChange={setCostsInput} />
-          <MoneyField label="Tributos estimados" value={taxesInput} onChange={setTaxesInput} hint="Contam uma única vez (dentro da receita líquida)" />
+          <MoneyField
+            label="Tributos estimados"
+            value={taxesInput}
+            onChange={setTaxesInput}
+            hint="Contam uma única vez (dentro da receita líquida)"
+          />
           <MoneyField
             label="Mensalidade contratada (recorrência)"
             value={monthlyInput}
@@ -324,8 +336,13 @@ export default function SaasSimulator({
 
         {/* Modelo de hospedagem */}
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Modelo de hospedagem *</label>
-          <Select value={hostingModel} onValueChange={(v) => setHostingModel(v as SaasHostingModel)}>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Modelo de hospedagem *
+          </label>
+          <Select
+            value={hostingModel}
+            onValueChange={(v) => setHostingModel(v as SaasHostingModel)}
+          >
             <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
               <SelectValue />
             </SelectTrigger>
@@ -372,7 +389,9 @@ export default function SaasSimulator({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Observações comerciais</label>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Observações comerciais
+          </label>
           <Textarea
             value={commercialNotes}
             onChange={(e) => setCommercialNotes(e.target.value)}
@@ -392,16 +411,18 @@ export default function SaasSimulator({
           </div>
 
           {!calc ? (
-            <p className="text-xs text-gray-500">
-              Carregando política ativa…
-            </p>
+            <p className="text-xs text-gray-500">Carregando política ativa…</p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <ResultBox label="Faixa aplicada" value={calc.tierLabel} />
                 <ResultBox
                   label="Percentual dev."
-                  value={calc.commissionType === 'fixed_value' ? 'Valor fixo' : formatPercentage(calc.devPercentage)}
+                  value={
+                    calc.commissionType === 'fixed_value'
+                      ? 'Valor fixo'
+                      : formatPercentage(calc.devPercentage)
+                  }
                 />
                 <ResultBox
                   label="Comissão do desenvolvimento"
@@ -416,11 +437,20 @@ export default function SaasSimulator({
                   label={`Comissão potencial de recorrência (${calc.recurringEligibleMonths}x)`}
                   value={centsToBRL(calc.recurringCommissionPotentialCents)}
                 />
-                <ResultBox label="Comissão total potencial" value={centsToBRL(calc.totalPotentialCents)} highlight />
-                <ResultBox label="Receita líquida estimada" value={centsToBRL(calc.netRevenueCents)} />
+                <ResultBox
+                  label="Comissão total potencial"
+                  value={centsToBRL(calc.totalPotentialCents)}
+                  highlight
+                />
+                <ResultBox
+                  label="Receita líquida estimada"
+                  value={centsToBRL(calc.netRevenueCents)}
+                />
                 <ResultBox
                   label="Comissão por parcela"
-                  value={centsToBRL(parcelaDev(calc, Math.max(1, parseInt(installmentsInput, 10) || 1)))}
+                  value={centsToBRL(
+                    parcelaDev(calc, Math.max(1, parseInt(installmentsInput, 10) || 1)),
+                  )}
                 />
               </div>
 
@@ -438,7 +468,9 @@ export default function SaasSimulator({
                   <span className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
                     Margem de contribuição
                   </span>
-                  <span className="text-lg font-black text-white tabular-nums">{marginPctDisplay}</span>
+                  <span className="text-lg font-black text-white tabular-nums">
+                    {marginPctDisplay}
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
                   {calc.marginStatus === 'ok' ? (
@@ -495,9 +527,9 @@ export default function SaasSimulator({
             )}
           </Button>
           <p className="text-[10px] text-gray-500 leading-relaxed">
-            Ao registrar, a comissão entra como <strong>Pendente de aprovação</strong> quando a margem
-            estiver abaixo da política, ou <strong>Aprovada</strong> caso contrário. O plano de
-            recebimentos (parcelas + mensalidades) é gerado automaticamente; a liberação ocorre
+            Ao registrar, a comissão entra como <strong>Pendente de aprovação</strong> quando a
+            margem estiver abaixo da política, ou <strong>Aprovada</strong> caso contrário. O plano
+            de recebimentos (parcelas + mensalidades) é gerado automaticamente; a liberação ocorre
             proporcionalmente a cada recebimento confirmado.
           </p>
         </div>
@@ -531,7 +563,9 @@ function MoneyField({
     <div>
       <label className="block text-xs font-semibold text-gray-300 mb-1.5">{label}</label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">R$</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">
+          R$
+        </span>
         <Input
           inputMode="decimal"
           value={value}
@@ -545,11 +579,23 @@ function MoneyField({
   )
 }
 
-function ResultBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function ResultBox({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
   return (
-    <div className={`p-3 rounded-xl border ${highlight ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-[#171A24]/60 border-[#262A33]'}`}>
+    <div
+      className={`p-3 rounded-xl border ${highlight ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-[#171A24]/60 border-[#262A33]'}`}
+    >
       <span className="text-[10px] text-gray-400 block">{label}</span>
-      <span className={`text-sm font-bold block mt-0.5 tabular-nums ${highlight ? 'text-indigo-200' : 'text-white'}`}>
+      <span
+        className={`text-sm font-bold block mt-0.5 tabular-nums ${highlight ? 'text-indigo-200' : 'text-white'}`}
+      >
         {value}
       </span>
     </div>

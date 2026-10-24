@@ -10,14 +10,7 @@ import type {
   SaasReleaseRecord,
   SaasReceivableRecord,
 } from '@/services/commissionSaas'
-import {
-  TrendingUp,
-  Layers,
-  DollarSign,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-} from 'lucide-react'
+import { TrendingUp, Layers, DollarSign, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 
 // ============================================================
 // Visão Geral SaaS — cards de comissões acumuladas, previstas,
@@ -31,7 +24,12 @@ export interface SaasOverviewProps {
   loading: boolean
 }
 
-export default function SaasOverview({ commissions, releases, receivables, loading }: SaasOverviewProps) {
+export default function SaasOverview({
+  commissions,
+  releases,
+  receivables,
+  loading,
+}: SaasOverviewProps) {
   // Exclui canceladas/estornadas dos acumulados financeiros
   const active = useMemo(
     () => commissions.filter((c) => c.status !== 'cancelada' && c.status !== 'estornada'),
@@ -99,10 +97,26 @@ export default function SaasOverview({ commissions, releases, receivables, loadi
   ]
 
   const colorMap: Record<string, { border: string; icon: string; iconBg: string }> = {
-    indigo: { border: 'border-indigo-500/30', icon: 'text-indigo-400', iconBg: 'bg-indigo-500/10 border-indigo-500/20' },
-    blue: { border: 'border-blue-500/30', icon: 'text-blue-400', iconBg: 'bg-blue-500/10 border-blue-500/20' },
-    emerald: { border: 'border-emerald-500/30', icon: 'text-emerald-400', iconBg: 'bg-emerald-500/10 border-emerald-500/20' },
-    teal: { border: 'border-teal-500/30', icon: 'text-teal-400', iconBg: 'bg-teal-500/10 border-teal-500/20' },
+    indigo: {
+      border: 'border-indigo-500/30',
+      icon: 'text-indigo-400',
+      iconBg: 'bg-indigo-500/10 border-indigo-500/20',
+    },
+    blue: {
+      border: 'border-blue-500/30',
+      icon: 'text-blue-400',
+      iconBg: 'bg-blue-500/10 border-blue-500/20',
+    },
+    emerald: {
+      border: 'border-emerald-500/30',
+      icon: 'text-emerald-400',
+      iconBg: 'bg-emerald-500/10 border-emerald-500/20',
+    },
+    teal: {
+      border: 'border-teal-500/30',
+      icon: 'text-teal-400',
+      iconBg: 'bg-teal-500/10 border-teal-500/20',
+    },
   }
 
   return (
@@ -125,7 +139,11 @@ export default function SaasOverview({ commissions, releases, receivables, loadi
                 </div>
               </div>
               <div className="text-xl font-bold text-white tracking-tight tabular-nums">
-                {loading ? <div className="h-6 w-20 bg-gray-800 rounded animate-pulse" /> : card.value}
+                {loading ? (
+                  <div className="h-6 w-20 bg-gray-800 rounded animate-pulse" />
+                ) : (
+                  card.value
+                )}
               </div>
               <p className="text-[10px] text-gray-500 mt-1">{card.hint}</p>
             </div>
@@ -138,7 +156,8 @@ export default function SaasOverview({ commissions, releases, receivables, loadi
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-200 leading-relaxed">
             <strong>{pendingApproval.length}</strong> comiss&atilde;o(ões) aguardando aprovação
-            administrativa (margem abaixo da política). A liberação fica bloqueada até a autorização.
+            administrativa (margem abaixo da política). A liberação fica bloqueada até a
+            autorização.
           </p>
         </div>
       )}
@@ -176,9 +195,7 @@ export default function SaasOverview({ commissions, releases, receivables, loadi
                       <div className="font-semibold text-white">{c.system_name}</div>
                       <div className="text-[10px] text-gray-500">{c.client_name}</div>
                     </td>
-                    <td className="py-2.5 px-2.5 text-gray-300">
-                      {c.expand?.seller?.name || '—'}
-                    </td>
+                    <td className="py-2.5 px-2.5 text-gray-300">{c.expand?.seller?.name || '—'}</td>
                     <td className="py-2.5 px-2.5 text-center">
                       <StatusBadge status={c.status} />
                     </td>

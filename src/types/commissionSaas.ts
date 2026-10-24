@@ -114,9 +114,7 @@ export function parsePolicyTiers(raw: unknown): SaasPolicyTier[] {
       return {
         min_value: Number(tier.min_value) || 0,
         max_value:
-          tier.max_value === null || tier.max_value === undefined
-            ? null
-            : Number(tier.max_value),
+          tier.max_value === null || tier.max_value === undefined ? null : Number(tier.max_value),
         percentage: Number(tier.percentage) || 0,
         label: String(tier.label || ''),
       }
@@ -297,8 +295,7 @@ export function calculateSaasCommission(input: SaasCalcInput): SaasCalcResult {
   const grossRevenue = contract + monthly * eligibleMonths
   const netRevenue = Math.max(0, grossRevenue - taxes)
   const totalCommissions = devCommissionCents + recurringPotentialCents
-  const marginPercentage =
-    netRevenue > 0 ? (netRevenue - costs - totalCommissions) / netRevenue : 0
+  const marginPercentage = netRevenue > 0 ? (netRevenue - costs - totalCommissions) / netRevenue : 0
 
   const minMargin = Number(policy.min_margin_percentage) || 0
   let marginStatus: SaasCalcResult['marginStatus'] = 'ok'

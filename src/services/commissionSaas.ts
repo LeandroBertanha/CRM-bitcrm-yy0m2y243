@@ -177,7 +177,9 @@ export async function createSaasException(params: {
       exception_type: params.exceptionType,
       percentage: params.exceptionType === 'percentage' ? params.percentage || 0 : 0,
       fixed_value_cents:
-        params.exceptionType === 'fixed_value' ? Math.max(0, Math.floor(params.fixedValueCents || 0)) : 0,
+        params.exceptionType === 'fixed_value'
+          ? Math.max(0, Math.floor(params.fixedValueCents || 0))
+          : 0,
       applies_to: params.appliesTo,
       valid_until: params.validUntil || '',
       reason: params.reason,
@@ -393,7 +395,10 @@ export async function createSaasCommission(
       event_type: 'created',
       amount_cents: calc.devCommissionCents,
       description: `Comissão SaaS criada (${calc.commissionType === 'fixed_value' ? 'valor fixo' : 'faixa: ' + calc.tierLabel}). Status inicial: ${initialStatus}.`,
-      metadata: JSON.stringify({ policy_version: policy.policy_version, margin: calc.marginPercentage }),
+      metadata: JSON.stringify({
+        policy_version: policy.policy_version,
+        margin: calc.marginPercentage,
+      }),
     })
 
     return { ok: true, commissionId: record.id, status: initialStatus, calc }
@@ -418,7 +423,11 @@ export async function createSaasCommissionFromOpportunity(params: {
       filter: `opportunity = "${params.opportunityId}"`,
     })
     if (existing.items.length > 0) {
-      return { ok: false, duplicate: true, error: 'Esta oportunidade já possui comissão SaaS registrada.' }
+      return {
+        ok: false,
+        duplicate: true,
+        error: 'Esta oportunidade já possui comissão SaaS registrada.',
+      }
     }
     return await createSaasCommission({
       clientName: params.company,
@@ -453,7 +462,10 @@ export async function approveSaasCommission(params: {
   try {
     const rec = await pb.collection('saas_commissions').getOne(params.commissionId)
     if (rec.status !== 'pendente_aprovacao' && rec.status !== 'simulada') {
-      return { ok: false, error: `Comissão não está pendente de aprovação (status: ${rec.status}).` }
+      return {
+        ok: false,
+        error: `Comissão não está pendente de aprovação (status: ${rec.status}).`,
+      }
     }
     await pb.collection('saas_commissions').update(params.commissionId, {
       status: 'aprovada',
@@ -510,7 +522,10 @@ export async function confirmSaasReceivable(params: {
       .getOne<SaasCommissionRecord>(receivable.commission)
 
     if (commission.status === 'cancelada' || commission.status === 'estornada') {
-      return { ok: false, error: 'Comissão cancelada/estornada — não é possível confirmar recebimento.' }
+      return {
+        ok: false,
+        error: 'Comissão cancelada/estornada — não é possível confirmar recebimento.',
+      }
     }
     if (commission.requires_approval && commission.status === 'pendente_aprovacao') {
       return {
@@ -634,7 +649,9 @@ export async function markSaasCommissionPaid(params: {
   note?: string
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const rec = await pb.collection('saas_commissions').getOne<SaasCommissionRecord>(params.commissionId)
+    const rec = await pb
+      .collection('saas_commissions')
+      .getOne<SaasCommissionRecord>(params.commissionId)
     if (rec.status !== 'disponivel_pagamento') {
       return {
         ok: false,
@@ -663,7 +680,9 @@ export async function cancelSaasCommission(params: {
   reason: string
 }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const rec = await pb.collection('saas_commissions').getOne<SaasCommissionRecord>(params.commissionId)
+    const rec = await pb
+      .collection('saas_commissions')
+      .getOne<SaasCommissionRecord>(params.commissionId)
     if (rec.status === 'paga') {
       return { ok: false, error: 'Comissão paga não pode ser cancelada — utilize estorno.' }
     }

@@ -172,13 +172,17 @@ export default function SaasCommissionsList({
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
-                        <div className="text-[10px] text-gray-500 uppercase tracking-wider">Comissão</div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                          Comissão
+                        </div>
                         <div className="text-sm font-bold text-emerald-400 tabular-nums">
                           {centsToBRL(totalCommission)}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[10px] text-gray-500 uppercase tracking-wider">Liberado</div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                          Liberado
+                        </div>
                         <div className="text-sm font-bold text-indigo-300 tabular-nums">
                           {centsToBRL(released)}
                         </div>
@@ -196,7 +200,10 @@ export default function SaasCommissionsList({
                   <div className="px-4 sm:px-5 pb-5 space-y-4 border-t border-[#262A33]/60 pt-4">
                     {/* Detalhes */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <DetailBox label="Valor contratado" value={centsToBRL(c.contract_value_cents)} />
+                      <DetailBox
+                        label="Valor contratado"
+                        value={centsToBRL(c.contract_value_cents)}
+                      />
                       <DetailBox
                         label="Valor de tabela"
                         value={c.list_value_cents ? centsToBRL(c.list_value_cents) : '—'}
@@ -204,19 +211,30 @@ export default function SaasCommissionsList({
                       <DetailBox label="Desconto" value={centsToBRL(c.discount_cents || 0)} />
                       <DetailBox
                         label="Mensalidade"
-                        value={c.recurring_monthly_cents ? centsToBRL(c.recurring_monthly_cents) : '—'}
+                        value={
+                          c.recurring_monthly_cents ? centsToBRL(c.recurring_monthly_cents) : '—'
+                        }
                       />
-                      <DetailBox label="Custos diretos" value={centsToBRL(c.direct_costs_cents || 0)} />
+                      <DetailBox
+                        label="Custos diretos"
+                        value={centsToBRL(c.direct_costs_cents || 0)}
+                      />
                       <DetailBox label="Tributos" value={centsToBRL(c.taxes_cents || 0)} />
                       <DetailBox
                         label="Margem estimada"
-                        value={c.margin_percentage !== undefined && c.margin_percentage !== null ? formatPercentageSafe(c.margin_percentage) : '—'}
+                        value={
+                          c.margin_percentage !== undefined && c.margin_percentage !== null
+                            ? formatPercentageSafe(c.margin_percentage)
+                            : '—'
+                        }
                       />
                       <DetailBox label="Política (versão)" value={`v${c.dev_policy_version}`} />
                     </div>
 
                     {c.system_description && (
-                      <p className="text-xs text-gray-400 leading-relaxed">{c.system_description}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">
+                        {c.system_description}
+                      </p>
                     )}
                     {c.commercial_notes && (
                       <p className="text-[11px] text-gray-500 italic">Obs.: {c.commercial_notes}</p>
@@ -251,12 +269,16 @@ export default function SaasCommissionsList({
                                   <td className="py-2 px-2 text-gray-300">
                                     {r.kind === 'development' ? 'Desenvolvimento' : 'Mensalidade'}
                                   </td>
-                                  <td className="py-2 px-2 text-center text-gray-400">{r.installment_number}</td>
+                                  <td className="py-2 px-2 text-center text-gray-400">
+                                    {r.installment_number}
+                                  </td>
                                   <td className="py-2 px-2 text-right font-semibold text-white tabular-nums">
                                     {centsToBRL(r.amount_cents)}
                                   </td>
                                   <td className="py-2 px-2 text-gray-400">
-                                    {r.expected_date ? new Date(r.expected_date).toLocaleDateString('pt-BR') : '—'}
+                                    {r.expected_date
+                                      ? new Date(r.expected_date).toLocaleDateString('pt-BR')
+                                      : '—'}
                                   </td>
                                   <td className="py-2 px-2 text-center">
                                     {r.received ? (
@@ -311,7 +333,10 @@ export default function SaasCommissionsList({
                             onClick={(e) => {
                               e.stopPropagation()
                               runAction(c.id, () =>
-                                approveSaasCommission({ commissionId: c.id, approverId: user?.id || '' }),
+                                approveSaasCommission({
+                                  commissionId: c.id,
+                                  approverId: user?.id || '',
+                                }),
                               )
                             }}
                             className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs"
@@ -338,25 +363,33 @@ export default function SaasCommissionsList({
                             <BadgeDollarSign className="w-3.5 h-3.5 mr-1.5" /> Registrar pagamento
                           </Button>
                         )}
-                        {c.status !== 'cancelada' && c.status !== 'estornada' && c.status !== 'paga' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isBusy}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const reason =
-                                window.prompt('Motivo do cancelamento (registrado no histórico):') || ''
-                              if (!reason) return
-                              runAction(c.id, () =>
-                                cancelSaasCommission({ commissionId: c.id, actorId: user?.id || '', reason }),
-                              )
-                            }}
-                            className="h-8 border-amber-700/50 text-amber-300 hover:bg-amber-950/40 rounded-lg text-xs"
-                          >
-                            <Ban className="w-3.5 h-3.5 mr-1.5" /> Cancelar
-                          </Button>
-                        )}
+                        {c.status !== 'cancelada' &&
+                          c.status !== 'estornada' &&
+                          c.status !== 'paga' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isBusy}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const reason =
+                                  window.prompt(
+                                    'Motivo do cancelamento (registrado no histórico):',
+                                  ) || ''
+                                if (!reason) return
+                                runAction(c.id, () =>
+                                  cancelSaasCommission({
+                                    commissionId: c.id,
+                                    actorId: user?.id || '',
+                                    reason,
+                                  }),
+                                )
+                              }}
+                              className="h-8 border-amber-700/50 text-amber-300 hover:bg-amber-950/40 rounded-lg text-xs"
+                            >
+                              <Ban className="w-3.5 h-3.5 mr-1.5" /> Cancelar
+                            </Button>
+                          )}
                         {c.status !== 'estornada' && (
                           <Button
                             size="sm"
@@ -368,7 +401,11 @@ export default function SaasCommissionsList({
                                 window.prompt('Motivo do estorno (registrado no histórico):') || ''
                               if (!reason) reason = 'Estorno solicitado'
                               runAction(c.id, () =>
-                                reverseSaasCommission({ commissionId: c.id, actorId: user?.id || '', reason }),
+                                reverseSaasCommission({
+                                  commissionId: c.id,
+                                  actorId: user?.id || '',
+                                  reason,
+                                }),
                               )
                             }}
                             className="h-8 border-rose-700/50 text-rose-300 hover:bg-rose-950/40 rounded-lg text-xs"

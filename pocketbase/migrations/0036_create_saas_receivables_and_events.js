@@ -6,7 +6,8 @@ migrate(
     // e saas_commission_events (auditoria append-only).
     // ADDITIVE ONLY: não altera coleções existentes.
     // ============================================================
-    const ADMIN_RULE = "@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com'"
+    const ADMIN_RULE =
+      "@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com'"
     const AUTH = "@request.auth.id != ''"
 
     const usersCol = app.findCollectionByNameOrId('_pb_users_auth_')
@@ -32,8 +33,22 @@ migrate(
         // Recebíveis financeiros NUNCA são excluídos (auditabilidade)
         deleteRule: ADMIN_RULE,
         fields: [
-          { name: 'commission', type: 'relation', required: true, collectionId: commissionsCol.id, maxSelect: 1, cascadeDelete: true },
-          { name: 'seller', type: 'relation', required: true, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
+          {
+            name: 'commission',
+            type: 'relation',
+            required: true,
+            collectionId: commissionsCol.id,
+            maxSelect: 1,
+            cascadeDelete: true,
+          },
+          {
+            name: 'seller',
+            type: 'relation',
+            required: true,
+            collectionId: usersCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
           // 'development' = parcela do desenvolvimento; 'recurring' = mensalidade elegível
           {
             name: 'kind',
@@ -79,9 +94,30 @@ migrate(
         updateRule: '',
         deleteRule: '',
         fields: [
-          { name: 'commission', type: 'relation', required: true, collectionId: commissionsCol.id, maxSelect: 1, cascadeDelete: true },
-          { name: 'seller', type: 'relation', required: false, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
-          { name: 'actor', type: 'relation', required: false, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
+          {
+            name: 'commission',
+            type: 'relation',
+            required: true,
+            collectionId: commissionsCol.id,
+            maxSelect: 1,
+            cascadeDelete: true,
+          },
+          {
+            name: 'seller',
+            type: 'relation',
+            required: false,
+            collectionId: usersCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
+          {
+            name: 'actor',
+            type: 'relation',
+            required: false,
+            collectionId: usersCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
           {
             name: 'event_type',
             type: 'select',
@@ -100,7 +136,14 @@ migrate(
             maxSelect: 1,
           },
           { name: 'amount_cents', type: 'number', required: false }, // valor envolvido (liberação/pagamento)
-          { name: 'receivable', type: 'relation', required: false, collectionId: receivablesCol.id, maxSelect: 1, cascadeDelete: false },
+          {
+            name: 'receivable',
+            type: 'relation',
+            required: false,
+            collectionId: receivablesCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
           { name: 'description', type: 'text', required: false },
           { name: 'metadata', type: 'json', required: false }, // snapshot do estado anterior
           { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },

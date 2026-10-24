@@ -86,7 +86,8 @@ export default function CommissionPage() {
 
   // ===== Estado do Comissionamento SaaS (expansão incremental) =====
   const [activeTab, setActiveTab] = useState('atuais')
-  const [saasPolicy, setSaasPolicy] = useState<Awaited<ReturnType<typeof getActiveSaasPolicy>>>(null)
+  const [saasPolicy, setSaasPolicy] =
+    useState<Awaited<ReturnType<typeof getActiveSaasPolicy>>>(null)
   const [saasTiers, setSaasTiers] = useState<SaasPolicyTier[]>([])
   const [saasCommissions, setSaasCommissions] = useState<SaasCommissionRecord[]>([])
   const [saasReceivables, setSaasReceivables] = useState<SaasReceivableRecord[]>([])
