@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import useRealtime from '@/hooks/use-realtime'
 import pb from '@/lib/pocketbase/client'
@@ -10,8 +10,28 @@ import {
   calculateCommissionPaymentDate,
 } from '@/types/commission'
 import { getCommissionTiers, getCommissionSettings } from '@/services/commission'
+import {
+  getSaasCommissions,
+  getSaasReceivables,
+  getSaasReleases,
+  getSaasEvents,
+  getSaasExceptions,
+  type SaasCommissionRecord,
+  type SaasReceivableRecord,
+  type SaasReleaseRecord,
+  type SaasEventRecord,
+} from '@/services/commissionSaas'
+import { getActiveSaasPolicy } from '@/services/commissionSaas'
+import { parsePolicyTiers, type SaasPolicyTier } from '@/types/commissionSaas'
+import type { SaasExceptionLite } from '@/components/commission/SaasSimulator'
+import SaasOverview from '@/components/commission/SaasOverview'
+import SaasSimulator from '@/components/commission/SaasSimulator'
+import SaasCommissionsList from '@/components/commission/SaasCommissionsList'
+import SaasPolicies from '@/components/commission/SaasPolicies'
+import SaasHistory from '@/components/commission/SaasHistory'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   DollarSign,
   TrendingUp,
@@ -30,6 +50,7 @@ import {
   Calendar,
   Clock,
   ArrowRight,
+  CloudCog,
 } from 'lucide-react'
 
 interface SellerCommissionRow {
@@ -62,6 +83,61 @@ export default function CommissionPage() {
   // Estado do simulador interativo (quantidade de vendas e valor digitado da venda em R$)
   const [simSalesInput, setSimSalesInput] = useState<string>('10')
   const [simValueInput, setSimValueInput] = useState<string>('350')
+
+  // ===== Estado do Comissionamento SaaS (expansão incremental) =====
+  const [activeTab, setActiveTab] = useState('atuais')
+  const [saasPolicy, setSaasPolicy] = useState<Awaited<ReturnType<typeof getActiveSaasPolicy>>>(null)
+  const [saasTiers, setSaasTiers] = useState<SaasPolicyTier[]>([])
+  const [saasCommissions, setSaasCommissions] = useState<SaasCommissionRecord[]>([])
+  const [saasReceivables, setSaasReceivables] = useState<SaasReceivableRecord[]>([])
+  const [saasReleases, setSaasReleases] = useState<SaasReleaseRecord[]>([])
+  const [saasEvents, setSaasEvents] = useState<SaasEventRecord[]>([])
+  const [saasExceptions, setSaasExceptions] = useState<SaasExceptionLite[]>([])
+  const [saasLoading, setSaasLoading] = useState(true)
+
+  const loadSaasData = useCallback(async () => {
+    try {
+      setSaasLoading(true)
+      const [policy, commissions, receivables, releases, events, exceptions] = await Promise.all([
+        getActiveSaasPolicy(),
+        getSaasCommissions(),
+        getSaasReceivables(),
+        getSaasReleases(),
+        getSaasEvents(),
+        getSaasExceptions(),
+      ])
+      setSaasPolicy(policy)
+      setSaasTiers(policy ? parsePolicyTiers(policy.tiers) : [])
+      setSaasCommissions(commissions)
+      setSaasReceivables(receivables)
+      setSaasReleases(releases)
+      setSaasEvents(events)
+      setSaasExceptions(exceptions)
+    } catch (err) {
+      console.error('Erro ao carregar comissionamento SaaS:', err)
+    } finally {
+      setSaasLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSaasData()
+  }, [loadSaasData])
+
+  // Realtime das coleções SaaS (sincroniza quando qualquer registro muda)
+  useRealtime<SaasCommissionRecord>('saas_commissions', () => {
+    loadSaasData()
+  })
+  useRealtime<SaasReceivableRecord>('saas_commission_receivables', () => {
+    loadSaasData()
+  })
+  useRealtime<SaasReleaseRecord>('saas_commission_releases', () => {
+    loadSaasData()
+  })
+
+  const handleSaasMutated = useCallback(() => {
+    loadSaasData()
+  }, [loadSaasData])
 
   // Carregar dados de comissionamento e oportunidades
   const loadData = useCallback(async () => {
