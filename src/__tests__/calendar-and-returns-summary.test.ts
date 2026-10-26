@@ -143,7 +143,7 @@ describe('calendarHelper - ICS Feed & Retornos Follow-up', () => {
   describe('resolveCalendarBaseUrl e buildCalendarFeedUrls', () => {
     it('aponta para o endpoint real do backend PocketBase onde /backend/v1/* responde', () => {
       expect(CALENDAR_BASE_URL).toContain(
-        'crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev',
+        'crm-de-vendas-comercial-ba27a.shrd03.internal.goskip.dev',
       )
       expect(resolveCalendarBaseUrl()).toBe(CALENDAR_BASE_URL)
       const urls = buildCalendarFeedUrls('my-token-123')

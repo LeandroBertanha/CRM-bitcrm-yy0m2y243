@@ -168,10 +168,10 @@ export function convertToWebcalUrl(httpUrl: string): string {
 export const SKIP_CLOUD_BACKEND_URL = (
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_POCKETBASE_URL
     ? import.meta.env.VITE_POCKETBASE_URL
-    : 'https://crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev'
+    : 'https://crm-de-vendas-comercial-ba27a.shrd03.internal.goskip.dev'
 ).replace(/\/+$/, '')
 
-export const PRODUCTION_DEFAULT_DOMAIN = 'crm-de-vendas-comercial-ba27a.shrd00.internal.goskip.dev'
+export const PRODUCTION_DEFAULT_DOMAIN = 'crm-de-vendas-comercial-ba27a.shrd03.internal.goskip.dev'
 export const CALENDAR_BASE_URL = SKIP_CLOUD_BACKEND_URL
 
 /**
