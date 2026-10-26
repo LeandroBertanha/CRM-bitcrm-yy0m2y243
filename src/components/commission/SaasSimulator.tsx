@@ -1,22 +1,18 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import { formatBRL } from '@/types/crm'
 import {
   brlToCents,
   calculateSaasCommission,
   centsToBRL,
   findActiveException,
+  formatPercentage,
   hostingModelAllowsRecurring,
-  parsePolicyTiers,
   SAAS_HOSTING_MODEL_DESCRIPTIONS,
   SAAS_HOSTING_MODEL_LABELS,
   type SaasHostingModel,
   type SaasPolicyTier,
 } from '@/types/commissionSaas'
-import {
-  createSaasCommission,
-  type SaasCommissionRecord,
-} from '@/services/commissionSaas'
+import { createSaasCommission } from '@/services/commissionSaas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -101,7 +97,12 @@ export default function SaasSimulator({
   sellers,
   onCreated,
 }: SaasSimulatorProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
+
+  const visibleSellers = useMemo(
+    () => (isAdmin ? sellers : sellers.filter((seller) => seller.id === user?.id)),
+    [isAdmin, sellers, user?.id],
+  )
 
   // ---- Campos do formulário ----
   const [clientName, setClientName] = useState('')
@@ -113,6 +114,7 @@ export default function SaasSimulator({
   const [discountInput, setDiscountInput] = useState('')
   const [contractInput, setContractInput] = useState('')
   const [costsInput, setCostsInput] = useState('')
+  const [recurringCostsInput, setRecurringCostsInput] = useState('')
   const [taxesInput, setTaxesInput] = useState('')
   const [hostingModel, setHostingModel] = useState<SaasHostingModel>('bit_cloud')
   const [monthlyInput, setMonthlyInput] = useState('')
@@ -130,8 +132,17 @@ export default function SaasSimulator({
   const derivedContract = Math.max(0, listCents - discountCents)
   const contractCents = contractInput.trim() !== '' ? brlToCents(contractInput) : derivedContract
   const costsCents = brlToCents(costsInput)
+  const recurringCostsCents = brlToCents(recurringCostsInput)
   const taxesCents = brlToCents(taxesInput)
   const monthlyCents = brlToCents(monthlyInput)
+  const developmentException = useMemo(
+    () => findActiveException(exceptions, sellerId, 'development'),
+    [exceptions, sellerId],
+  )
+  const recurringException = useMemo(
+    () => findActiveException(exceptions, sellerId, 'recurring'),
+    [exceptions, sellerId],
+  )
 
   // ---- Cálculo em tempo real ----
   const calc = useMemo(() => {
@@ -140,6 +151,7 @@ export default function SaasSimulator({
       contractValueCents: contractCents,
       recurringMonthlyCents: monthlyCents,
       directCostsCents: costsCents,
+      recurringCostsCents,
       taxesCents: taxesCents,
       hostingModel,
       policy: {
@@ -148,8 +160,25 @@ export default function SaasSimulator({
         recurring_eligible_months: policy.recurring_eligible_months,
         min_margin_percentage: policy.min_margin_percentage,
       },
+      exception: developmentException,
+      recurringException,
     })
-  }, [policy, tiers, contractCents, monthlyCents, costsCents, taxesCents, hostingModel])
+  }, [
+    policy,
+    tiers,
+    contractCents,
+    monthlyCents,
+    costsCents,
+    recurringCostsCents,
+    taxesCents,
+    hostingModel,
+    developmentException,
+    recurringException,
+  ])
+
+  useEffect(() => {
+    if (!isAdmin && user?.id) setSellerId(user.id)
+  }, [isAdmin, user?.id])
 
   const canSave =
     clientName.trim() !== '' &&
@@ -177,6 +206,7 @@ export default function SaasSimulator({
       installmentsCount: Math.max(1, parseInt(installmentsInput, 10) || 1),
       recurringMonthlyCents: monthlyCents,
       directCostsCents: costsCents,
+      recurringCostsCents,
       taxesCents: taxesCents,
       commercialNotes: commercialNotes.trim() || undefined,
       firstDueDate: firstDueDate ? new Date(firstDueDate + 'T12:00:00') : undefined,
@@ -195,6 +225,7 @@ export default function SaasSimulator({
       setDiscountInput('')
       setContractInput('')
       setCostsInput('')
+      setRecurringCostsInput('')
       setTaxesInput('')
       setMonthlyInput('')
       setCommercialNotes('')
@@ -215,7 +246,9 @@ export default function SaasSimulator({
             <Calculator className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight">Simulador de Comissão SaaS</h2>
+            <h2 className="text-base font-bold text-white tracking-tight">
+              Simulador de Comissão SaaS
+            </h2>
             <p className="text-xs text-gray-400">
               Cálculo em tempo real sobre a política ativa (v{policy?.policy_version ?? '—'})
             </p>
@@ -258,12 +291,16 @@ export default function SaasSimulator({
             <label className="block text-xs font-semibold text-gray-300 mb-1.5">
               Vendedor responsável *
             </label>
-            <Select value={sellerId || undefined} onValueChange={(v) => setSellerId(v)}>
+            <Select
+              value={sellerId || undefined}
+              onValueChange={(v) => setSellerId(v)}
+              disabled={!isAdmin}
+            >
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
                 <SelectValue placeholder="Selecione o vendedor" />
               </SelectTrigger>
               <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
-                {sellers.map((s) => (
+                {visibleSellers.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name || s.email}
                   </SelectItem>
@@ -272,7 +309,9 @@ export default function SaasSimulator({
             </Select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Nome do sistema SaaS *</label>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Nome do sistema SaaS *
+            </label>
             <Input
               value={systemName}
               onChange={(e) => setSystemName(e.target.value)}
@@ -283,7 +322,9 @@ export default function SaasSimulator({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Descrição do projeto</label>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Descrição do projeto
+          </label>
           <Textarea
             value={systemDescription}
             onChange={(e) => setSystemDescription(e.target.value)}
@@ -300,7 +341,11 @@ export default function SaasSimulator({
             value={listValueInput}
             onChange={setListValueInput}
           />
-          <MoneyField label="Desconto comercial" value={discountInput} onChange={setDiscountInput} />
+          <MoneyField
+            label="Desconto comercial"
+            value={discountInput}
+            onChange={setDiscountInput}
+          />
           <MoneyField
             label="Valor contratado (tabela − desconto)"
             value={contractInput}
@@ -309,7 +354,18 @@ export default function SaasSimulator({
             hint="Deixe vazio para usar tabela − desconto"
           />
           <MoneyField label="Custo direto estimado" value={costsInput} onChange={setCostsInput} />
-          <MoneyField label="Tributos estimados" value={taxesInput} onChange={setTaxesInput} hint="Contam uma única vez (dentro da receita líquida)" />
+          <MoneyField
+            label="Custo recorrente mensal estimado"
+            value={recurringCostsInput}
+            onChange={setRecurringCostsInput}
+            hint={`Considerado no mesmo horizonte comissionável (${policy?.recurring_eligible_months || 0} meses)`}
+          />
+          <MoneyField
+            label="Tributos estimados"
+            value={taxesInput}
+            onChange={setTaxesInput}
+            hint="Contam uma única vez (dentro da receita líquida)"
+          />
           <MoneyField
             label="Mensalidade contratada (recorrência)"
             value={monthlyInput}
@@ -324,8 +380,13 @@ export default function SaasSimulator({
 
         {/* Modelo de hospedagem */}
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Modelo de hospedagem *</label>
-          <Select value={hostingModel} onValueChange={(v) => setHostingModel(v as SaasHostingModel)}>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Modelo de hospedagem *
+          </label>
+          <Select
+            value={hostingModel}
+            onValueChange={(v) => setHostingModel(v as SaasHostingModel)}
+          >
             <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
               <SelectValue />
             </SelectTrigger>
@@ -372,7 +433,9 @@ export default function SaasSimulator({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1.5">Observações comerciais</label>
+          <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+            Observações comerciais
+          </label>
           <Textarea
             value={commercialNotes}
             onChange={(e) => setCommercialNotes(e.target.value)}
@@ -392,16 +455,18 @@ export default function SaasSimulator({
           </div>
 
           {!calc ? (
-            <p className="text-xs text-gray-500">
-              Carregando política ativa…
-            </p>
+            <p className="text-xs text-gray-500">Carregando política ativa…</p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <ResultBox label="Faixa aplicada" value={calc.tierLabel} />
                 <ResultBox
                   label="Percentual dev."
-                  value={calc.commissionType === 'fixed_value' ? 'Valor fixo' : formatPercentage(calc.devPercentage)}
+                  value={
+                    calc.commissionType === 'fixed_value'
+                      ? 'Valor fixo'
+                      : formatPercentage(calc.devPercentage)
+                  }
                 />
                 <ResultBox
                   label="Comissão do desenvolvimento"
@@ -416,11 +481,20 @@ export default function SaasSimulator({
                   label={`Comissão potencial de recorrência (${calc.recurringEligibleMonths}x)`}
                   value={centsToBRL(calc.recurringCommissionPotentialCents)}
                 />
-                <ResultBox label="Comissão total potencial" value={centsToBRL(calc.totalPotentialCents)} highlight />
-                <ResultBox label="Receita líquida estimada" value={centsToBRL(calc.netRevenueCents)} />
+                <ResultBox
+                  label="Comissão total potencial"
+                  value={centsToBRL(calc.totalPotentialCents)}
+                  highlight
+                />
+                <ResultBox
+                  label="Receita líquida estimada"
+                  value={centsToBRL(calc.netRevenueCents)}
+                />
                 <ResultBox
                   label="Comissão por parcela"
-                  value={centsToBRL(parcelaDev(calc, Math.max(1, parseInt(installmentsInput, 10) || 1)))}
+                  value={centsToBRL(
+                    parcelaDev(calc, Math.max(1, parseInt(installmentsInput, 10) || 1)),
+                  )}
                 />
               </div>
 
@@ -438,7 +512,9 @@ export default function SaasSimulator({
                   <span className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
                     Margem de contribuição
                   </span>
-                  <span className="text-lg font-black text-white tabular-nums">{marginPctDisplay}</span>
+                  <span className="text-lg font-black text-white tabular-nums">
+                    {marginPctDisplay}
+                  </span>
                 </div>
                 <div className="flex items-start gap-2">
                   {calc.marginStatus === 'ok' ? (
@@ -495,9 +571,9 @@ export default function SaasSimulator({
             )}
           </Button>
           <p className="text-[10px] text-gray-500 leading-relaxed">
-            Ao registrar, a comissão entra como <strong>Pendente de aprovação</strong> quando a margem
-            estiver abaixo da política, ou <strong>Aprovada</strong> caso contrário. O plano de
-            recebimentos (parcelas + mensalidades) é gerado automaticamente; a liberação ocorre
+            Ao registrar, a comissão entra como <strong>Pendente de aprovação</strong> quando a
+            margem estiver abaixo da política, ou <strong>Aprovada</strong> caso contrário. O plano
+            de recebimentos (parcelas + mensalidades) é gerado automaticamente; a liberação ocorre
             proporcionalmente a cada recebimento confirmado.
           </p>
         </div>
@@ -531,7 +607,9 @@ function MoneyField({
     <div>
       <label className="block text-xs font-semibold text-gray-300 mb-1.5">{label}</label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">R$</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold">
+          R$
+        </span>
         <Input
           inputMode="decimal"
           value={value}
@@ -545,11 +623,23 @@ function MoneyField({
   )
 }
 
-function ResultBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function ResultBox({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
   return (
-    <div className={`p-3 rounded-xl border ${highlight ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-[#171A24]/60 border-[#262A33]'}`}>
+    <div
+      className={`p-3 rounded-xl border ${highlight ? 'bg-indigo-950/40 border-indigo-500/40' : 'bg-[#171A24]/60 border-[#262A33]'}`}
+    >
       <span className="text-[10px] text-gray-400 block">{label}</span>
-      <span className={`text-sm font-bold block mt-0.5 tabular-nums ${highlight ? 'text-indigo-200' : 'text-white'}`}>
+      <span
+        className={`text-sm font-bold block mt-0.5 tabular-nums ${highlight ? 'text-indigo-200' : 'text-white'}`}
+      >
         {value}
       </span>
     </div>

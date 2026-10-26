@@ -114,9 +114,7 @@ export function parsePolicyTiers(raw: unknown): SaasPolicyTier[] {
       return {
         min_value: Number(tier.min_value) || 0,
         max_value:
-          tier.max_value === null || tier.max_value === undefined
-            ? null
-            : Number(tier.max_value),
+          tier.max_value === null || tier.max_value === undefined ? null : Number(tier.max_value),
         percentage: Number(tier.percentage) || 0,
         label: String(tier.label || ''),
       }
@@ -198,10 +196,12 @@ export interface SaasCalcInput {
   contractValueCents: number
   recurringMonthlyCents: number
   directCostsCents: number
+  recurringCostsCents?: number
   taxesCents: number
   hostingModel: SaasHostingModel
   policy: SaasCalcPolicyInput
   exception?: SaasCommissionException | null
+  recurringException?: SaasCommissionException | null
 }
 
 export interface SaasCalcResult {
@@ -234,15 +234,18 @@ export function calculateSaasCommission(input: SaasCalcInput): SaasCalcResult {
     contractValueCents,
     recurringMonthlyCents,
     directCostsCents,
+    recurringCostsCents = 0,
     taxesCents,
     hostingModel,
     policy,
     exception = null,
+    recurringException = null,
   } = input
 
   const contract = Math.max(0, Math.floor(contractValueCents || 0))
   const monthly = Math.max(0, Math.floor(recurringMonthlyCents || 0))
   const costs = Math.max(0, Math.floor(directCostsCents || 0))
+  const recurringCosts = Math.max(0, Math.floor(recurringCostsCents || 0))
   const taxes = Math.max(0, Math.floor(taxesCents || 0))
 
   // ---- Comissão de desenvolvimento ----
@@ -275,7 +278,8 @@ export function calculateSaasCommission(input: SaasCalcInput): SaasCalcResult {
     ? Math.max(0, Math.floor(Number(policy.recurring_eligible_months) || 0))
     : 0
 
-  const recException = exception && exception.applies_to === 'recurring' ? exception : null
+  const recException =
+    recurringException || (exception && exception.applies_to === 'recurring' ? exception : null)
   let recPerMonthCents = 0
   if (monthly > 0 && eligibleMonths > 0) {
     if (recException && recException.exception_type === 'fixed_value') {
@@ -297,12 +301,13 @@ export function calculateSaasCommission(input: SaasCalcInput): SaasCalcResult {
   const grossRevenue = contract + monthly * eligibleMonths
   const netRevenue = Math.max(0, grossRevenue - taxes)
   const totalCommissions = devCommissionCents + recurringPotentialCents
+  const totalCosts = costs + recurringCosts * eligibleMonths
   const marginPercentage =
-    netRevenue > 0 ? (netRevenue - costs - totalCommissions) / netRevenue : 0
+    netRevenue > 0 ? (netRevenue - totalCosts - totalCommissions) / netRevenue : 0
 
   const minMargin = Number(policy.min_margin_percentage) || 0
   let marginStatus: SaasCalcResult['marginStatus'] = 'ok'
-  if (netRevenue <= 0 && (costs > 0 || totalCommissions > 0)) {
+  if (netRevenue <= 0 && (totalCosts > 0 || totalCommissions > 0)) {
     marginStatus = 'critical'
   } else if (marginPercentage < 0) {
     marginStatus = 'critical'
