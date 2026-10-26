@@ -151,6 +151,7 @@ export function prepareSdrMessageQueue(
   if (!preparation.valid || !safeTemplate) return []
 
   return preparation.accepted.map((contact) => ({
+    opportunityId: contact.opportunityId,
     correlationId: contact.correlationId,
     deduplicationKey: contact.deduplicationKey,
     phone: contact.normalizedPhone,

@@ -1,48 +1,16 @@
-import { useRef, useState } from 'react'
-import {
-  AlertCircle,
-  CheckCircle2,
-  FilePlus2,
-  Link2,
-  Loader2,
-  Plus,
-  Save,
-  Search,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { prepareSdrCampaign, prepareSdrMessageQueue } from '@/services/sdrCampaignPreparation'
-import { buildSdrOpportunityAssociationSuggestions } from '@/services/sdrOpportunityAssociation'
-import { buildSdrOpportunityCreationPlans } from '@/services/sdrOpportunityCreationPlan'
-import { createSdrOpportunity } from '@/services/sdrOpportunityCreateService'
 import { createSdrCampaign } from '@/services/sdrOperationsService'
-import { findSdrOpportunityConflicts } from '@/services/sdrOpportunityGuard'
 import { getSdrOpportunityReadModel } from '@/services/sdrOpportunityReadService'
-import type {
-  SdrCampaignContactInput,
-  SdrCampaignPreparationResult,
-  SdrOpportunityAssociationSuggestion,
-  SdrOpportunityConflictResult,
-  SdrOpportunityCreationPlan,
-  SdrPreparedMessage,
-  SdrSettings,
-} from '@/types/sdr'
+import type { SdrOpportunityReadModel, SdrSettings } from '@/types/sdr'
 
-type DraftContact = SdrCampaignContactInput & { id: number }
-
-const createEmptyContact = (id: number): DraftContact => ({
-  id,
-  companyName: '',
-  contactName: '',
-  phone: '',
-  email: '',
-  authorizedForTest: false,
-})
+const MAX_CONTACTS_PER_CAMPAIGN = 50
 
 interface SdrCampaignSimulatorProps {
   foundationAvailable: boolean
@@ -50,10 +18,23 @@ interface SdrCampaignSimulatorProps {
   onCampaignCreated?: () => void
 }
 
-interface CreationOutcome {
+interface CampaignOutcome {
   status: 'success' | 'error'
   message: string
-  opportunityId?: string
+}
+
+function normalizePhone(value?: string) {
+  return (value || '').replace(/\D/g, '')
+}
+
+function isEligibleOpportunity(opportunity: SdrOpportunityReadModel) {
+  const phone = normalizePhone(opportunity.contactPhone)
+  return (
+    opportunity.stage !== 'Ganho' &&
+    opportunity.stage !== 'Perdido' &&
+    phone.length >= 10 &&
+    phone.length <= 15
+  )
 }
 
 export function SdrCampaignSimulator({
@@ -61,223 +42,139 @@ export function SdrCampaignSimulator({
   settings,
   onCampaignCreated,
 }: SdrCampaignSimulatorProps) {
-  const nextContactId = useRef(2)
-  const [campaignName, setCampaignName] = useState('Campanha SDR')
+  const [campaignName, setCampaignName] = useState('Oportunidades abertas do CRM')
   const [template, setTemplate] = useState(
-    'Ola, {contato}. Esta e uma abordagem comercial autorizada para a {empresa}.',
+    'Ola, {contato}. Aqui e da bit Consulting. Gostaria de dar continuidade ao atendimento da {empresa}.',
   )
-  const [contacts, setContacts] = useState<DraftContact[]>([createEmptyContact(1)])
-  const [result, setResult] = useState<SdrCampaignPreparationResult | null>(null)
-  const [queue, setQueue] = useState<SdrPreparedMessage[]>([])
-  const [conflicts, setConflicts] = useState<SdrOpportunityConflictResult[]>([])
-  const [associationSuggestions, setAssociationSuggestions] = useState<
-    SdrOpportunityAssociationSuggestion[]
-  >([])
-  const [reviewedAssociations, setReviewedAssociations] = useState<Set<string>>(new Set())
-  const [creationPlans, setCreationPlans] = useState<SdrOpportunityCreationPlan[]>([])
-  const [confirmedCreationPlans, setConfirmedCreationPlans] = useState<Set<string>>(new Set())
-  const [conflictError, setConflictError] = useState('')
-  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
-  const [creatingPlans, setCreatingPlans] = useState<Set<string>>(new Set())
-  const [creationOutcomes, setCreationOutcomes] = useState<Record<string, CreationOutcome>>({})
-  const [campaignConfirmed, setCampaignConfirmed] = useState(false)
-  const [isSavingCampaign, setIsSavingCampaign] = useState(false)
-  const [campaignOutcome, setCampaignOutcome] = useState<CreationOutcome | null>(null)
+  const [opportunities, setOpportunities] = useState<SdrOpportunityReadModel[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [outcome, setOutcome] = useState<CampaignOutcome | null>(null)
 
-  const resetResult = () => {
-    setResult(null)
-    setQueue([])
-    setConflicts([])
-    setAssociationSuggestions([])
-    setReviewedAssociations(new Set())
-    setCreationPlans([])
-    setConfirmedCreationPlans(new Set())
-    setConflictError('')
-    setCreatingPlans(new Set())
-    setCreationOutcomes({})
-    setCampaignConfirmed(false)
-    setCampaignOutcome(null)
-  }
-
-  const updateContact = (
-    id: number,
-    field: keyof SdrCampaignContactInput,
-    value: string | boolean,
-  ) => {
-    setContacts((current) =>
-      current.map((contact) => (contact.id === id ? { ...contact, [field]: value } : contact)),
-    )
-    resetResult()
-  }
-
-  const addContact = () => {
-    setContacts((current) => [...current, createEmptyContact(nextContactId.current)])
-    nextContactId.current += 1
-    resetResult()
-  }
-
-  const removeContact = (id: number) => {
-    setContacts((current) => current.filter((contact) => contact.id !== id))
-    resetResult()
-  }
-
-  const validateSimulation = () => {
-    const prepared = prepareSdrCampaign({
-      name: campaignName,
-      channel: 'whatsapp',
-      contacts: contacts.map(({ id: _id, ...contact }) => contact),
-    })
-    setResult(prepared)
-    setQueue(prepareSdrMessageQueue(prepared, template))
-  }
-
-  const clearSimulation = () => {
-    nextContactId.current = 2
-    setCampaignName('Campanha SDR')
-    setTemplate('Ola, {contato}. Esta e uma abordagem comercial autorizada para a {empresa}.')
-    setContacts([createEmptyContact(1)])
-    resetResult()
-  }
-
-  const checkOpportunityConflicts = async () => {
-    if (!result?.accepted.length) return
-
-    setIsCheckingConflicts(true)
-    setConflictError('')
-    setConflicts([])
-    setAssociationSuggestions([])
-    setReviewedAssociations(new Set())
-    setCreationPlans([])
-    setConfirmedCreationPlans(new Set())
-
+  const loadOpportunities = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError('')
     try {
-      const opportunities = await getSdrOpportunityReadModel()
-      const detectedConflicts = findSdrOpportunityConflicts(result.accepted, opportunities)
-      setConflicts(detectedConflicts)
-      setAssociationSuggestions(buildSdrOpportunityAssociationSuggestions(detectedConflicts))
-      setCreationPlans(buildSdrOpportunityCreationPlans(result.accepted, detectedConflicts))
+      const records = await getSdrOpportunityReadModel()
+      setOpportunities(records)
+      setSelectedIds(
+        new Set(
+          records
+            .filter(isEligibleOpportunity)
+            .slice(0, MAX_CONTACTS_PER_CAMPAIGN)
+            .map((opportunity) => opportunity.id),
+        ),
+      )
     } catch (error) {
-      setConflictError(
+      setLoadError(
         error instanceof Error
-          ? `Nao foi possivel consultar as oportunidades: ${error.message}`
-          : 'Nao foi possivel consultar as oportunidades. Tente novamente.',
+          ? `Nao foi possivel carregar as oportunidades: ${error.message}`
+          : 'Nao foi possivel carregar as oportunidades.',
       )
     } finally {
-      setIsCheckingConflicts(false)
+      setIsLoading(false)
     }
-  }
+  }, [])
 
-  const setAssociationReviewed = (correlationId: string, reviewed: boolean) => {
-    setReviewedAssociations((current) => {
+  useEffect(() => {
+    void loadOpportunities()
+  }, [loadOpportunities])
+
+  const eligibleOpportunities = useMemo(
+    () => opportunities.filter(isEligibleOpportunity),
+    [opportunities],
+  )
+  const ignoredCount = opportunities.length - eligibleOpportunities.length
+  const selectedOpportunities = useMemo(
+    () => eligibleOpportunities.filter((opportunity) => selectedIds.has(opportunity.id)),
+    [eligibleOpportunities, selectedIds],
+  )
+
+  const preparation = useMemo(
+    () =>
+      prepareSdrCampaign({
+        name: campaignName,
+        channel: 'whatsapp',
+        contacts: selectedOpportunities.map((opportunity) => ({
+          opportunityId: opportunity.id,
+          companyName: opportunity.company,
+          contactName: opportunity.contactName || 'Contato',
+          phone: opportunity.contactPhone || '',
+          email: opportunity.contactEmail || '',
+          authorizedForTest: true,
+        })),
+      }),
+    [campaignName, selectedOpportunities],
+  )
+  const queue = useMemo(
+    () => prepareSdrMessageQueue(preparation, template),
+    [preparation, template],
+  )
+
+  const toggleOpportunity = (opportunityId: string, checked: boolean) => {
+    setSelectedIds((current) => {
       const next = new Set(current)
-      if (reviewed) next.add(correlationId)
-      else next.delete(correlationId)
+      if (checked) {
+        if (next.size < MAX_CONTACTS_PER_CAMPAIGN) next.add(opportunityId)
+      } else {
+        next.delete(opportunityId)
+      }
       return next
     })
+    setOutcome(null)
   }
 
-  const setCreationPlanConfirmed = (correlationId: string, confirmed: boolean) => {
-    setConfirmedCreationPlans((current) => {
-      const next = new Set(current)
-      if (confirmed) next.add(correlationId)
-      else next.delete(correlationId)
-      return next
-    })
+  const selectAll = (checked: boolean) => {
+    setSelectedIds(
+      checked
+        ? new Set(
+            eligibleOpportunities
+              .slice(0, MAX_CONTACTS_PER_CAMPAIGN)
+              .map((opportunity) => opportunity.id),
+          )
+        : new Set(),
+    )
+    setOutcome(null)
   }
-
-  const creationBlockReason = !foundationAvailable
-    ? 'A fundacao SDR ainda nao foi aplicada neste ambiente.'
-    : settings.environment !== 'homologacao' && settings.environment !== 'producao'
-      ? 'O ambiente do SDR e invalido.'
-      : !settings.enabled
-        ? 'Ative o SDR na configuracao administrativa.'
-        : !settings.allow_opportunity_creation
-          ? 'Libere a criacao de oportunidades na feature flag do SDR.'
-          : !settings.require_human_confirmation
-            ? 'A configuracao esta insegura: reative a confirmacao humana.'
-            : ''
-
-  const campaignBlockReason = !foundationAvailable
-    ? 'A fundacao SDR ainda nao foi aplicada neste ambiente.'
-    : !settings.enabled
-      ? 'Ative o SDR antes de registrar a campanha.'
-      : !result?.accepted.length || queue.length !== result.accepted.length
-        ? 'Valide pelo menos um contato antes de registrar a campanha.'
-        : conflicts.length !== result.accepted.length
-          ? 'Verifique as duplicidades no CRM antes de registrar a campanha.'
-          : conflicts.some((conflict) => conflict.level !== 'clear')
-            ? 'Resolva os contatos marcados para revisao ou bloqueio antes de registrar.'
-            : ''
 
   const saveCampaign = async () => {
-    if (!result || campaignBlockReason || !campaignConfirmed) return
-    setIsSavingCampaign(true)
-    setCampaignOutcome(null)
+    if (!foundationAvailable || !settings.enabled || !preparation.valid || queue.length === 0)
+      return
+    setIsSaving(true)
+    setOutcome(null)
     try {
       const response = await createSdrCampaign({
-        name: result.campaignName,
+        name: preparation.campaignName,
         template,
-        contacts: result.accepted,
+        contacts: preparation.accepted,
         messages: queue,
       })
-      setCampaignOutcome({
-        status: 'success',
-        opportunityId: response.campaignId,
-        message: response.message,
-      })
+      setOutcome({ status: 'success', message: response.message })
       onCampaignCreated?.()
+      await loadOpportunities()
     } catch (error) {
-      setCampaignOutcome({
+      setOutcome({
         status: 'error',
         message: error instanceof Error ? error.message : 'Nao foi possivel registrar a campanha.',
       })
     } finally {
-      setIsSavingCampaign(false)
+      setIsSaving(false)
     }
   }
 
-  const executeCreationPlan = async (plan: SdrOpportunityCreationPlan) => {
-    if (creationBlockReason || !confirmedCreationPlans.has(plan.correlationId)) return
-
-    setCreatingPlans((current) => new Set(current).add(plan.correlationId))
-    setCreationOutcomes((current) => {
-      const next = { ...current }
-      delete next[plan.correlationId]
-      return next
-    })
-
-    try {
-      const response = await createSdrOpportunity({
-        ...plan.payload,
-        correlationId: plan.correlationId,
-        idempotencyKey: plan.idempotencyKey,
-        humanConfirmed: true,
-      })
-      setCreationOutcomes((current) => ({
-        ...current,
-        [plan.correlationId]: {
-          status: 'success',
-          opportunityId: response.opportunityId,
-          message: response.message,
-        },
-      }))
-    } catch (error) {
-      setCreationOutcomes((current) => ({
-        ...current,
-        [plan.correlationId]: {
-          status: 'error',
-          message:
-            error instanceof Error ? error.message : 'Nao foi possivel criar a oportunidade.',
-        },
-      }))
-    } finally {
-      setCreatingPlans((current) => {
-        const next = new Set(current)
-        next.delete(plan.correlationId)
-        return next
-      })
-    }
-  }
+  const blockReason = !foundationAvailable
+    ? 'A estrutura do SDR ainda nao esta disponivel.'
+    : !settings.enabled
+      ? 'Ative o SDR para registrar a fila.'
+      : !selectedOpportunities.length
+        ? 'Nenhuma oportunidade foi selecionada.'
+        : !template.trim()
+          ? 'Informe a mensagem da campanha.'
+          : !preparation.valid
+            ? preparation.rejected[0]?.reason || 'Revise os dados selecionados.'
+            : ''
 
   return (
     <section className="border border-border bg-card p-5 text-card-foreground sm:p-6">
@@ -285,19 +182,27 @@ export function SdrCampaignSimulator({
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-500" />
-            <h2 className="text-xl font-semibold">Simulador e criacao controlada</h2>
+            <h2 className="text-xl font-semibold">Fila automatica de oportunidades</h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Valide contatos, consulte possiveis duplicidades e prepare a fila. A criacao de uma
-            oportunidade exige SDR ativo, confirmacao humana e auditoria no servidor.
+            A lista abaixo vem diretamente de Oportunidades. Nao e necessario digitar contatos e
+            nenhum card do funil e alterado pelo SDR.
           </p>
         </div>
-        <span className="inline-flex w-fit items-center rounded-md border border-emerald-400/40 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
-          Escrita protegida
-        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={loadOpportunities}
+          disabled={isLoading}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Atualizar oportunidades
+        </Button>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="sdr-campaign-name">Nome da campanha</Label>
           <Input
@@ -305,487 +210,134 @@ export function SdrCampaignSimulator({
             value={campaignName}
             onChange={(event) => {
               setCampaignName(event.target.value)
-              resetResult()
+              setOutcome(null)
             }}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="sdr-message-template">Mensagem simulada</Label>
+          <Label htmlFor="sdr-message-template">Mensagem da abordagem</Label>
           <Textarea
             id="sdr-message-template"
             value={template}
             onChange={(event) => {
               setTemplate(event.target.value)
-              resetResult()
+              setOutcome(null)
             }}
             rows={3}
           />
           <p className="text-xs text-muted-foreground">
-            Variaveis: {'{contato}'} e {'{empresa}'}
+            Variaveis disponiveis: {'{contato}'} e {'{empresa}'}.
           </p>
         </div>
       </div>
 
+      {loadError && (
+        <div className="mt-5 flex items-start gap-2 border border-rose-400/40 bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950/20 dark:text-rose-100">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{loadError}</span>
+        </div>
+      )}
+
       <div className="mt-6 border-t border-border pt-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Contatos da campanha</h3>
+            <h3 className="font-semibold">Oportunidades elegiveis</h3>
             <p className="text-sm text-muted-foreground">
-              A autorizacao de contato deve ser confirmada individualmente.
+              {eligibleOpportunities.length} aberta(s) com telefone valido; {ignoredCount}{' '}
+              ignorada(s) por estarem encerradas ou sem telefone valido.
             </p>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addContact} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Adicionar contato
-          </Button>
-        </div>
-
-        <div className="mt-4 divide-y divide-border border-y border-border">
-          {contacts.map((contact, index) => (
-            <div key={contact.id} className="py-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold">Contato {index + 1}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeContact(contact.id)}
-                  disabled={contacts.length === 1}
-                  aria-label={`Remover contato ${index + 1}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor={`sdr-company-${contact.id}`}>Empresa</Label>
-                  <Input
-                    id={`sdr-company-${contact.id}`}
-                    value={contact.companyName}
-                    onChange={(event) =>
-                      updateContact(contact.id, 'companyName', event.target.value)
-                    }
-                    placeholder="Empresa Teste"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`sdr-contact-${contact.id}`}>Contato</Label>
-                  <Input
-                    id={`sdr-contact-${contact.id}`}
-                    value={contact.contactName}
-                    onChange={(event) =>
-                      updateContact(contact.id, 'contactName', event.target.value)
-                    }
-                    placeholder="Maria Teste"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`sdr-phone-${contact.id}`}>WhatsApp</Label>
-                  <Input
-                    id={`sdr-phone-${contact.id}`}
-                    value={contact.phone}
-                    onChange={(event) => updateContact(contact.id, 'phone', event.target.value)}
-                    placeholder="+55 11 99999-0000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`sdr-email-${contact.id}`}>E-mail opcional</Label>
-                  <Input
-                    id={`sdr-email-${contact.id}`}
-                    type="email"
-                    value={contact.email}
-                    onChange={(event) => updateContact(contact.id, 'email', event.target.value)}
-                    placeholder="teste@empresa.com"
-                  />
-                </div>
-              </div>
-              <div className="mt-4 flex items-start gap-3">
-                <Checkbox
-                  id={`sdr-authorized-${contact.id}`}
-                  checked={contact.authorizedForTest}
-                  onCheckedChange={(checked) =>
-                    updateContact(contact.id, 'authorizedForTest', checked === true)
-                  }
-                />
-                <Label
-                  htmlFor={`sdr-authorized-${contact.id}`}
-                  className="cursor-pointer text-sm font-normal leading-5"
-                >
-                  Confirmo que este numero pode receber esta abordagem comercial.
-                </Label>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={clearSimulation}>
-          Limpar
-        </Button>
-        <Button type="button" onClick={validateSimulation}>
-          Validar simulacao
-        </Button>
-      </div>
-
-      {result && (
-        <div className="mt-6 border-t border-border pt-5" aria-live="polite">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <span className="text-xs uppercase text-muted-foreground">Recebidos</span>
-              <p className="mt-1 text-2xl font-bold">{result.totals.received}</p>
-            </div>
-            <div>
-              <span className="text-xs uppercase text-muted-foreground">Aceitos</span>
-              <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                {result.totals.accepted}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs uppercase text-muted-foreground">Rejeitados</span>
-              <p className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">
-                {result.totals.rejected}
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="sdr-select-all"
+              checked={
+                eligibleOpportunities.length > 0 &&
+                selectedIds.size ===
+                  Math.min(eligibleOpportunities.length, MAX_CONTACTS_PER_CAMPAIGN)
+              }
+              onCheckedChange={(checked) => selectAll(checked === true)}
+              disabled={isLoading || eligibleOpportunities.length === 0}
+            />
+            <Label htmlFor="sdr-select-all" className="cursor-pointer">
+              Selecionar ate {MAX_CONTACTS_PER_CAMPAIGN}
+            </Label>
           </div>
+        </div>
 
-          {result.rejected.length > 0 && (
-            <div className="mt-5 space-y-2">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-rose-700 dark:text-rose-300">
-                <AlertCircle className="h-4 w-4" />
-                Pendencias encontradas
-              </h3>
-              {result.rejected.map((item, index) => (
-                <p
-                  key={`${item.index}-${item.code}-${index}`}
-                  className="text-sm text-muted-foreground"
+        {isLoading ? (
+          <div className="flex min-h-40 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+          </div>
+        ) : eligibleOpportunities.length === 0 ? (
+          <div className="mt-4 border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Nenhuma oportunidade aberta com telefone valido foi encontrada.
+          </div>
+        ) : (
+          <div className="mt-4 max-h-[28rem] divide-y divide-border overflow-y-auto border-y border-border">
+            {eligibleOpportunities.map((opportunity) => {
+              const checked = selectedIds.has(opportunity.id)
+              return (
+                <label
+                  key={opportunity.id}
+                  className="flex cursor-pointer items-start gap-3 px-2 py-4 hover:bg-muted/40"
                 >
-                  {item.index >= 0 ? `Contato ${item.index + 1}: ` : ''}
-                  {item.reason}
-                </p>
-              ))}
-            </div>
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(value) => toggleOpportunity(opportunity.id, value === true)}
+                    disabled={!checked && selectedIds.size >= MAX_CONTACTS_PER_CAMPAIGN}
+                    aria-label={`Selecionar ${opportunity.company}`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{opportunity.company}</span>
+                    <span className="mt-1 block text-sm text-muted-foreground">
+                      {opportunity.contactName || 'Contato'} · {opportunity.contactPhone} · Etapa:{' '}
+                      {opportunity.stage}
+                    </span>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm">
+          <p className="font-semibold">{selectedOpportunities.length} oportunidade(s) na fila</p>
+          <p className="text-muted-foreground">
+            A campanha criara vinculos e mensagens auditaveis, sem alterar o funil.
+          </p>
+        </div>
+        <Button
+          type="button"
+          className="gap-2"
+          onClick={saveCampaign}
+          disabled={isSaving || Boolean(blockReason)}
+          title={blockReason || undefined}
+        >
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Criar fila do SDR
+        </Button>
+      </div>
+
+      {blockReason && (
+        <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">{blockReason}</p>
+      )}
+
+      {outcome && (
+        <div
+          className={`mt-4 flex items-start gap-2 border p-4 text-sm ${
+            outcome.status === 'success'
+              ? 'border-emerald-400/40 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-100'
+              : 'border-rose-400/40 bg-rose-50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-100'
+          }`}
+        >
+          {outcome.status === 'success' ? (
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          ) : (
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           )}
-
-          {queue.length > 0 && (
-            <div className="mt-5 space-y-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Fila simulada aguardando confirmacao
-                </h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={checkOpportunityConflicts}
-                  disabled={isCheckingConflicts}
-                  className="gap-2"
-                >
-                  {isCheckingConflicts ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                  Verificar duplicidades no CRM
-                </Button>
-              </div>
-              <div className="divide-y divide-border border-y border-border">
-                {queue.map((message) => (
-                  <div key={message.correlationId} className="py-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span>{message.phone}</span>
-                      <span>{message.correlationId}</span>
-                    </div>
-                    <p className="mt-2 text-sm">{message.body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {conflictError && (
-            <div className="mt-5 border border-rose-400/50 bg-rose-50 p-4 text-sm text-rose-900 dark:bg-rose-950/20 dark:text-rose-100">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>{conflictError}</p>
-              </div>
-            </div>
-          )}
-
-          {conflicts.length > 0 && (
-            <div className="mt-5 space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold">Resultado da verificacao somente leitura</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  O resultado orienta a revisao humana e nao associa nem altera oportunidades.
-                </p>
-              </div>
-              {conflicts.map((conflict) => {
-                const suggestion = associationSuggestions.find(
-                  (item) => item.correlationId === conflict.correlationId,
-                )
-                const creationPlan = creationPlans.find(
-                  (item) => item.correlationId === conflict.correlationId,
-                )
-                const stateClass =
-                  conflict.level === 'blocking'
-                    ? 'border-rose-400/50 bg-rose-50 text-rose-900 dark:bg-rose-950/20 dark:text-rose-100'
-                    : conflict.level === 'review'
-                      ? 'border-amber-400/50 bg-amber-50 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100'
-                      : 'border-emerald-400/50 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-100'
-                const stateLabel =
-                  conflict.level === 'blocking'
-                    ? 'Bloquear'
-                    : conflict.level === 'review'
-                      ? 'Revisar'
-                      : 'Livre'
-
-                return (
-                  <article
-                    key={conflict.correlationId}
-                    className={`border p-4 text-sm ${stateClass}`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <strong>{conflict.companyName}</strong>
-                      <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
-                        {stateLabel}
-                      </span>
-                    </div>
-                    <p className="mt-2 opacity-90">{conflict.reason}</p>
-                    {conflict.candidates.length > 0 && (
-                      <ul className="mt-3 space-y-1 border-t border-current/20 pt-3 text-xs opacity-90">
-                        {conflict.candidates.map((candidate) => (
-                          <li key={candidate.opportunityId}>
-                            {candidate.company} - {candidate.stage} - correspondencia:{' '}
-                            {candidate.matchedBy
-                              .map((field) =>
-                                field === 'phone'
-                                  ? 'telefone'
-                                  : field === 'email'
-                                    ? 'e-mail'
-                                    : 'empresa',
-                              )
-                              .join(', ')}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {suggestion && suggestion.status !== 'none' && (
-                      <div className="mt-3 border-t border-current/20 pt-3">
-                        <div className="flex items-center gap-2 font-semibold">
-                          <Link2 className="h-4 w-4" />
-                          Sugestao de associacao em modo leitura
-                        </div>
-                        <p className="mt-2 text-xs opacity-90">{suggestion.reason}</p>
-
-                        {suggestion.status === 'ambiguous' && (
-                          <p className="mt-2 text-xs font-semibold">
-                            Nenhuma candidata foi pre-selecionada devido ao empate.
-                          </p>
-                        )}
-
-                        {suggestion.recommendedCandidate && (
-                          <div className="mt-3 border border-current/25 p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-semibold">
-                                {suggestion.recommendedCandidate.company} -{' '}
-                                {suggestion.recommendedCandidate.stage}
-                              </span>
-                              <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
-                                Confianca {suggestion.confidence === 'high' ? 'alta' : 'media'}
-                              </span>
-                            </div>
-                            <div className="mt-3 flex items-start gap-3">
-                              <Checkbox
-                                id={`sdr-association-review-${conflict.correlationId}`}
-                                checked={reviewedAssociations.has(conflict.correlationId)}
-                                onCheckedChange={(checked) =>
-                                  setAssociationReviewed(conflict.correlationId, checked === true)
-                                }
-                              />
-                              <Label
-                                htmlFor={`sdr-association-review-${conflict.correlationId}`}
-                                className="cursor-pointer text-xs font-normal leading-5"
-                              >
-                                Confirmo que revisei esta candidata. Esta marcacao e apenas local e
-                                nao salva associacao no CRM.
-                              </Label>
-                            </div>
-                            {reviewedAssociations.has(conflict.correlationId) && (
-                              <p className="mt-3 text-xs font-semibold">
-                                Revisao humana simulada concluida. Persistencia continua bloqueada.
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {creationPlan && (
-                      <div className="mt-3 border-t border-current/20 pt-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 font-semibold">
-                            <FilePlus2 className="h-4 w-4" />
-                            Proposta de nova oportunidade
-                          </div>
-                          <span className="rounded-md border border-current/25 px-2 py-1 text-xs font-semibold">
-                            {creationBlockReason ? 'Execucao bloqueada' : 'Pronta no servidor'}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs opacity-90">{creationPlan.reason}</p>
-
-                        {creationPlan.status === 'ready_for_confirmation' && (
-                          <div className="mt-3 border border-current/25 p-3">
-                            <dl className="grid gap-3 text-xs sm:grid-cols-2">
-                              <div>
-                                <dt className="opacity-70">Empresa</dt>
-                                <dd className="mt-1 font-semibold">
-                                  {creationPlan.payload.company}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="opacity-70">Etapa e origem</dt>
-                                <dd className="mt-1 font-semibold">
-                                  {creationPlan.payload.stage} - {creationPlan.payload.source}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="opacity-70">Contato</dt>
-                                <dd className="mt-1 font-semibold">
-                                  {creationPlan.payload.contact_name}
-                                </dd>
-                              </div>
-                              <div>
-                                <dt className="opacity-70">Valor inicial</dt>
-                                <dd className="mt-1 font-semibold">R$ 0,00</dd>
-                              </div>
-                            </dl>
-                            <div className="mt-3 flex items-start gap-3 border-t border-current/20 pt-3">
-                              <Checkbox
-                                id={`sdr-creation-confirm-${conflict.correlationId}`}
-                                checked={confirmedCreationPlans.has(conflict.correlationId)}
-                                onCheckedChange={(checked) =>
-                                  setCreationPlanConfirmed(conflict.correlationId, checked === true)
-                                }
-                              />
-                              <Label
-                                htmlFor={`sdr-creation-confirm-${conflict.correlationId}`}
-                                className="cursor-pointer text-xs font-normal leading-5"
-                              >
-                                Confirmo que revisei os dados desta proposta e autorizo a criacao
-                                controlada em homologacao.
-                              </Label>
-                            </div>
-                            <div className="mt-3 border-t border-current/20 pt-3">
-                              {creationBlockReason && (
-                                <p className="mb-3 text-xs font-semibold">{creationBlockReason}</p>
-                              )}
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="gap-2"
-                                disabled={
-                                  Boolean(creationBlockReason) ||
-                                  !confirmedCreationPlans.has(conflict.correlationId) ||
-                                  creatingPlans.has(conflict.correlationId) ||
-                                  creationOutcomes[conflict.correlationId]?.status === 'success'
-                                }
-                                onClick={() => executeCreationPlan(creationPlan)}
-                              >
-                                {creatingPlans.has(conflict.correlationId) ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <FilePlus2 className="h-4 w-4" />
-                                )}
-                                Criar oportunidade com auditoria
-                              </Button>
-                              {creationOutcomes[conflict.correlationId] && (
-                                <p
-                                  className={`mt-3 text-xs font-semibold ${
-                                    creationOutcomes[conflict.correlationId].status === 'success'
-                                      ? 'text-emerald-800 dark:text-emerald-200'
-                                      : 'text-rose-800 dark:text-rose-200'
-                                  }`}
-                                >
-                                  {creationOutcomes[conflict.correlationId].message}
-                                  {creationOutcomes[conflict.correlationId].opportunityId
-                                    ? ` ID: ${creationOutcomes[conflict.correlationId].opportunityId}`
-                                    : ''}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </article>
-                )
-              })}
-            </div>
-          )}
-
-          {queue.length > 0 && (
-            <div className="mt-5 border border-border p-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="sdr-campaign-confirm"
-                  checked={campaignConfirmed}
-                  onCheckedChange={(checked) => setCampaignConfirmed(checked === true)}
-                />
-                <div>
-                  <Label htmlFor="sdr-campaign-confirm" className="cursor-pointer">
-                    Confirmo que revisei os contatos e autorizo o registro desta campanha.
-                  </Label>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    As mensagens serao persistidas como aguardando confirmacao. Este botao nao
-                    dispara WhatsApp automaticamente.
-                  </p>
-                </div>
-              </div>
-              {campaignBlockReason && (
-                <p className="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                  {campaignBlockReason}
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-                {campaignOutcome && (
-                  <p
-                    className={`mr-auto text-xs font-semibold ${
-                      campaignOutcome.status === 'success'
-                        ? 'text-emerald-700 dark:text-emerald-300'
-                        : 'text-rose-700 dark:text-rose-300'
-                    }`}
-                  >
-                    {campaignOutcome.message}
-                    {campaignOutcome.opportunityId
-                      ? ` Campanha: ${campaignOutcome.opportunityId}`
-                      : ''}
-                  </p>
-                )}
-                <Button
-                  type="button"
-                  className="gap-2"
-                  onClick={saveCampaign}
-                  disabled={
-                    Boolean(campaignBlockReason) ||
-                    !campaignConfirmed ||
-                    isSavingCampaign ||
-                    campaignOutcome?.status === 'success'
-                  }
-                >
-                  {isSavingCampaign ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  Registrar campanha{' '}
-                  {settings.environment === 'producao' ? 'real' : 'de homologacao'}
-                </Button>
-              </div>
-            </div>
-          )}
+          <span>{outcome.message}</span>
         </div>
       )}
     </section>

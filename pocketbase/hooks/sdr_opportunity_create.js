@@ -123,7 +123,8 @@ routerAdd(
 
     var role = authRecord.getString('role')
     var email = authRecord.getString('email').toLowerCase()
-    var isMasterAdmin = email === 'leandro.bertanha@gmail.com'
+    var isMasterAdmin =
+      email === 'leandro.bertanha@lbertanha.com' || email === 'leandro.bertanha@gmail.com'
     if (role !== 'admin' && !isMasterAdmin) {
       return e.json(403, {
         success: false,

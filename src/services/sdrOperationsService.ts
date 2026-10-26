@@ -74,6 +74,7 @@ export async function createSdrCampaign(input: {
         humanConfirmed: true,
         contacts: input.contacts.map((contact) => ({
           companyName: contact.companyName,
+          opportunityId: contact.opportunityId,
           contactName: contact.contactName,
           phone: contact.normalizedPhone,
           email: contact.normalizedEmail,
