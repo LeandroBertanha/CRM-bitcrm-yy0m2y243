@@ -155,6 +155,14 @@ describe('comissionamento SaaS - contrato de segurança e integração', () => {
     expect(hook).toContain("'ADMIN_REQUIRED'")
   })
 
+  it('mantém auxiliares dentro do callback para compatibilidade com a JSVM do PocketBase', () => {
+    const hook = source('pocketbase/hooks/commission_saas_operations.js')
+    const routeStart = hook.indexOf('routerAdd(')
+    expect(routeStart).toBeGreaterThanOrEqual(0)
+    expect(hook.slice(0, routeStart)).not.toMatch(/function commissionSaas/)
+    expect(hook.slice(routeStart)).toContain('function commissionSaasIsAdmin')
+  })
+
   it('frontend não grava diretamente nas coleções financeiras', () => {
     const service = source('src/services/commissionSaas.ts')
     expect(service).toContain("'/backend/v1/commissions/saas'")
