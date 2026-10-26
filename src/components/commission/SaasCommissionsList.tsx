@@ -1,10 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import {
-  centsToBRL,
-  SAAS_HOSTING_MODEL_LABELS,
-  type SaasCommissionStatus,
-} from '@/types/commissionSaas'
+import { centsToBRL, SAAS_HOSTING_MODEL_LABELS } from '@/types/commissionSaas'
 import {
   approveSaasCommission,
   cancelSaasCommission,
@@ -16,7 +12,6 @@ import {
   type SaasReleaseRecord,
 } from '@/services/commissionSaas'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { StatusBadge } from './SaasOverview'
 import {
   ListChecks,
@@ -139,6 +134,7 @@ export default function SaasCommissionsList({
             const isExpanded = expandedId === c.id
             const isBusy = busyId === c.id
             const canConfirmReceivables =
+              isAdmin &&
               c.status !== 'cancelada' &&
               c.status !== 'estornada' &&
               c.status !== 'paga' &&
@@ -218,6 +214,10 @@ export default function SaasCommissionsList({
                       <DetailBox
                         label="Custos diretos"
                         value={centsToBRL(c.direct_costs_cents || 0)}
+                      />
+                      <DetailBox
+                        label="Custo recorrente/mês"
+                        value={centsToBRL(c.recurring_costs_cents || 0)}
                       />
                       <DetailBox label="Tributos" value={centsToBRL(c.taxes_cents || 0)} />
                       <DetailBox
@@ -397,7 +397,7 @@ export default function SaasCommissionsList({
                             disabled={isBusy}
                             onClick={(e) => {
                               e.stopPropagation()
-                              const reason =
+                              let reason =
                                 window.prompt('Motivo do estorno (registrado no histórico):') || ''
                               if (!reason) reason = 'Estorno solicitado'
                               runAction(c.id, () =>
