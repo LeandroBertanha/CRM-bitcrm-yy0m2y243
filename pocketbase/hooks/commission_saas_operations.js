@@ -4,6 +4,7 @@
  * A migração 0038 bloqueia gravações diretas nas coleções financeiras. Todas
  * as mutações passam por esta rota, com autorização, recálculo no servidor,
  * transação, idempotência e auditoria.
+ * Este arquivo deve ser implantado como hook do Skip Cloud, não apenas no frontend.
  */
 
 function commissionSaasIsAdmin(auth) {
