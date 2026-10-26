@@ -75,17 +75,11 @@ export default function SaasHistory({ events, loading }: SaasHistoryProps) {
       ) : (
         <div className="space-y-3">
           {grouped.map(([commissionId, evs]) => (
-            <div
-              key={commissionId}
-              className="bg-[#12141A] border border-[#262A33] rounded-2xl p-4 sm:p-5 shadow-xl space-y-3"
-            >
+            <div key={commissionId} className="bg-[#12141A] border border-[#262A33] rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
               <div className="flex items-center gap-2 pb-2 border-b border-[#262A33]/60">
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="text-xs font-bold text-gray-300">
-                  Comissão{' '}
-                  <span className="font-mono text-[10px] text-gray-500">
-                    {commissionId.slice(0, 8)}…
-                  </span>
+                  Comissão <span className="font-mono text-[10px] text-gray-500">{commissionId.slice(0, 8)}…</span>
                 </span>
                 <span className="ml-auto text-[10px] text-gray-500">{evs.length} evento(s)</span>
               </div>

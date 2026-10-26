@@ -1,19 +1,18 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import { formatBRL } from '@/types/crm'
 import {
   brlToCents,
   calculateSaasCommission,
   centsToBRL,
   findActiveException,
+  formatPercentage,
   hostingModelAllowsRecurring,
-  parsePolicyTiers,
   SAAS_HOSTING_MODEL_DESCRIPTIONS,
   SAAS_HOSTING_MODEL_LABELS,
   type SaasHostingModel,
   type SaasPolicyTier,
 } from '@/types/commissionSaas'
-import { createSaasCommission, type SaasCommissionRecord } from '@/services/commissionSaas'
+import { createSaasCommission } from '@/services/commissionSaas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -98,7 +97,12 @@ export default function SaasSimulator({
   sellers,
   onCreated,
 }: SaasSimulatorProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
+
+  const visibleSellers = useMemo(
+    () => (isAdmin ? sellers : sellers.filter((seller) => seller.id === user?.id)),
+    [isAdmin, sellers, user?.id],
+  )
 
   // ---- Campos do formulário ----
   const [clientName, setClientName] = useState('')
@@ -110,6 +114,7 @@ export default function SaasSimulator({
   const [discountInput, setDiscountInput] = useState('')
   const [contractInput, setContractInput] = useState('')
   const [costsInput, setCostsInput] = useState('')
+  const [recurringCostsInput, setRecurringCostsInput] = useState('')
   const [taxesInput, setTaxesInput] = useState('')
   const [hostingModel, setHostingModel] = useState<SaasHostingModel>('bit_cloud')
   const [monthlyInput, setMonthlyInput] = useState('')
@@ -127,8 +132,17 @@ export default function SaasSimulator({
   const derivedContract = Math.max(0, listCents - discountCents)
   const contractCents = contractInput.trim() !== '' ? brlToCents(contractInput) : derivedContract
   const costsCents = brlToCents(costsInput)
+  const recurringCostsCents = brlToCents(recurringCostsInput)
   const taxesCents = brlToCents(taxesInput)
   const monthlyCents = brlToCents(monthlyInput)
+  const developmentException = useMemo(
+    () => findActiveException(exceptions, sellerId, 'development'),
+    [exceptions, sellerId],
+  )
+  const recurringException = useMemo(
+    () => findActiveException(exceptions, sellerId, 'recurring'),
+    [exceptions, sellerId],
+  )
 
   // ---- Cálculo em tempo real ----
   const calc = useMemo(() => {
@@ -137,6 +151,7 @@ export default function SaasSimulator({
       contractValueCents: contractCents,
       recurringMonthlyCents: monthlyCents,
       directCostsCents: costsCents,
+      recurringCostsCents,
       taxesCents: taxesCents,
       hostingModel,
       policy: {
@@ -145,8 +160,25 @@ export default function SaasSimulator({
         recurring_eligible_months: policy.recurring_eligible_months,
         min_margin_percentage: policy.min_margin_percentage,
       },
+      exception: developmentException,
+      recurringException,
     })
-  }, [policy, tiers, contractCents, monthlyCents, costsCents, taxesCents, hostingModel])
+  }, [
+    policy,
+    tiers,
+    contractCents,
+    monthlyCents,
+    costsCents,
+    recurringCostsCents,
+    taxesCents,
+    hostingModel,
+    developmentException,
+    recurringException,
+  ])
+
+  useEffect(() => {
+    if (!isAdmin && user?.id) setSellerId(user.id)
+  }, [isAdmin, user?.id])
 
   const canSave =
     clientName.trim() !== '' &&
@@ -174,6 +206,7 @@ export default function SaasSimulator({
       installmentsCount: Math.max(1, parseInt(installmentsInput, 10) || 1),
       recurringMonthlyCents: monthlyCents,
       directCostsCents: costsCents,
+      recurringCostsCents,
       taxesCents: taxesCents,
       commercialNotes: commercialNotes.trim() || undefined,
       firstDueDate: firstDueDate ? new Date(firstDueDate + 'T12:00:00') : undefined,
@@ -192,6 +225,7 @@ export default function SaasSimulator({
       setDiscountInput('')
       setContractInput('')
       setCostsInput('')
+      setRecurringCostsInput('')
       setTaxesInput('')
       setMonthlyInput('')
       setCommercialNotes('')
@@ -257,12 +291,16 @@ export default function SaasSimulator({
             <label className="block text-xs font-semibold text-gray-300 mb-1.5">
               Vendedor responsável *
             </label>
-            <Select value={sellerId || undefined} onValueChange={(v) => setSellerId(v)}>
+            <Select
+              value={sellerId || undefined}
+              onValueChange={(v) => setSellerId(v)}
+              disabled={!isAdmin}
+            >
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
                 <SelectValue placeholder="Selecione o vendedor" />
               </SelectTrigger>
               <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
-                {sellers.map((s) => (
+                {visibleSellers.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name || s.email}
                   </SelectItem>
@@ -316,6 +354,12 @@ export default function SaasSimulator({
             hint="Deixe vazio para usar tabela − desconto"
           />
           <MoneyField label="Custo direto estimado" value={costsInput} onChange={setCostsInput} />
+          <MoneyField
+            label="Custo recorrente mensal estimado"
+            value={recurringCostsInput}
+            onChange={setRecurringCostsInput}
+            hint={`Considerado no mesmo horizonte comissionável (${policy?.recurring_eligible_months || 0} meses)`}
+          />
           <MoneyField
             label="Tributos estimados"
             value={taxesInput}

@@ -33,14 +33,7 @@ migrate(
         updateRule: ADMIN_RULE,
         deleteRule: ADMIN_RULE,
         fields: [
-          {
-            name: 'seller',
-            type: 'relation',
-            required: true,
-            collectionId: usersCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
+          { name: 'seller', type: 'relation', required: true, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
           // 'percentage' sobrepõe o percentual da faixa; 'fixed_value' paga valor fixo por projeto
           {
             name: 'exception_type',
@@ -62,14 +55,7 @@ migrate(
           { name: 'valid_from', type: 'date', required: false },
           { name: 'valid_until', type: 'date', required: false }, // vazio = sem prazo (campanha permanente)
           { name: 'reason', type: 'text', required: true },
-          {
-            name: 'approved_by',
-            type: 'relation',
-            required: false,
-            collectionId: usersCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
+          { name: 'approved_by', type: 'relation', required: false, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
           { name: 'approved_at', type: 'date', required: false },
           { name: 'is_active', type: 'bool', required: false },
           { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
@@ -105,32 +91,15 @@ migrate(
           ADMIN_RULE.replace("@request.auth.id != '' && ", '') +
           ')',
         // Criação: vendedor registra a própria comissão; admin registra de qualquer vendedor
-        createRule:
-          "@request.auth.id != '' && (seller = @request.auth.id || " +
-          ADMIN_RULE.replace("@request.auth.id != '' && ", '') +
-          ')',
+        createRule: "@request.auth.id != '' && (seller = @request.auth.id || " + ADMIN_RULE.replace("@request.auth.id != '' && ", '') + ')',
         // Transições de estado, aprovações e correções: somente admin
         updateRule: ADMIN_RULE,
         deleteRule: ADMIN_RULE,
         fields: [
           // Vínculos com o CRM (cliente é texto denormalizado — oportunidades usam company: text)
           { name: 'client_name', type: 'text', required: true },
-          {
-            name: 'opportunity',
-            type: 'relation',
-            required: false,
-            collectionId: oppsCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
-          {
-            name: 'seller',
-            type: 'relation',
-            required: true,
-            collectionId: usersCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
+          { name: 'opportunity', type: 'relation', required: false, collectionId: oppsCol.id, maxSelect: 1, cascadeDelete: false },
+          { name: 'seller', type: 'relation', required: true, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
           { name: 'system_name', type: 'text', required: true },
           { name: 'system_description', type: 'text', required: false },
           // Modelo de infraestrutura — NÃO altera percentual de desenvolvimento
@@ -149,12 +118,7 @@ migrate(
           // Recorrência (mensalidades elegíveis)
           { name: 'recurring_monthly_cents', type: 'number', required: false }, // 0 = sem recorrência
           { name: 'recurring_percentage', type: 'number', required: false }, // snapshot da política
-          {
-            name: 'recurring_commissionable_months',
-            type: 'number',
-            required: false,
-            onlyInt: true,
-          }, // snapshot (3)
+          { name: 'recurring_commissionable_months', type: 'number', required: false, onlyInt: true }, // snapshot (3)
           // Comissões calculadas (centavos)
           { name: 'development_commission_cents', type: 'number', required: true },
           { name: 'recurring_commission_potential_cents', type: 'number', required: false },
@@ -169,14 +133,7 @@ migrate(
           // Versionamento da política aplicada (histórico preservado)
           { name: 'dev_policy_version', type: 'number', required: true, onlyInt: true },
           { name: 'dev_policy_snapshot', type: 'json', required: false }, // faixas usadas no cálculo
-          {
-            name: 'exception',
-            type: 'relation',
-            required: false,
-            collectionId: exceptionsCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
+          { name: 'exception', type: 'relation', required: false, collectionId: exceptionsCol.id, maxSelect: 1, cascadeDelete: false },
           // Rentabilidade
           { name: 'direct_costs_cents', type: 'number', required: false }, // custo direto estimado
           { name: 'taxes_cents', type: 'number', required: false }, // tributos estimados (contam 1x, dentro da receita líquida)
@@ -200,14 +157,7 @@ migrate(
             ],
             maxSelect: 1,
           },
-          {
-            name: 'approved_by',
-            type: 'relation',
-            required: false,
-            collectionId: usersCol.id,
-            maxSelect: 1,
-            cascadeDelete: false,
-          },
+          { name: 'approved_by', type: 'relation', required: false, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
           { name: 'approved_at', type: 'date', required: false },
           { name: 'approval_note', type: 'text', required: false },
           { name: 'commercial_notes', type: 'text', required: false }, // observações comerciais
