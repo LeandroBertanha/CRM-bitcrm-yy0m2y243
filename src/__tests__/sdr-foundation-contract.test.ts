@@ -92,9 +92,11 @@ describe('SDR foundation safety contract', () => {
     expect(migrationSource).not.toContain('app.delete(')
   })
 
-  it('exposes the SDR center only through the admin route and menu', () => {
+  it('exposes the SDR center only through the owner route and restricted menu', () => {
     expect(appSource).toContain('path="/sdr"')
     expect(appSource).toContain('<SdrCenter />')
+    expect(appSource).toContain('<SdrOwnerRoute>')
+    expect(layoutSource).toContain('canAccessSdr(user?.email)')
     expect(layoutSource).toContain("{ label: 'SDR Inteligente', to: '/sdr', icon: Bot }")
   })
 
