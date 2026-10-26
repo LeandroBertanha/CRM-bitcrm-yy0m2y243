@@ -20,10 +20,10 @@ import { getSdrDashboardSnapshot, getSdrFoundationStatus } from '@/services/sdrS
 import type { SdrDashboardSnapshot, SdrFoundationStatus } from '@/types/sdr'
 
 const safeguards = [
-  'Oportunidades existentes permanecem somente leitura para o SDR.',
-  'Criacao e alteracao de oportunidades continuam bloqueadas por padrao.',
-  'Mensagens e acoes exigem confirmacao humana enquanto a fundacao estiver protegida.',
-  'Operacoes futuras devem gerar trilha de auditoria e identificador de correlacao.',
+  'As oportunidades abertas sao carregadas automaticamente pelo SDR.',
+  'O SDR apenas vincula a oportunidade; os dados e a etapa do funil nao sao alterados.',
+  'Contatos encerrados ou sem telefone valido sao ignorados automaticamente.',
+  'Campanhas, vinculos e mensagens geram trilha de auditoria e correlacao.',
 ]
 
 export default function SdrCenter() {
@@ -88,7 +88,7 @@ export default function SdrCenter() {
           </div>
           <h1 className="text-3xl font-bold tracking-normal sm:text-4xl">SDR Inteligente</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Fundacao isolada para campanhas, contatos, mensagens, scores, tarefas e auditoria.
+            Operacao automatizada sobre as oportunidades abertas do CRM, com fila e auditoria.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export default function SdrCenter() {
             }`}
           >
             <LockKeyhole className="h-4 w-4" />
-            {isProtected ? 'Desativado por padrao' : 'Ativo'}
+            {isProtected ? 'SDR desativado' : 'SDR ativo em producao'}
           </span>
         </div>
       </header>
@@ -178,8 +178,7 @@ export default function SdrCenter() {
           <ShieldCheck className="h-6 w-6 text-emerald-500" />
           <h2 className="mt-4 text-lg font-semibold">Protecao do CRM</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            A criacao exige endpoint protegido, SDR ativo, nova deduplicacao, confirmacao humana e
-            auditoria transacional.
+            O acesso administrativo, a deduplicacao e a auditoria sao validados pelo servidor.
           </p>
         </div>
         <div className="border border-border bg-card p-5 text-card-foreground">
@@ -193,14 +192,13 @@ export default function SdrCenter() {
           <CheckCircle2 className="h-6 w-6 text-indigo-500" />
           <h2 className="mt-4 text-lg font-semibold">Estado controlado</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Ambiente: {status.settings.environment}. Confirmacao humana:{' '}
-            {status.settings.require_human_confirmation ? 'obrigatoria' : 'desativada'}.
+            Operacao em producao. O modo de homologacao fica reservado aos testes tecnicos.
           </p>
         </div>
       </section>
 
       <section className="border border-border bg-card p-5 text-card-foreground sm:p-6">
-        <h2 className="text-xl font-semibold">Garantias da Fase 1</h2>
+        <h2 className="text-xl font-semibold">Como o SDR trabalha</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {safeguards.map((item) => (
             <div key={item} className="flex items-start gap-3 border-t border-border py-3">
@@ -216,37 +214,37 @@ export default function SdrCenter() {
           <div>
             <h2 className="text-xl font-semibold">Campanhas e fila</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Visao operacional preparada para os registros exclusivos do SDR.
+              As oportunidades elegiveis sao carregadas automaticamente do funil comercial.
             </p>
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-semibold text-muted-foreground">
             <LockKeyhole className="h-3.5 w-3.5" />
-            {isProtected ? 'Escrita bloqueada neste ambiente' : 'Escrita protegida habilitada'}
+            {isProtected ? 'Operacao desativada' : 'Operacao protegida ativa'}
           </span>
         </div>
         <div className="mt-5 grid gap-4 border-t border-border pt-5 md:grid-cols-4">
           <div>
-            <h3 className="text-sm font-semibold">1. Campanha</h3>
+            <h3 className="text-sm font-semibold">1. Oportunidades</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Definicao, responsavel e fila ficam persistidos nas colecoes exclusivas do SDR.
+              O SDR consulta automaticamente os cards abertos com telefone valido.
             </p>
           </div>
           <div>
-            <h3 className="text-sm font-semibold">2. Contatos autorizados</h3>
+            <h3 className="text-sm font-semibold">2. Selecao</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Somente contatos com autorizacao explicita podem compor uma campanha.
+              O administrador revisa quais oportunidades entram em cada campanha.
             </p>
           </div>
           <div>
             <h3 className="text-sm font-semibold">3. Fila auditavel</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Mensagens exigirao confirmacao humana, correlacao e registro do resultado.
+              Cada contato fica vinculado a oportunidade e recebe identificador de correlacao.
             </p>
           </div>
           <div>
-            <h3 className="text-sm font-semibold">4. Preparacao segura</h3>
+            <h3 className="text-sm font-semibold">4. Envio</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Normalizacao, autorizacao e deduplicacao sao verificadas antes da persistencia.
+              O WhatsApp automatico e liberado quando as credenciais da Meta estiverem prontas.
             </p>
           </div>
         </div>
@@ -260,8 +258,8 @@ export default function SdrCenter() {
 
       <section className="border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
         O envio automatico real depende das credenciais e de um template aprovado na Meta. A
-        ausencia dessa integracao nao impede campanhas, fila auditavel ou criacao confirmada de
-        novas oportunidades.
+        ausencia dessa integracao nao impede a leitura das oportunidades nem a criacao da fila
+        auditavel.
       </section>
     </div>
   )

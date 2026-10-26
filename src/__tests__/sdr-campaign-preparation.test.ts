@@ -87,6 +87,17 @@ describe('SDR campaign preparation', () => {
     expect(queue[0].correlationId).toMatch(/^sdr-[a-f0-9]{8}$/)
   })
 
+  it('preserves the CRM opportunity association in contacts and messages', () => {
+    const input = structuredClone(validInput)
+    input.contacts[0].opportunityId = 'opp-crm-001'
+
+    const preparation = prepareSdrCampaign(input)
+    const queue = prepareSdrMessageQueue(preparation, 'Ola, {contato}.')
+
+    expect(preparation.accepted[0].opportunityId).toBe('opp-crm-001')
+    expect(queue[0].opportunityId).toBe('opp-crm-001')
+  })
+
   it('does not create a queue for an invalid campaign or empty template', () => {
     const invalid = prepareSdrCampaign({ ...validInput, name: 'x' })
 

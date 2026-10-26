@@ -114,10 +114,12 @@ describe('SDR foundation safety contract', () => {
     expect(campaignPreparationSource).not.toContain('.delete(')
   })
 
-  it('offers a guarded simulator without direct database mutations or sending actions', () => {
-    expect(campaignSimulatorSource).toContain('Escrita protegida')
-    expect(campaignSimulatorSource).toContain('Validar simulacao')
+  it('offers an automatic opportunity queue without direct database mutations', () => {
+    expect(campaignSimulatorSource).toContain('Fila automatica de oportunidades')
+    expect(campaignSimulatorSource).toContain('getSdrOpportunityReadModel')
     expect(campaignSimulatorSource).toContain('prepareSdrMessageQueue')
+    expect(campaignSimulatorSource).toContain('Criar fila do SDR')
+    expect(campaignSimulatorSource).not.toContain('Adicionar contato')
     expect(campaignSimulatorSource).not.toContain('@/lib/pocketbase')
     expect(campaignSimulatorSource).not.toContain('fetch(')
   })
@@ -128,7 +130,7 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityReadSource).not.toContain('.create(')
     expect(opportunityReadSource).not.toContain('.update(')
     expect(opportunityReadSource).not.toContain('.delete(')
-    expect(campaignSimulatorSource).toContain('Verificar duplicidades no CRM')
+    expect(campaignSimulatorSource).toContain('Atualizar oportunidades')
   })
 
   it('keeps duplicate classification pure and isolated from network access', () => {
@@ -140,7 +142,7 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityGuardSource).not.toContain('.delete(')
   })
 
-  it('keeps association suggestions local, read-only and human-reviewed', () => {
+  it('keeps the legacy association helper pure and makes direct opportunity ids available', () => {
     expect(opportunityAssociationSource).toContain('buildSdrOpportunityAssociationSuggestions')
     expect(opportunityAssociationSource).toContain('requiresHumanConfirmation: true')
     expect(opportunityAssociationSource).toContain('readOnly: true')
@@ -149,10 +151,11 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityAssociationSource).not.toContain('.create(')
     expect(opportunityAssociationSource).not.toContain('.update(')
     expect(opportunityAssociationSource).not.toContain('.delete(')
-    expect(campaignSimulatorSource).toContain('Esta marcacao e apenas local')
+    expect(campaignSimulatorSource).toContain('opportunityId: opportunity.id')
+    expect(operationsServiceSource).toContain('opportunityId: contact.opportunityId')
   })
 
-  it('prepares opportunity creation without allowing execution', () => {
+  it('keeps the legacy creation plan isolated but removes manual creation from the SDR screen', () => {
     expect(opportunityCreationPlanSource).toContain('buildSdrOpportunityCreationPlans')
     expect(opportunityCreationPlanSource).toContain('executionAllowed: false')
     expect(opportunityCreationPlanSource).toContain('featureFlagRequired: true')
@@ -163,7 +166,8 @@ describe('SDR foundation safety contract', () => {
     expect(opportunityCreationPlanSource).not.toContain('.create(')
     expect(opportunityCreationPlanSource).not.toContain('.update(')
     expect(opportunityCreationPlanSource).not.toContain('.delete(')
-    expect(campaignSimulatorSource).toContain('Criar oportunidade com auditoria')
+    expect(campaignSimulatorSource).not.toContain('createSdrOpportunity')
+    expect(campaignSimulatorSource).not.toContain('Adicionar contato')
   })
 
   it('creates opportunities only through the guarded server endpoint', () => {
@@ -190,8 +194,10 @@ describe('SDR foundation safety contract', () => {
   })
 
   it('allows only an administrator to activate production with an explicit phrase', () => {
-    expect(operationsHookSource).toContain('/backend/v1/sdr/settings/update')
-    expect(operationsHookSource).toContain('sdrOpsIsAdmin(authRecord)')
+    expect(operationsHookSource).toContain('/backend/v1/sdr/{resource}/{action}')
+    expect(operationsHookSource).toContain("resource === 'settings' && action === 'update'")
+    expect(operationsHookSource).toContain('isAdmin(authRecord)')
+    expect(operationsHookSource).toContain("email === 'leandro.bertanha@lbertanha.com'")
     expect(operationsHookSource).toContain("confirmationPhrase !== 'ATIVAR SDR EM PRODUCAO'")
     expect(operationsHookSource).toContain(
       "txSettings.set('allow_existing_opportunity_update', false)",
@@ -203,17 +209,19 @@ describe('SDR foundation safety contract', () => {
   })
 
   it('persists a campaign and its queue only through an audited transaction', () => {
-    expect(operationsHookSource).toContain('/backend/v1/sdr/campaigns/create')
+    expect(operationsHookSource).toContain('/backend/v1/sdr/{resource}/{action}')
+    expect(operationsHookSource).toContain("resource !== 'campaigns' || action !== 'create'")
     expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_campaigns')")
     expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_campaign_contacts')")
     expect(operationsHookSource).toContain("findCollectionByNameOrId('sdr_messages')")
     expect(operationsHookSource).toContain("message.set('status', 'aguardando_confirmacao')")
-    expect(operationsHookSource).toContain("operation: 'sdr_campaign_create'")
-    expect(operationsHookSource).toContain('sdrOpsFindOpenOpportunityConflict($app')
-    expect(operationsHookSource).toContain('sdrOpsFindOpenOpportunityConflict(txApp')
+    expect(operationsHookSource).toContain("operation: 'sdr_campaign_create_from_opportunities'")
+    expect(operationsHookSource).toContain("contact.set('opportunity', item.opportunityId)")
+    expect(operationsHookSource).toContain("message.set('opportunity', item.opportunityId)")
+    expect(operationsHookSource).toContain("source: 'opportunities'")
     expect(operationsHookSource).toContain('SDR_ACTIVE_CONTACT_CONFLICT')
     expect(operationsHookSource).not.toContain("collection('opportunities').update")
     expect(operationsServiceSource).toContain('/backend/v1/sdr/campaigns/create')
-    expect(campaignSimulatorSource).toContain('Registrar campanha')
+    expect(campaignSimulatorSource).toContain('Criar fila do SDR')
   })
 })

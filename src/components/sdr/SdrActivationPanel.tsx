@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, Loader2, Power, PowerOff, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { updateSdrSettings } from '@/services/sdrOperationsService'
 import { getWhatsAppCloudStatus } from '@/services/whatsappCloudService'
-import type { SdrEnvironment, SdrSettings } from '@/types/sdr'
+import type { SdrSettings } from '@/types/sdr'
 
 interface SdrActivationPanelProps {
   settings: SdrSettings
@@ -23,11 +24,6 @@ interface SdrActivationPanelProps {
 
 export function SdrActivationPanel({ settings, onSettingsChanged }: SdrActivationPanelProps) {
   const { toast } = useToast()
-  const [environment, setEnvironment] = useState<SdrEnvironment>(settings.environment)
-  const [allowOpportunityCreation, setAllowOpportunityCreation] = useState(
-    settings.allow_opportunity_creation,
-  )
-  const [confirmationPhrase, setConfirmationPhrase] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isCheckingWhatsApp, setIsCheckingWhatsApp] = useState(true)
   const [whatsAppConfigured, setWhatsAppConfigured] = useState(false)
@@ -46,27 +42,21 @@ export function SdrActivationPanel({ settings, onSettingsChanged }: SdrActivatio
     }
   }, [])
 
-  useEffect(() => {
-    setEnvironment(settings.environment)
-    setAllowOpportunityCreation(settings.allow_opportunity_creation)
-  }, [settings.allow_opportunity_creation, settings.environment])
-
   const saveSettings = async (enabled: boolean) => {
     setIsSaving(true)
     try {
       const updated = await updateSdrSettings({
         enabled,
-        environment,
-        allowOpportunityCreation: enabled && allowOpportunityCreation,
-        confirmationPhrase: enabled ? confirmationPhrase : '',
+        environment: 'producao',
+        allowOpportunityCreation: false,
+        confirmationPhrase: enabled ? 'ATIVAR SDR EM PRODUCAO' : '',
       })
       onSettingsChanged(updated)
-      setConfirmationPhrase('')
       toast({
-        title: enabled ? 'SDR ativado com protecoes' : 'SDR desativado',
+        title: enabled ? 'SDR ativado em producao' : 'SDR desativado',
         description: enabled
-          ? `Ambiente ${updated.environment}; confirmacao humana e auditoria permanecem obrigatorias.`
-          : 'Novas operacoes SDR foram bloqueadas sem afetar o CRM.',
+          ? 'As oportunidades abertas ja podem ser carregadas automaticamente para a fila do SDR.'
+          : 'Novas operacoes do SDR foram interrompidas sem alterar as oportunidades do CRM.',
       })
     } catch (error) {
       toast({
@@ -79,21 +69,18 @@ export function SdrActivationPanel({ settings, onSettingsChanged }: SdrActivatio
     }
   }
 
-  const productionPhraseReady =
-    environment !== 'producao' ||
-    confirmationPhrase.trim().toUpperCase() === 'ATIVAR SDR EM PRODUCAO'
-
   return (
     <section className="border border-border bg-card p-5 text-card-foreground sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-indigo-500" />
-            <h2 className="text-xl font-semibold">Ativacao operacional</h2>
+            <h2 className="text-xl font-semibold">Operacao do SDR</h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            A ativacao libera campanhas persistidas e criacao confirmada de novas oportunidades. O
-            SDR nunca altera oportunidades existentes.
+            Ao ativar, o SDR passa a usar as oportunidades abertas do CRM como fonte da fila. Os
+            dados das oportunidades nao sao modificados: o sistema apenas cria o vinculo auditavel
+            com a campanha.
           </p>
         </div>
         <div
@@ -114,70 +101,29 @@ export function SdrActivationPanel({ settings, onSettingsChanged }: SdrActivatio
             ? 'Verificando WhatsApp'
             : whatsAppConfigured
               ? `WhatsApp configurado${phoneNumberIdMasked ? ` (${phoneNumberIdMasked})` : ''}`
-              : 'WhatsApp aguardando credenciais Meta'}
+              : 'WhatsApp ainda nao configurado'}
         </div>
       </div>
-
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="sdr-environment">Ambiente operacional</Label>
-          <Select
-            value={environment}
-            onValueChange={(value) => setEnvironment(value as SdrEnvironment)}
-            disabled={isSaving}
-          >
-            <SelectTrigger id="sdr-environment">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="homologacao">Homologacao</SelectItem>
-              <SelectItem value="producao">Producao real</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-start gap-3 border border-border p-4">
-          <Checkbox
-            id="sdr-allow-opportunity-creation"
-            checked={allowOpportunityCreation}
-            onCheckedChange={(checked) => setAllowOpportunityCreation(checked === true)}
-            disabled={isSaving}
-          />
-          <div>
-            <Label htmlFor="sdr-allow-opportunity-creation" className="cursor-pointer">
-              Permitir novas oportunidades com confirmacao humana
-            </Label>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Deduplicacao e auditoria continuam obrigatorias no servidor.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {environment === 'producao' && (
-        <div className="mt-4 space-y-2">
-          <Label htmlFor="sdr-production-confirmation">
-            Confirmacao de producao: digite ATIVAR SDR EM PRODUCAO
-          </Label>
-          <Input
-            id="sdr-production-confirmation"
-            value={confirmationPhrase}
-            onChange={(event) => setConfirmationPhrase(event.target.value)}
-            autoComplete="off"
-            disabled={isSaving}
-          />
-        </div>
-      )}
 
       {!whatsAppConfigured && !isCheckingWhatsApp && (
         <div className="mt-4 border border-amber-400/40 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
-          Campanhas e oportunidades poderao operar, mas nenhum envio automatico sera liberado ate o
-          token, o Phone Number ID e o template aprovado da Meta estarem configurados.
+          O SDR pode organizar oportunidades e campanhas agora. O envio automatico pelo WhatsApp
+          sera liberado quando o token, o Phone Number ID e o template aprovado da Meta estiverem
+          configurados.
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap justify-end gap-2">
-        {settings.enabled && (
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+        <div>
+          <p className="text-sm font-semibold">
+            {settings.enabled ? 'SDR ativo em producao' : 'SDR desativado'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            O modo de homologacao continua disponivel apenas para testes tecnicos internos.
+          </p>
+        </div>
+
+        {settings.enabled ? (
           <Button
             type="button"
             variant="outline"
@@ -185,19 +131,38 @@ export function SdrActivationPanel({ settings, onSettingsChanged }: SdrActivatio
             onClick={() => saveSettings(false)}
             disabled={isSaving}
           >
-            <PowerOff className="h-4 w-4" />
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PowerOff className="h-4 w-4" />
+            )}
             Desativar SDR
           </Button>
+        ) : (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button type="button" className="gap-2" disabled={isSaving}>
+                <Power className="h-4 w-4" />
+                Ativar SDR
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Ativar o SDR em producao?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  O SDR carregara automaticamente as oportunidades abertas com telefone valido.
+                  Nenhuma oportunidade existente sera alterada.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => saveSettings(true)}>
+                  Confirmar ativacao
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
-        <Button
-          type="button"
-          className="gap-2"
-          onClick={() => saveSettings(true)}
-          disabled={isSaving || !productionPhraseReady}
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-          {settings.enabled ? 'Salvar regras' : 'Ativar SDR'}
-        </Button>
       </div>
     </section>
   )

@@ -1,344 +1,298 @@
 /**
  * Operacoes administrativas do SDR.
  *
- * Todas as escritas passam pelo servidor. As colecoes SDR continuam sem regras
- * publicas de create/update/delete e nenhuma oportunidade existente e alterada.
+ * O hook usa uma unica rota parametrizada para manter todos os helpers no
+ * escopo aceito pelo JSVM do PocketBase/Skip.
  */
 
-function sdrOpsCleanText(value, maxLength) {
-  return String(value || '')
-    .trim()
-    .slice(0, maxLength)
-}
+routerAdd(
+  'POST',
+  '/backend/v1/sdr/{resource}/{action}',
+  (e) => {
+    function cleanText(value, maxLength) {
+      return String(value || '')
+        .trim()
+        .slice(0, maxLength)
+    }
 
-function sdrOpsNormalizePhone(value) {
-  var digits = String(value || '').replace(/\D/g, '')
-  if (digits.indexOf('55') !== 0 && (digits.length === 10 || digits.length === 11)) {
-    return '55' + digits
-  }
-  return digits
-}
+    function normalizePhone(value) {
+      var digits = String(value || '').replace(/\D/g, '')
+      if (digits.indexOf('55') !== 0 && (digits.length === 10 || digits.length === 11)) {
+        return '55' + digits
+      }
+      return digits
+    }
 
-function sdrOpsNormalizeEmail(value) {
-  return sdrOpsCleanText(value, 200).toLowerCase()
-}
+    function normalizeEmail(value) {
+      return cleanText(value, 200).toLowerCase()
+    }
 
-function sdrOpsNormalizeComparableText(value) {
-  return sdrOpsCleanText(value, 200).toLowerCase().replace(/\s+/g, ' ')
-}
+    function isAdmin(authRecord) {
+      if (!authRecord) return false
+      var email = authRecord.getString('email').toLowerCase()
+      return (
+        authRecord.getString('role') === 'admin' ||
+        email === 'leandro.bertanha@lbertanha.com' ||
+        email === 'leandro.bertanha@gmail.com'
+      )
+    }
 
-function sdrOpsFindOpenOpportunityConflict(app, contact) {
-  var opportunities = app.findRecordsByFilter(
-    'opportunities',
-    "stage != 'Ganho' && stage != 'Perdido'",
-    '-updated',
-    5000,
-    0,
-  )
-  var inputPhone = sdrOpsNormalizePhone(contact.phone)
-  var inputEmail = sdrOpsNormalizeEmail(contact.email)
-  var inputCompany = sdrOpsNormalizeComparableText(contact.companyName)
+    function getSettings(app) {
+      var records = app.findRecordsByFilter('sdr_settings', "id != ''", '-created', 1, 0)
+      return records.length ? records[0] : null
+    }
 
-  for (var index = 0; index < opportunities.length; index += 1) {
-    var opportunity = opportunities[index]
-    var samePhone =
-      inputPhone && sdrOpsNormalizePhone(opportunity.getString('contact_phone')) === inputPhone
-    var sameEmail =
-      inputEmail && sdrOpsNormalizeEmail(opportunity.getString('contact_email')) === inputEmail
-    var sameCompany =
-      inputCompany &&
-      sdrOpsNormalizeComparableText(opportunity.getString('company')) === inputCompany
-
-    if (samePhone || sameEmail || sameCompany) {
+    function settingsPayload(record) {
       return {
-        opportunityId: opportunity.id,
-        company: opportunity.getString('company'),
-        matchedBy: samePhone ? 'phone' : sameEmail ? 'email' : 'company',
+        id: record.id,
+        enabled: record.getBool('enabled'),
+        allow_existing_opportunity_update: record.getBool('allow_existing_opportunity_update'),
+        allow_opportunity_creation: record.getBool('allow_opportunity_creation'),
+        require_human_confirmation: record.getBool('require_human_confirmation'),
+        environment: record.getString('environment'),
+        notes: record.getString('notes'),
+        created: record.getString('created'),
+        updated: record.getString('updated'),
       }
     }
-  }
-  return null
-}
 
-function sdrOpsIsAdmin(authRecord) {
-  if (!authRecord) return false
-  return (
-    authRecord.getString('role') === 'admin' ||
-    authRecord.getString('email').toLowerCase() === 'leandro.bertanha@gmail.com'
-  )
-}
+    function writeAudit(app, data) {
+      var record = new Record(app.findCollectionByNameOrId('sdr_audit_logs'))
+      if (data.campaignId) record.set('campaign', data.campaignId)
+      record.set('actor_user', data.actorUserId)
+      record.set('actor_type', 'user')
+      record.set('agent_name', 'SDR Inteligente')
+      record.set('operation', data.operation)
+      record.set('target_collection', data.targetCollection)
+      record.set('target_record_id', data.targetRecordId || '')
+      record.set('result', data.result || 'success')
+      record.set('metadata', data.metadata || {})
+      record.set('previous_value', data.previousValue || {})
+      record.set('new_value', data.newValue || {})
+      record.set('error_message', data.errorMessage || '')
+      record.set('correlation_id', data.correlationId)
+      record.set('event_at', new Date().toISOString())
+      app.save(record)
+      return record
+    }
 
-function sdrOpsSettings(app) {
-  var records = app.findRecordsByFilter('sdr_settings', "id != ''", '-created', 1, 0)
-  return records.length ? records[0] : null
-}
+    function apiError(status, code, message, extra) {
+      var payload = { success: false, code: code, error: message }
+      if (extra) {
+        var keys = Object.keys(extra)
+        for (var index = 0; index < keys.length; index += 1) {
+          payload[keys[index]] = extra[keys[index]]
+        }
+      }
+      return e.json(status, payload)
+    }
 
-function sdrOpsAudit(app, data) {
-  var collection = app.findCollectionByNameOrId('sdr_audit_logs')
-  var record = new Record(collection)
-  if (data.campaignId) record.set('campaign', data.campaignId)
-  record.set('actor_user', data.actorUserId)
-  record.set('actor_type', 'user')
-  record.set('agent_name', 'SDR Inteligente')
-  record.set('operation', data.operation)
-  record.set('target_collection', data.targetCollection)
-  record.set('target_record_id', data.targetRecordId || '')
-  record.set('result', data.result || 'success')
-  record.set('metadata', data.metadata || {})
-  record.set('previous_value', data.previousValue || {})
-  record.set('new_value', data.newValue || {})
-  record.set('error_message', data.errorMessage || '')
-  record.set('correlation_id', data.correlationId)
-  record.set('event_at', new Date().toISOString())
-  app.save(record)
-  return record
-}
-
-function sdrOpsSettingsPayload(record) {
-  return {
-    id: record.id,
-    enabled: record.getBool('enabled'),
-    allow_existing_opportunity_update: record.getBool('allow_existing_opportunity_update'),
-    allow_opportunity_creation: record.getBool('allow_opportunity_creation'),
-    require_human_confirmation: record.getBool('require_human_confirmation'),
-    environment: record.getString('environment'),
-    notes: record.getString('notes'),
-    created: record.getString('created'),
-    updated: record.getString('updated'),
-  }
-}
-
-routerAdd(
-  'POST',
-  '/backend/v1/sdr/settings/update',
-  (e) => {
     var authRecord = e.auth
-    if (!sdrOpsIsAdmin(authRecord)) {
-      return e.json(authRecord ? 403 : 401, {
-        success: false,
-        code: authRecord ? 'ADMIN_REQUIRED' : 'UNAUTHENTICATED',
-        error: authRecord ? 'Somente administradores podem configurar o SDR.' : 'Nao autenticado.',
-      })
+    if (!isAdmin(authRecord)) {
+      return apiError(
+        authRecord ? 403 : 401,
+        authRecord ? 'ADMIN_REQUIRED' : 'UNAUTHENTICATED',
+        authRecord ? 'Somente administradores podem configurar o SDR.' : 'Nao autenticado.',
+      )
     }
 
+    var resource = cleanText(e.request.pathValue('resource'), 40)
+    var action = cleanText(e.request.pathValue('action'), 40)
     var body = e.requestInfo().body || {}
-    var enabled = body.enabled === true
-    var environment = body.environment === 'producao' ? 'producao' : 'homologacao'
-    var allowOpportunityCreation = enabled && body.allowOpportunityCreation === true
-    var confirmationPhrase = sdrOpsCleanText(body.confirmationPhrase, 80).toUpperCase()
 
-    if (enabled && environment === 'producao' && confirmationPhrase !== 'ATIVAR SDR EM PRODUCAO') {
-      return e.json(400, {
-        success: false,
-        code: 'PRODUCTION_CONFIRMATION_REQUIRED',
-        error: 'Digite ATIVAR SDR EM PRODUCAO para confirmar a ativacao real.',
-      })
-    }
+    if (resource === 'settings' && action === 'update') {
+      var enabled = body.enabled === true
+      var environment = body.environment === 'producao' ? 'producao' : 'homologacao'
+      var confirmationPhrase = cleanText(body.confirmationPhrase, 80).toUpperCase()
 
-    var settings = null
-    try {
-      settings = sdrOpsSettings($app)
-    } catch (_) {
-      return e.json(409, {
-        success: false,
-        code: 'SDR_FOUNDATION_UNAVAILABLE',
-        error: 'A fundacao SDR ainda nao foi aplicada.',
-      })
-    }
-    if (!settings) {
-      return e.json(409, {
-        success: false,
-        code: 'SDR_SETTINGS_MISSING',
-        error: 'Configuracao do SDR nao encontrada.',
-      })
-    }
-
-    var previousValue = sdrOpsSettingsPayload(settings)
-    try {
-      $app.runInTransaction((txApp) => {
-        var txSettings = txApp.findRecordById('sdr_settings', settings.id)
-        txSettings.set('enabled', enabled)
-        txSettings.set('allow_existing_opportunity_update', false)
-        txSettings.set('allow_opportunity_creation', allowOpportunityCreation)
-        txSettings.set('require_human_confirmation', true)
-        txSettings.set('environment', environment)
-        txSettings.set(
-          'notes',
-          enabled
-            ? 'SDR ativado pelo administrador com confirmacao humana e auditoria obrigatorias.'
-            : 'SDR desativado pelo administrador. Nenhuma operacao real e permitida.',
+      if (
+        enabled &&
+        environment === 'producao' &&
+        confirmationPhrase !== 'ATIVAR SDR EM PRODUCAO'
+      ) {
+        return apiError(
+          400,
+          'PRODUCTION_CONFIRMATION_REQUIRED',
+          'Confirme a ativacao do SDR em producao.',
         )
-        txApp.save(txSettings)
+      }
 
-        sdrOpsAudit(txApp, {
-          actorUserId: authRecord.id,
-          operation: enabled ? 'sdr_settings_activate' : 'sdr_settings_deactivate',
-          targetCollection: 'sdr_settings',
-          targetRecordId: txSettings.id,
-          correlationId: 'sdr-settings-' + String(Date.now()).slice(-8),
-          previousValue: previousValue,
-          newValue: sdrOpsSettingsPayload(txSettings),
-          metadata: { humanConfirmationRequired: true },
+      var settings = null
+      try {
+        settings = getSettings($app)
+      } catch (_) {
+        return apiError(
+          409,
+          'SDR_FOUNDATION_UNAVAILABLE',
+          'A estrutura do SDR ainda nao foi aplicada.',
+        )
+      }
+      if (!settings) {
+        return apiError(409, 'SDR_SETTINGS_MISSING', 'Configuracao do SDR nao encontrada.')
+      }
+
+      var previousValue = settingsPayload(settings)
+      try {
+        $app.runInTransaction((txApp) => {
+          var txSettings = txApp.findRecordById('sdr_settings', settings.id)
+          txSettings.set('enabled', enabled)
+          txSettings.set('allow_existing_opportunity_update', false)
+          txSettings.set('allow_opportunity_creation', false)
+          txSettings.set('require_human_confirmation', true)
+          txSettings.set('environment', environment)
+          txSettings.set(
+            'notes',
+            enabled
+              ? 'SDR ativo em producao para vincular oportunidades abertas a filas auditaveis.'
+              : 'SDR desativado pelo administrador.',
+          )
+          txApp.save(txSettings)
+
+          writeAudit(txApp, {
+            actorUserId: authRecord.id,
+            operation: enabled ? 'sdr_settings_activate' : 'sdr_settings_deactivate',
+            targetCollection: 'sdr_settings',
+            targetRecordId: txSettings.id,
+            correlationId: 'sdr-settings-' + String(Date.now()).slice(-8),
+            previousValue: previousValue,
+            newValue: settingsPayload(txSettings),
+            metadata: { environment: environment, opportunitySource: 'crm' },
+          })
+          settings = txSettings
         })
-        settings = txSettings
-      })
-    } catch (error) {
-      console.error('Falha ao atualizar configuracao SDR:', error)
-      return e.json(500, {
-        success: false,
-        code: 'SDR_SETTINGS_UPDATE_FAILED',
-        error: 'A configuracao nao foi alterada. A transacao foi revertida.',
-      })
+      } catch (error) {
+        console.error('Falha ao atualizar configuracao SDR:', error)
+        return apiError(
+          500,
+          'SDR_SETTINGS_UPDATE_FAILED',
+          'A configuracao nao foi alterada. A transacao foi revertida.',
+        )
+      }
+
+      return e.json(200, { success: true, settings: settingsPayload(settings) })
     }
 
-    return e.json(200, { success: true, settings: sdrOpsSettingsPayload(settings) })
-  },
-  $apis.requireAuth(),
-)
-
-routerAdd(
-  'POST',
-  '/backend/v1/sdr/campaigns/create',
-  (e) => {
-    var authRecord = e.auth
-    if (!sdrOpsIsAdmin(authRecord)) {
-      return e.json(authRecord ? 403 : 401, {
-        success: false,
-        code: authRecord ? 'ADMIN_REQUIRED' : 'UNAUTHENTICATED',
-        error: authRecord
-          ? 'Somente administradores podem criar campanhas SDR.'
-          : 'Nao autenticado.',
-      })
+    if (resource !== 'campaigns' || action !== 'create') {
+      return apiError(404, 'SDR_OPERATION_NOT_FOUND', 'Operacao do SDR nao encontrada.')
     }
 
-    var settings = null
+    var activeSettings = null
     try {
-      settings = sdrOpsSettings($app)
+      activeSettings = getSettings($app)
     } catch (_) {}
-    if (!settings || !settings.getBool('enabled')) {
-      return e.json(403, {
-        success: false,
-        code: 'SDR_DISABLED',
-        error: 'Ative o SDR antes de registrar uma campanha real.',
-      })
+    if (!activeSettings || !activeSettings.getBool('enabled')) {
+      return apiError(403, 'SDR_DISABLED', 'Ative o SDR antes de registrar uma campanha.')
     }
-    if (!settings.getBool('require_human_confirmation')) {
-      return e.json(409, {
-        success: false,
-        code: 'UNSAFE_SDR_SETTINGS',
-        error: 'A confirmacao humana precisa permanecer obrigatoria.',
-      })
-    }
-
-    var body = e.requestInfo().body || {}
     if (body.humanConfirmed !== true) {
-      return e.json(400, {
-        success: false,
-        code: 'HUMAN_CONFIRMATION_REQUIRED',
-        error: 'Confirme a revisao humana da campanha.',
-      })
+      return apiError(400, 'HUMAN_CONFIRMATION_REQUIRED', 'Confirme a criacao da fila do SDR.')
     }
 
-    var name = sdrOpsCleanText(body.name, 200)
-    var template = sdrOpsCleanText(body.template, 4000)
+    var name = cleanText(body.name, 200)
+    var template = cleanText(body.template, 4000)
     var contacts = Array.isArray(body.contacts) ? body.contacts : []
     if (name.length < 3 || !template || contacts.length === 0 || contacts.length > 50) {
-      return e.json(400, {
-        success: false,
-        code: 'INVALID_CAMPAIGN',
-        error: 'Informe nome, mensagem e entre 1 e 50 contatos validos.',
-      })
+      return apiError(
+        400,
+        'INVALID_CAMPAIGN',
+        'Informe nome, mensagem e entre 1 e 50 oportunidades validas.',
+      )
     }
 
     var normalizedContacts = []
-    var seenKeys = {}
-    for (var index = 0; index < contacts.length; index += 1) {
-      var source = contacts[index] || {}
-      var companyName = sdrOpsCleanText(source.companyName, 200)
-      var contactName = sdrOpsCleanText(source.contactName, 200)
-      var phone = sdrOpsNormalizePhone(source.phone)
-      var email = sdrOpsNormalizeEmail(source.email)
-      var correlationId = sdrOpsCleanText(source.correlationId, 80)
-      var deduplicationKey = sdrOpsCleanText(source.deduplicationKey, 120)
-      var messageBody = sdrOpsCleanText(source.messageBody, 4000)
+    var seenOpportunityIds = {}
+    var seenDeduplicationKeys = {}
+    for (var contactIndex = 0; contactIndex < contacts.length; contactIndex += 1) {
+      var source = contacts[contactIndex] || {}
+      var opportunityId = cleanText(source.opportunityId, 40)
+      var correlationId = cleanText(source.correlationId, 80)
+      var messageBody = cleanText(source.messageBody, 4000)
+      if (!opportunityId || !/^sdr-[a-z0-9]{8}$/i.test(correlationId) || !messageBody) {
+        return apiError(
+          400,
+          'INVALID_CAMPAIGN_CONTACT',
+          'A oportunidade ' + (contactIndex + 1) + ' possui dados invalidos.',
+        )
+      }
+      if (seenOpportunityIds[opportunityId]) {
+        return apiError(
+          409,
+          'DUPLICATE_CAMPAIGN_CONTACT',
+          'A oportunidade foi selecionada mais de uma vez.',
+        )
+      }
 
-      if (
-        source.authorizedForContact !== true ||
-        companyName.length < 2 ||
-        phone.length < 12 ||
-        phone.length > 13 ||
-        (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
-        !/^sdr-[a-z0-9]{8}$/i.test(correlationId) ||
-        !/^phone:\d{10,15}$/.test(deduplicationKey) ||
-        !messageBody
-      ) {
-        return e.json(400, {
-          success: false,
-          code: 'INVALID_CAMPAIGN_CONTACT',
-          error: 'Contato ' + (index + 1) + ' invalido ou sem autorizacao explicita.',
-        })
+      var opportunity = null
+      try {
+        opportunity = $app.findRecordById('opportunities', opportunityId)
+      } catch (_) {
+        return apiError(
+          404,
+          'OPPORTUNITY_NOT_FOUND',
+          'Uma oportunidade selecionada nao existe mais.',
+        )
       }
-      if (seenKeys[deduplicationKey]) {
-        return e.json(409, {
-          success: false,
-          code: 'DUPLICATE_CAMPAIGN_CONTACT',
-          error: 'O mesmo contato aparece mais de uma vez na campanha.',
-        })
+      var stage = opportunity.getString('stage')
+      if (stage === 'Ganho' || stage === 'Perdido') {
+        return apiError(409, 'OPPORTUNITY_CLOSED', 'Uma oportunidade selecionada ja foi encerrada.')
       }
-      seenKeys[deduplicationKey] = true
-      var normalizedContact = {
-        companyName: companyName,
-        contactName: contactName,
-        phone: phone,
-        email: email,
-        correlationId: correlationId,
-        deduplicationKey: deduplicationKey,
-        messageBody: messageBody,
+
+      var phone = normalizePhone(opportunity.getString('contact_phone'))
+      if (phone.length < 12 || phone.length > 13) {
+        return apiError(
+          409,
+          'OPPORTUNITY_PHONE_INVALID',
+          'Uma oportunidade selecionada esta sem WhatsApp valido.',
+        )
       }
-      var openConflict = sdrOpsFindOpenOpportunityConflict($app, normalizedContact)
-      if (openConflict) {
-        return e.json(409, {
-          success: false,
-          code: 'OPEN_OPPORTUNITY_CONFLICT',
-          error:
-            'O contato ' +
-            (index + 1) +
-            ' possui oportunidade aberta relacionada. A campanha foi bloqueada.',
-          conflict: openConflict,
-        })
+      var deduplicationKey = 'phone:' + phone
+      if (seenDeduplicationKeys[deduplicationKey]) {
+        return apiError(
+          409,
+          'DUPLICATE_CAMPAIGN_CONTACT',
+          'O mesmo WhatsApp aparece em mais de uma oportunidade.',
+        )
       }
-      var activeContact = $app.findRecordsByFilter(
+      seenOpportunityIds[opportunityId] = true
+      seenDeduplicationKeys[deduplicationKey] = true
+
+      var activeContacts = $app.findRecordsByFilter(
         'sdr_campaign_contacts',
-        "deduplication_key = '" +
-          deduplicationKey +
-          "' && status != 'concluido' && status != 'falhou'",
+        "opportunity = '" + opportunityId + "' && status != 'concluido' && status != 'falhou'",
         '-created',
         1,
         0,
       )
-      if (activeContact.length) {
-        return e.json(409, {
-          success: false,
-          code: 'ACTIVE_SDR_CONTACT_CONFLICT',
-          error: 'O contato ' + (index + 1) + ' ja esta em uma campanha SDR ativa.',
-        })
+      if (activeContacts.length) {
+        return apiError(
+          409,
+          'ACTIVE_SDR_CONTACT_CONFLICT',
+          'A oportunidade ' + opportunity.getString('company') + ' ja esta em uma campanha ativa.',
+        )
       }
-      normalizedContacts.push(normalizedContact)
+
+      normalizedContacts.push({
+        opportunityId: opportunity.id,
+        companyName: cleanText(opportunity.getString('company'), 200),
+        contactName: cleanText(opportunity.getString('contact_name'), 200) || 'Contato',
+        phone: phone,
+        email: normalizeEmail(opportunity.getString('contact_email')),
+        stage: stage,
+        correlationId: correlationId,
+        deduplicationKey: deduplicationKey,
+        messageBody: messageBody,
+      })
     }
 
     var createdCampaign = null
     try {
       $app.runInTransaction((txApp) => {
-        var campaignCollection = txApp.findCollectionByNameOrId('sdr_campaigns')
-        var contactCollection = txApp.findCollectionByNameOrId('sdr_campaign_contacts')
-        var messageCollection = txApp.findCollectionByNameOrId('sdr_messages')
-        var campaign = new Record(campaignCollection)
+        var campaign = new Record(txApp.findCollectionByNameOrId('sdr_campaigns'))
         campaign.set('name', name)
+        campaign.set('status', 'ativa')
         campaign.set(
-          'status',
-          settings.getString('environment') === 'producao' ? 'ativa' : 'em_revisao',
+          'description',
+          'Fila criada automaticamente a partir das oportunidades abertas do CRM.',
         )
-        campaign.set('description', 'Campanha registrada pelo painel SDR com confirmacao humana.')
         campaign.set('channel', 'whatsapp')
         campaign.set('created_by', authRecord.id)
         campaign.set('owner', authRecord.id)
@@ -346,29 +300,27 @@ routerAdd(
 
         for (var itemIndex = 0; itemIndex < normalizedContacts.length; itemIndex += 1) {
           var item = normalizedContacts[itemIndex]
-          var transactionConflict = sdrOpsFindOpenOpportunityConflict(txApp, item)
-          if (transactionConflict) {
-            throw new Error(
-              'SDR_CAMPAIGN_CONFLICT:' +
-                transactionConflict.opportunityId +
-                ':' +
-                transactionConflict.matchedBy,
-            )
+          var txOpportunity = txApp.findRecordById('opportunities', item.opportunityId)
+          var txStage = txOpportunity.getString('stage')
+          if (txStage === 'Ganho' || txStage === 'Perdido') {
+            throw new Error('SDR_OPPORTUNITY_CLOSED:' + item.opportunityId)
           }
-          var transactionActiveContact = txApp.findRecordsByFilter(
+          var transactionActiveContacts = txApp.findRecordsByFilter(
             'sdr_campaign_contacts',
-            "deduplication_key = '" +
-              item.deduplicationKey +
+            "opportunity = '" +
+              item.opportunityId +
               "' && status != 'concluido' && status != 'falhou'",
             '-created',
             1,
             0,
           )
-          if (transactionActiveContact.length) {
-            throw new Error('SDR_ACTIVE_CONTACT_CONFLICT:' + item.deduplicationKey)
+          if (transactionActiveContacts.length) {
+            throw new Error('SDR_ACTIVE_CONTACT_CONFLICT:' + item.opportunityId)
           }
-          var contact = new Record(contactCollection)
+
+          var contact = new Record(txApp.findCollectionByNameOrId('sdr_campaign_contacts'))
           contact.set('campaign', campaign.id)
+          contact.set('opportunity', item.opportunityId)
           contact.set('company_name', item.companyName)
           contact.set('contact_name', item.contactName)
           contact.set('contact_email', item.email)
@@ -376,16 +328,19 @@ routerAdd(
           contact.set('owner', authRecord.id)
           contact.set('status', 'aprovado')
           contact.set('deduplication_key', item.deduplicationKey)
-          contact.set('requires_human_review', true)
+          contact.set('requires_human_review', false)
           contact.set('source_snapshot', {
-            environment: settings.getString('environment'),
-            authorizedForContact: true,
+            source: 'opportunities',
+            opportunityId: item.opportunityId,
+            stage: item.stage,
+            environment: activeSettings.getString('environment'),
           })
           txApp.save(contact)
 
-          var message = new Record(messageCollection)
+          var message = new Record(txApp.findCollectionByNameOrId('sdr_messages'))
           message.set('campaign', campaign.id)
           message.set('contact', contact.id)
+          message.set('opportunity', item.opportunityId)
           message.set('direction', 'outbound')
           message.set('status', 'aguardando_confirmacao')
           message.set('body', item.messageBody)
@@ -394,48 +349,46 @@ routerAdd(
           txApp.save(message)
         }
 
-        sdrOpsAudit(txApp, {
+        writeAudit(txApp, {
           actorUserId: authRecord.id,
           campaignId: campaign.id,
-          operation: 'sdr_campaign_create',
+          operation: 'sdr_campaign_create_from_opportunities',
           targetCollection: 'sdr_campaigns',
           targetRecordId: campaign.id,
           correlationId: 'sdr-campaign-' + String(Date.now()).slice(-8),
-          newValue: {
-            name: name,
-            status: campaign.getString('status'),
-            contacts: normalizedContacts.length,
-          },
+          newValue: { name: name, status: 'ativa', contacts: normalizedContacts.length },
           metadata: {
-            environment: settings.getString('environment'),
-            humanConfirmed: true,
-            messagesStatus: 'aguardando_confirmacao',
+            environment: activeSettings.getString('environment'),
+            source: 'opportunities',
+            opportunityIds: normalizedContacts.map(function (item) {
+              return item.opportunityId
+            }),
           },
         })
         createdCampaign = campaign
       })
     } catch (error) {
       var errorMessage = error && error.message ? error.message : String(error)
-      if (errorMessage.indexOf('SDR_CAMPAIGN_CONFLICT:') === 0) {
-        return e.json(409, {
-          success: false,
-          code: 'OPEN_OPPORTUNITY_CONFLICT',
-          error: 'Uma oportunidade relacionada surgiu durante a confirmacao. Nada foi salvo.',
-        })
+      if (errorMessage.indexOf('SDR_OPPORTUNITY_CLOSED:') === 0) {
+        return apiError(
+          409,
+          'OPPORTUNITY_CLOSED',
+          'Uma oportunidade foi encerrada durante a criacao da fila.',
+        )
       }
       if (errorMessage.indexOf('SDR_ACTIVE_CONTACT_CONFLICT:') === 0) {
-        return e.json(409, {
-          success: false,
-          code: 'ACTIVE_SDR_CONTACT_CONFLICT',
-          error: 'O contato entrou em outra campanha ativa durante a confirmacao. Nada foi salvo.',
-        })
+        return apiError(
+          409,
+          'ACTIVE_SDR_CONTACT_CONFLICT',
+          'Uma oportunidade entrou em outra campanha ativa.',
+        )
       }
       console.error('Falha ao registrar campanha SDR:', error)
-      return e.json(500, {
-        success: false,
-        code: 'SDR_CAMPAIGN_CREATE_FAILED',
-        error: 'A campanha nao foi registrada. A transacao foi revertida.',
-      })
+      return apiError(
+        500,
+        'SDR_CAMPAIGN_CREATE_FAILED',
+        'A campanha nao foi registrada. A transacao foi revertida.',
+      )
     }
 
     return e.json(201, {
@@ -444,7 +397,7 @@ routerAdd(
       status: createdCampaign.getString('status'),
       contactsCreated: normalizedContacts.length,
       messagesCreated: normalizedContacts.length,
-      message: 'Campanha registrada com fila auditavel aguardando confirmacao de envio.',
+      message: 'Fila do SDR criada com as oportunidades selecionadas e trilha de auditoria.',
     })
   },
   $apis.requireAuth(),

@@ -34,6 +34,7 @@ export interface SdrDashboardSnapshot {
 }
 
 export interface SdrCampaignContactInput {
+  opportunityId?: string
   companyName: string
   contactName?: string
   phone: string
@@ -84,6 +85,7 @@ export interface SdrCampaignPreparationResult {
 }
 
 export interface SdrPreparedMessage {
+  opportunityId?: string
   correlationId: string
   deduplicationKey: string
   phone: string
