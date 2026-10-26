@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SdrActivationPanel } from '@/components/sdr/SdrActivationPanel'
 import { SdrCampaignSimulator } from '@/components/sdr/SdrCampaignSimulator'
 import { getSdrDashboardSnapshot, getSdrFoundationStatus } from '@/services/sdrSettingsService'
 import type { SdrDashboardSnapshot, SdrFoundationStatus } from '@/types/sdr'
@@ -145,6 +146,13 @@ export default function SdrCenter() {
         </section>
       )}
 
+      {status.available && (
+        <SdrActivationPanel
+          settings={status.settings}
+          onSettingsChanged={(settings) => setStatus({ available: true, settings })}
+        />
+      )}
+
       <section aria-label="Indicadores do SDR" className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         {metrics.map((metric) => {
           const Icon = metric.icon
@@ -170,8 +178,8 @@ export default function SdrCenter() {
           <ShieldCheck className="h-6 w-6 text-emerald-500" />
           <h2 className="mt-4 text-lg font-semibold">Protecao do CRM</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            A criacao exige endpoint protegido, homologacao ativa, nova deduplicacao, confirmacao
-            humana e auditoria transacional.
+            A criacao exige endpoint protegido, SDR ativo, nova deduplicacao, confirmacao humana e
+            auditoria transacional.
           </p>
         </div>
         <div className="border border-border bg-card p-5 text-card-foreground">
@@ -220,13 +228,13 @@ export default function SdrCenter() {
           <div>
             <h3 className="text-sm font-semibold">1. Campanha</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Definicao, responsavel e periodo permanecem indisponiveis ate a homologacao.
+              Definicao, responsavel e fila ficam persistidos nas colecoes exclusivas do SDR.
             </p>
           </div>
           <div>
             <h3 className="text-sm font-semibold">2. Contatos autorizados</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Somente numeros de teste autorizados poderao compor a primeira campanha.
+              Somente contatos com autorizacao explicita podem compor uma campanha.
             </p>
           </div>
           <div>
@@ -238,17 +246,22 @@ export default function SdrCenter() {
           <div>
             <h3 className="text-sm font-semibold">4. Preparacao segura</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Normalizacao, autorizacao de teste e deduplicacao estao prontas sem envio real.
+              Normalizacao, autorizacao e deduplicacao sao verificadas antes da persistencia.
             </p>
           </div>
         </div>
       </section>
 
-      <SdrCampaignSimulator foundationAvailable={status.available} settings={status.settings} />
+      <SdrCampaignSimulator
+        foundationAvailable={status.available}
+        settings={status.settings}
+        onCampaignCreated={loadDashboard}
+      />
 
       <section className="border border-dashed border-border px-5 py-4 text-sm text-muted-foreground">
-        A ativacao permanecera indisponivel ate existirem evidencias de backup restaurado,
-        homologacao aprovada e liberacao administrativa explicita.
+        O envio automatico real depende das credenciais e de um template aprovado na Meta. A
+        ausencia dessa integracao nao impede campanhas, fila auditavel ou criacao confirmada de
+        novas oportunidades.
       </section>
     </div>
   )

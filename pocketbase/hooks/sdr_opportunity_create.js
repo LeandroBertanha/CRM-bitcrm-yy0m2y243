@@ -1,9 +1,9 @@
 /**
  * Criacao controlada de oportunidades pelo modulo SDR.
  *
- * A rota permanece restrita a administradores, homologacao, feature flag ativa,
- * confirmacao humana e nova verificacao de duplicidade no servidor. A oportunidade
- * e a auditoria sao persistidas na mesma transacao.
+ * A rota permanece restrita a administradores, feature flag ativa, confirmacao
+ * humana e nova verificacao de duplicidade no servidor. A oportunidade e a
+ * auditoria sao persistidas na mesma transacao em homologacao ou producao.
  */
 
 function sdrCleanText(value, maxLength) {
@@ -209,13 +209,7 @@ routerAdd(
 
     var settings = null
     try {
-      var settingsList = $app.findRecordsByFilter(
-        'sdr_settings',
-        "environment = 'homologacao'",
-        '-created',
-        1,
-        0,
-      )
+      var settingsList = $app.findRecordsByFilter('sdr_settings', "id != ''", '-created', 1, 0)
       settings = settingsList.length ? settingsList[0] : null
     } catch (_) {
       return e.json(409, {
@@ -232,12 +226,13 @@ routerAdd(
         error: 'Configuracao de homologacao do SDR nao encontrada.',
       })
     }
-    if (settings.getString('environment') !== 'homologacao') {
+    var sdrEnvironment = settings.getString('environment')
+    if (sdrEnvironment !== 'homologacao' && sdrEnvironment !== 'producao') {
       return sdrRejectWithAudit(
         e,
         403,
-        'SDR_PRODUCTION_BLOCKED',
-        'Criacao SDR bloqueada fora da homologacao.',
+        'SDR_ENVIRONMENT_INVALID',
+        'O ambiente configurado para o SDR e invalido.',
         context,
       )
     }
@@ -324,7 +319,10 @@ routerAdd(
         opportunity.set('contact_email', payload.contactEmail)
         opportunity.set(
           'message',
-          'Oportunidade criada pelo SDR Inteligente em homologacao. Correlacao: ' + correlationId,
+          'Oportunidade criada pelo SDR Inteligente em ' +
+            sdrEnvironment +
+            '. Correlacao: ' +
+            correlationId,
         )
         txApp.save(opportunity)
 
@@ -335,7 +333,7 @@ routerAdd(
           result: 'success',
           metadata: {
             correlationId: correlationId,
-            environment: 'homologacao',
+            environment: sdrEnvironment,
             humanConfirmed: true,
           },
           newValue: {
@@ -391,7 +389,7 @@ routerAdd(
       success: true,
       idempotent: false,
       opportunityId: createdOpportunity.id,
-      message: 'Oportunidade criada com auditoria em homologacao.',
+      message: 'Oportunidade criada com auditoria em ' + sdrEnvironment + '.',
     })
   },
   $apis.requireAuth(),
