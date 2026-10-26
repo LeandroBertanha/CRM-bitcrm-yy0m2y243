@@ -31,6 +31,7 @@ export interface Product extends RecordModel {
 
 export interface Opportunity extends RecordModel {
   company: string
+  segment?: string
   stage: 'Novo' | 'Qualificado' | 'Agendado' | 'Proposta' | 'Ganho' | 'Perdido'
   source:
     | 'Formulário Público'

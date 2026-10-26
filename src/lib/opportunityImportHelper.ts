@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { Opportunity, STAGES, SOURCES } from '@/types/crm'
+import type { Opportunity, Product } from '@/types/crm'
 
 export type OppTargetField =
   | 'company'
@@ -68,6 +68,15 @@ export interface ProcessedLeadItem {
   duplicateReason?: string
   sourceFile: string
   validationIssues?: string[]
+}
+
+export function buildImportCatalogPayload(product?: Product, segment?: string) {
+  return {
+    segment: segment?.trim() || '',
+    product: product?.id || null,
+    product_name: product?.name || '',
+    recurring_value: product?.recurring_value ?? null,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -169,11 +178,24 @@ export function normalizeStageValue(stageStr: string): Opportunity['stage'] | nu
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
 
-  // Se explicitamente não contatado, sem contato, novo lead -> Novo
+  if (norm.includes('nao contat') || norm.includes('sem contato')) {
+    return 'Novo'
+  }
+
+  // Qualificado precisa ser avaliado antes de "Novo", pois valores como
+  // "Lead Quente" também contêm a palavra genérica "lead".
   if (
-    norm.includes('nao contat') ||
-    norm.includes('não contat') ||
-    norm.includes('sem contato') ||
+    norm.includes('qualific') ||
+    norm.includes('contatad') ||
+    norm.includes('atend') ||
+    norm.includes('quente') ||
+    norm.includes('morno')
+  ) {
+    return 'Qualificado'
+  }
+
+  // Novos leads e valores equivalentes seguem para o início do funil.
+  if (
     norm.includes('novo') ||
     norm.includes('new') ||
     norm.includes('lead') ||
@@ -193,16 +215,6 @@ export function normalizeStageValue(stageStr: string): Opportunity['stage'] | nu
     norm.includes('scheduled')
   ) {
     return 'Agendado'
-  }
-  // Qualificado: contatado, atendido, qualificado, quente, morno
-  if (
-    norm.includes('qualific') ||
-    norm.includes('contatad') ||
-    norm.includes('atend') ||
-    norm.includes('quente') ||
-    norm.includes('morno')
-  ) {
-    return 'Qualificado'
   }
   if (
     norm.includes('propost') ||
@@ -506,6 +518,7 @@ export function normalizeHeaderString(header: string): string {
  * Casa o nome da coluna com o dicionário amplo de sinônimos (pt-BR e en)
  */
 export function matchHeaderByKeyword(header: string): OppTargetField | null {
+  if (header.trim() === '#') return 'ignore'
   const norm = normalizeHeaderString(header)
 
   // Ignorar IDs e numerações técnicas
