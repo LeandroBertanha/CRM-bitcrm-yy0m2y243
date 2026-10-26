@@ -197,6 +197,12 @@
           "system": false
         },
         {
+          "name": "segment",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
           "name": "return_at",
           "type": "date",
           "required": false,

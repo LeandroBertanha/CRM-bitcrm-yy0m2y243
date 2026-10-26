@@ -2181,6 +2181,7 @@ export default function Opportunities() {
         currentUserId={user?.id}
         existingOpportunities={opportunities}
         sellersList={sellersList}
+        productsList={productsList}
       />
 
       {/* Modal de Disparo Assistido em Lote via WhatsApp */}

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useMemo } from 'react'
 import pb from '@/lib/pocketbase/client'
 import { STAGES, SOURCES, Opportunity } from '@/types/crm'
+import type { Product } from '@/types/crm'
+import type { PlaybookSegment } from '@/types/playbook'
 import {
   ParsedSheetData,
   OppTargetField,
@@ -14,6 +16,7 @@ import {
   normalizeSourceValue,
   parseCurrencyValue,
   matchSellerByName,
+  buildImportCatalogPayload,
 } from '@/lib/opportunityImportHelper'
 import {
   Dialog,
@@ -54,6 +57,7 @@ import {
   Eye,
   Check,
   RotateCcw,
+  Package,
 } from 'lucide-react'
 
 export interface ImportOpportunitiesModalProps {
@@ -64,6 +68,7 @@ export interface ImportOpportunitiesModalProps {
   currentUserId?: string
   existingOpportunities: Opportunity[]
   sellersList: { id: string; name?: string; email: string }[]
+  productsList: Product[]
   initialDroppedFile?: File | null
   onClearInitialDroppedFile?: () => void
 }
@@ -76,6 +81,7 @@ export function ImportOpportunitiesModal({
   currentUserId,
   existingOpportunities,
   sellersList,
+  productsList,
   initialDroppedFile,
   onClearInitialDroppedFile,
 }: ImportOpportunitiesModalProps) {
@@ -102,6 +108,10 @@ export function ImportOpportunitiesModal({
   const [defaultStage, setDefaultStage] = useState<Opportunity['stage']>('Novo')
   const [defaultSource, setDefaultSource] = useState<Opportunity['source']>('Prospecção')
   const [defaultValue, setDefaultValue] = useState<string>('500')
+  const [defaultProductId, setDefaultProductId] = useState<string>('')
+  const [defaultSegment, setDefaultSegment] = useState<string>('')
+  const [segmentsList, setSegmentsList] = useState<PlaybookSegment[]>([])
+  const [segmentsLoadError, setSegmentsLoadError] = useState<string | null>(null)
   const [skipDuplicates, setSkipDuplicates] = useState<boolean>(true)
 
   // Filtro na visualização da validação (todas, com aviso, duplicadas)
@@ -131,6 +141,33 @@ export function ImportOpportunitiesModal({
       setAssignedSellerId(currentUserId)
     }
   }, [currentUserId, assignedSellerId])
+
+  React.useEffect(() => {
+    if (!open) return
+
+    let cancelled = false
+    const loadSegments = async () => {
+      setSegmentsLoadError(null)
+      try {
+        const records = await pb.collection('playbook_segments').getFullList<PlaybookSegment>({
+          filter: 'is_active = true',
+          sort: 'display_order,name',
+        })
+        if (!cancelled) setSegmentsList(records)
+      } catch (err) {
+        console.error('Erro ao carregar categorias da importação:', err)
+        if (!cancelled) {
+          setSegmentsList([])
+          setSegmentsLoadError('Não foi possível carregar as categorias. Tente abrir novamente.')
+        }
+      }
+    }
+
+    loadSegments()
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   // Arquivo arrastado de fora diretamente no kanban
   React.useEffect(() => {
@@ -479,6 +516,7 @@ export function ImportOpportunitiesModal({
 
     const fallbackNumericValue = parseFloat(defaultValue.replace(',', '.')) || 500
     const finalFallbackSellerId = assignedSellerId || currentUserId || ''
+    const selectedProduct = productsList.find((product) => product.id === defaultProductId)
 
     let successCount = 0
     let errorCount = 0
@@ -513,6 +551,7 @@ export function ImportOpportunitiesModal({
       contact_email: lead.contact_email || '',
       contact_phone: lead.contact_phone || '',
       city: lead.city || '',
+      ...buildImportCatalogPayload(selectedProduct, defaultSegment),
       message: lead.fullMessage || '',
       payment_type: null,
       payment_installments: null,
@@ -1027,6 +1066,62 @@ export function ImportOpportunitiesModal({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-300 flex items-center gap-1.5">
+                      <Package className="w-3 h-3 text-gray-400" />
+                      Produto Padrão
+                    </Label>
+                    <Select
+                      value={defaultProductId || '__none__'}
+                      onValueChange={(value) => {
+                        const productId = value === '__none__' ? '' : value
+                        setDefaultProductId(productId)
+                        const product = productsList.find((item) => item.id === productId)
+                        if (product) setDefaultValue(String(product.setup_value))
+                      }}
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-9 rounded-xl">
+                        <SelectValue placeholder="Selecione o produto" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs">
+                        <SelectItem value="__none__">Não definido</SelectItem>
+                        {productsList.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-300 flex items-center gap-1.5">
+                      <Tag className="w-3 h-3 text-gray-400" />
+                      Categoria / Segmento
+                    </Label>
+                    <Select
+                      value={defaultSegment || '__none__'}
+                      onValueChange={(value) =>
+                        setDefaultSegment(value === '__none__' ? '' : value)
+                      }
+                    >
+                      <SelectTrigger className="bg-[#12141A] border-[#262A33] text-white text-xs h-9 rounded-xl">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#12141A] border-[#262A33] text-white text-xs max-h-60">
+                        <SelectItem value="__none__">Nenhuma / Geral</SelectItem>
+                        {segmentsList.map((segment) => (
+                          <SelectItem key={segment.id} value={segment.name}>
+                            {segment.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {segmentsLoadError && (
+                      <p className="text-[10px] text-rose-400">{segmentsLoadError}</p>
+                    )}
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label className="text-xs text-gray-300 flex items-center gap-1.5">
                       <User className="w-3 h-3 text-gray-400" />

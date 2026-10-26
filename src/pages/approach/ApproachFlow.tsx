@@ -323,19 +323,23 @@ export default function ApproachFlow() {
         if (p) setSelectedProductId(p.id)
       }
 
-      // 1. Tentar buscar segmento de sessão prévia em approach_sessions
-      let finalSegment = ''
+      // 1. Usar a categoria/segmento já gravada na oportunidade.
+      let finalSegment = opp.segment?.trim() || ''
+
+      // 2. Se ausente, tentar recuperar segmento de sessão prévia em approach_sessions.
       try {
-        const prevSessions = await getApproachSessions({ opportunityId: opp.id })
-        const sessionWithSeg = prevSessions.find((s) => s.segment && s.segment.trim().length > 0)
-        if (sessionWithSeg?.segment) {
-          finalSegment = sessionWithSeg.segment.trim()
+        if (!finalSegment) {
+          const prevSessions = await getApproachSessions({ opportunityId: opp.id })
+          const sessionWithSeg = prevSessions.find((s) => s.segment && s.segment.trim().length > 0)
+          if (sessionWithSeg?.segment) {
+            finalSegment = sessionWithSeg.segment.trim()
+          }
         }
       } catch {
         // fallback
       }
 
-      // 2. Se não houver sessão prévia com segmento, inferir por palavras-chave
+      // 3. Se não houver categoria nem sessão prévia, inferir por palavras-chave.
       if (!finalSegment) {
         finalSegment = inferSegmentFromOpportunity({
           company: opp.company,

@@ -11,9 +11,38 @@ import {
   detectDelimiter,
   parseDelimitedText,
   detectHeaderRow,
+  buildImportCatalogPayload,
 } from '@/lib/opportunityImportHelper'
+import type { Product } from '@/types/crm'
 
 describe('Normalizador de Importação de Oportunidades (opportunityImportHelper)', () => {
+  describe('Produto e categoria padrão da importação', () => {
+    it('monta o vínculo do produto e preserva a categoria escolhida', () => {
+      const product = {
+        id: 'product_whatsapp',
+        name: 'WhatsApp Autônomo e Humanizado',
+        setup_value: 350,
+        recurring_value: 69.9,
+      } as Product
+
+      expect(buildImportCatalogPayload(product, 'Clínica')).toEqual({
+        segment: 'Clínica',
+        product: 'product_whatsapp',
+        product_name: 'WhatsApp Autônomo e Humanizado',
+        recurring_value: 69.9,
+      })
+    })
+
+    it('mantém campos neutros quando produto e categoria não forem definidos', () => {
+      expect(buildImportCatalogPayload(undefined, '  ')).toEqual({
+        segment: '',
+        product: null,
+        product_name: '',
+        recurring_value: null,
+      })
+    })
+  })
+
   describe('Normalização de Estágio (normalizeStageValue)', () => {
     it('mapeia variações de "Novo" corretamente', () => {
       expect(normalizeStageValue('Novo')).toBe('Novo')
