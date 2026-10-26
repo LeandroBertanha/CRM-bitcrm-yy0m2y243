@@ -7,238 +7,250 @@
  * Este arquivo deve ser implantado como hook do Skip Cloud, não apenas no frontend.
  */
 
-function commissionSaasIsAdmin(auth) {
-  if (!auth) return false
-  var email = auth.getString('email').toLowerCase()
-  return (
-    auth.getString('role') === 'admin' ||
-    email === 'leandro.bertanha@lbertanha.com' ||
-    email === 'leandro.bertanha@gmail.com'
-  )
-}
-
-function commissionSaasText(value, maxLength) {
-  return String(value || '')
-    .trim()
-    .slice(0, maxLength)
-}
-
-function commissionSaasInt(value, maxValue) {
-  var parsed = Math.round(Number(value) || 0)
-  return Math.min(maxValue || 999999999999, Math.max(0, parsed))
-}
-
-function commissionSaasFraction(value) {
-  return Math.min(1, Math.max(0, Number(value) || 0))
-}
-
-function commissionSaasJson(value, fallback) {
-  if (value === null || value === undefined || value === '') return fallback
-  if (typeof value !== 'string') return value
-  try {
-    return JSON.parse(value)
-  } catch (_) {
-    return fallback
-  }
-}
-
-function commissionSaasActivePolicy(app) {
-  var records = app.findRecordsByFilter(
-    'saas_commission_policies',
-    'is_active = true',
-    '-policy_version',
-    1,
-    0,
-  )
-  return records.length ? records[0] : null
-}
-
-function commissionSaasPolicyPayload(policy) {
-  return {
-    id: policy.id,
-    name: policy.getString('name'),
-    policy_version: policy.getInt('policy_version'),
-    tiers: commissionSaasJson(policy.get('tiers'), []),
-    recurring_percentage: Number(policy.get('recurring_percentage')) || 0,
-    recurring_eligible_months: policy.getInt('recurring_eligible_months'),
-    min_margin_percentage: Number(policy.get('min_margin_percentage')) || 0,
-    notes: policy.getString('notes'),
-    is_active: policy.getBool('is_active'),
-  }
-}
-
-function commissionSaasValidateTiers(rawTiers) {
-  var source = commissionSaasJson(rawTiers, [])
-  if (!Array.isArray(source) || source.length === 0 || source.length > 20) return null
-  var tiers = []
-  for (var index = 0; index < source.length; index += 1) {
-    var item = source[index] || {}
-    var minimum = commissionSaasInt(item.min_value)
-    var maximum = item.max_value === null ? null : commissionSaasInt(item.max_value)
-    var percentage = commissionSaasFraction(item.percentage)
-    if (!percentage || (maximum !== null && maximum < minimum)) return null
-    tiers.push({
-      min_value: minimum,
-      max_value: maximum,
-      percentage: percentage,
-      label: commissionSaasText(item.label, 160) || 'Faixa ' + String(index + 1),
-    })
-  }
-  tiers.sort(function (a, b) {
-    return a.min_value - b.min_value
-  })
-  return tiers
-}
-
-function commissionSaasMatchTier(valueCents, tiers) {
-  for (var index = 0; index < tiers.length; index += 1) {
-    var tier = tiers[index]
-    if (valueCents >= tier.min_value && (tier.max_value === null || valueCents <= tier.max_value)) {
-      return tier
-    }
-  }
-  return tiers.length ? tiers[tiers.length - 1] : null
-}
-
-function commissionSaasFindException(app, sellerId, scope) {
-  var records = app.findRecordsByFilter(
-    'saas_commission_exceptions',
-    "seller = '" + sellerId + "' && applies_to = '" + scope + "' && is_active = true",
-    '-created',
-    100,
-    0,
-  )
-  var now = new Date().toISOString()
-  for (var index = 0; index < records.length; index += 1) {
-    var record = records[index]
-    var from = record.getString('valid_from')
-    var until = record.getString('valid_until')
-    if ((!from || from <= now) && (!until || until >= now)) return record
-  }
-  return null
-}
-
-function commissionSaasCalculate(app, body, policy, sellerId) {
-  var contract = commissionSaasInt(body.contractValueCents)
-  var monthly = commissionSaasInt(body.recurringMonthlyCents)
-  var costs = commissionSaasInt(body.directCostsCents)
-  var recurringCosts = commissionSaasInt(body.recurringCostsCents)
-  var taxes = commissionSaasInt(body.taxesCents)
-  var hostingModel = commissionSaasText(body.hostingModel, 40)
-  var tiers = commissionSaasValidateTiers(policy.get('tiers')) || []
-  var tier = commissionSaasMatchTier(contract, tiers)
-  var developmentException = commissionSaasFindException(app, sellerId, 'development')
-  var recurringException = commissionSaasFindException(app, sellerId, 'recurring')
-  var commissionType = 'percentage'
-  var developmentPercentage = tier ? Number(tier.percentage) || 0 : 0
-  var developmentCommission = 0
-
-  if (developmentException && developmentException.getString('exception_type') === 'fixed_value') {
-    commissionType = 'fixed_value'
-    developmentCommission = commissionSaasInt(developmentException.get('fixed_value_cents'))
-    developmentPercentage = 0
-  } else {
-    if (developmentException && developmentException.getString('exception_type') === 'percentage') {
-      developmentPercentage = commissionSaasFraction(developmentException.get('percentage'))
-    }
-    developmentCommission = Math.round(contract * developmentPercentage)
-  }
-
-  var recurringAllowed = hostingModel !== 'client_cloud'
-  var eligibleMonths = recurringAllowed
-    ? commissionSaasInt(policy.get('recurring_eligible_months'), 120)
-    : 0
-  var recurringPerMonth = 0
-  if (monthly > 0 && eligibleMonths > 0) {
-    if (recurringException && recurringException.getString('exception_type') === 'fixed_value') {
-      recurringPerMonth = commissionSaasInt(recurringException.get('fixed_value_cents'))
-    } else {
-      var recurringPercentage = recurringException
-        ? commissionSaasFraction(recurringException.get('percentage'))
-        : commissionSaasFraction(policy.get('recurring_percentage'))
-      recurringPerMonth = Math.round(monthly * recurringPercentage)
-    }
-  }
-  var recurringPotential = recurringPerMonth * eligibleMonths
-  var netRevenue = Math.max(0, contract + monthly * eligibleMonths - taxes)
-  var totalCommission = developmentCommission + recurringPotential
-  var totalCosts = costs + recurringCosts * eligibleMonths
-  var margin = netRevenue > 0 ? (netRevenue - totalCosts - totalCommission) / netRevenue : -1
-  var minMargin = Number(policy.get('min_margin_percentage')) || 0
-
-  return {
-    tier: tier,
-    commissionType: commissionType,
-    developmentPercentage: developmentPercentage,
-    developmentCommissionCents: developmentCommission,
-    recurringEligibleMonths: eligibleMonths,
-    recurringCommissionPerMonthCents: recurringPerMonth,
-    recurringCommissionPotentialCents: recurringPotential,
-    totalPotentialCents: totalCommission,
-    netRevenueCents: netRevenue,
-    marginPercentage: margin,
-    requiresApproval: margin < minMargin,
-    developmentExceptionId: developmentException ? developmentException.id : '',
-    recurringExceptionId: recurringException ? recurringException.id : '',
-  }
-}
-
-function commissionSaasAddMonths(date, months) {
-  var result = new Date(date)
-  result.setUTCMonth(result.getUTCMonth() + months)
-  return result.toISOString()
-}
-
-function commissionSaasBuildPlan(body, calc) {
-  var contract = commissionSaasInt(body.contractValueCents)
-  var installments = Math.min(60, Math.max(1, commissionSaasInt(body.installmentsCount, 60)))
-  var base = Math.floor(contract / installments)
-  var remainder = contract - base * installments
-  var firstDate = body.firstDueDate ? new Date(body.firstDueDate) : new Date()
-  if (isNaN(firstDate.getTime())) firstDate = new Date()
-  var plan = []
-  for (var index = 0; index < installments; index += 1) {
-    plan.push({
-      kind: 'development',
-      installmentNumber: index + 1,
-      amountCents: base + (index < remainder ? 1 : 0),
-      expectedDate: commissionSaasAddMonths(firstDate, index),
-    })
-  }
-  var monthly = commissionSaasInt(body.recurringMonthlyCents)
-  for (var month = 0; month < calc.recurringEligibleMonths; month += 1) {
-    plan.push({
-      kind: 'recurring',
-      installmentNumber: month + 1,
-      amountCents: monthly,
-      expectedDate: commissionSaasAddMonths(firstDate, month),
-    })
-  }
-  return plan
-}
-
-function commissionSaasEvent(app, data) {
-  var event = new Record(app.findCollectionByNameOrId('saas_commission_events'))
-  event.set('commission', data.commissionId)
-  event.set('seller', data.sellerId)
-  event.set('actor', data.actorId)
-  event.set('event_type', data.eventType)
-  if (data.amountCents) event.set('amount_cents', data.amountCents)
-  if (data.receivableId) event.set('receivable', data.receivableId)
-  event.set('description', commissionSaasText(data.description, 2000))
-  event.set('metadata', data.metadata || {})
-  app.save(event)
-  return event
-}
-
-function commissionSaasError(e, status, code, message) {
-  return e.json(status, { ok: false, code: code, error: message })
-}
-
 routerAdd(
   'POST',
   '/backend/v1/commissions/saas/{action}',
   (e) => {
+    function commissionSaasIsAdmin(auth) {
+      if (!auth) return false
+      var email = auth.getString('email').toLowerCase()
+      return (
+        auth.getString('role') === 'admin' ||
+        email === 'leandro.bertanha@lbertanha.com' ||
+        email === 'leandro.bertanha@gmail.com'
+      )
+    }
+
+    function commissionSaasText(value, maxLength) {
+      return String(value || '')
+        .trim()
+        .slice(0, maxLength)
+    }
+
+    function commissionSaasInt(value, maxValue) {
+      var parsed = Math.round(Number(value) || 0)
+      return Math.min(maxValue || 999999999999, Math.max(0, parsed))
+    }
+
+    function commissionSaasFraction(value) {
+      return Math.min(1, Math.max(0, Number(value) || 0))
+    }
+
+    function commissionSaasJson(value, fallback) {
+      if (value === null || value === undefined || value === '') return fallback
+      if (typeof value !== 'string') return value
+      try {
+        return JSON.parse(value)
+      } catch (_) {
+        return fallback
+      }
+    }
+
+    function commissionSaasActivePolicy(app) {
+      var records = app.findRecordsByFilter(
+        'saas_commission_policies',
+        'is_active = true',
+        '-policy_version',
+        1,
+        0,
+      )
+      return records.length ? records[0] : null
+    }
+
+    function commissionSaasPolicyPayload(policy) {
+      return {
+        id: policy.id,
+        name: policy.getString('name'),
+        policy_version: policy.getInt('policy_version'),
+        tiers: commissionSaasJson(policy.get('tiers'), []),
+        recurring_percentage: Number(policy.get('recurring_percentage')) || 0,
+        recurring_eligible_months: policy.getInt('recurring_eligible_months'),
+        min_margin_percentage: Number(policy.get('min_margin_percentage')) || 0,
+        notes: policy.getString('notes'),
+        is_active: policy.getBool('is_active'),
+      }
+    }
+
+    function commissionSaasValidateTiers(rawTiers) {
+      var source = commissionSaasJson(rawTiers, [])
+      if (!Array.isArray(source) || source.length === 0 || source.length > 20) return null
+      var tiers = []
+      for (var index = 0; index < source.length; index += 1) {
+        var item = source[index] || {}
+        var minimum = commissionSaasInt(item.min_value)
+        var maximum = item.max_value === null ? null : commissionSaasInt(item.max_value)
+        var percentage = commissionSaasFraction(item.percentage)
+        if (!percentage || (maximum !== null && maximum < minimum)) return null
+        tiers.push({
+          min_value: minimum,
+          max_value: maximum,
+          percentage: percentage,
+          label: commissionSaasText(item.label, 160) || 'Faixa ' + String(index + 1),
+        })
+      }
+      tiers.sort(function (a, b) {
+        return a.min_value - b.min_value
+      })
+      return tiers
+    }
+
+    function commissionSaasMatchTier(valueCents, tiers) {
+      for (var index = 0; index < tiers.length; index += 1) {
+        var tier = tiers[index]
+        if (
+          valueCents >= tier.min_value &&
+          (tier.max_value === null || valueCents <= tier.max_value)
+        ) {
+          return tier
+        }
+      }
+      return tiers.length ? tiers[tiers.length - 1] : null
+    }
+
+    function commissionSaasFindException(app, sellerId, scope) {
+      var records = app.findRecordsByFilter(
+        'saas_commission_exceptions',
+        "seller = '" + sellerId + "' && applies_to = '" + scope + "' && is_active = true",
+        '-created',
+        100,
+        0,
+      )
+      var now = new Date().toISOString()
+      for (var index = 0; index < records.length; index += 1) {
+        var record = records[index]
+        var from = record.getString('valid_from')
+        var until = record.getString('valid_until')
+        if ((!from || from <= now) && (!until || until >= now)) return record
+      }
+      return null
+    }
+
+    function commissionSaasCalculate(app, body, policy, sellerId) {
+      var contract = commissionSaasInt(body.contractValueCents)
+      var monthly = commissionSaasInt(body.recurringMonthlyCents)
+      var costs = commissionSaasInt(body.directCostsCents)
+      var recurringCosts = commissionSaasInt(body.recurringCostsCents)
+      var taxes = commissionSaasInt(body.taxesCents)
+      var hostingModel = commissionSaasText(body.hostingModel, 40)
+      var tiers = commissionSaasValidateTiers(policy.get('tiers')) || []
+      var tier = commissionSaasMatchTier(contract, tiers)
+      var developmentException = commissionSaasFindException(app, sellerId, 'development')
+      var recurringException = commissionSaasFindException(app, sellerId, 'recurring')
+      var commissionType = 'percentage'
+      var developmentPercentage = tier ? Number(tier.percentage) || 0 : 0
+      var developmentCommission = 0
+
+      if (
+        developmentException &&
+        developmentException.getString('exception_type') === 'fixed_value'
+      ) {
+        commissionType = 'fixed_value'
+        developmentCommission = commissionSaasInt(developmentException.get('fixed_value_cents'))
+        developmentPercentage = 0
+      } else {
+        if (
+          developmentException &&
+          developmentException.getString('exception_type') === 'percentage'
+        ) {
+          developmentPercentage = commissionSaasFraction(developmentException.get('percentage'))
+        }
+        developmentCommission = Math.round(contract * developmentPercentage)
+      }
+
+      var recurringAllowed = hostingModel !== 'client_cloud'
+      var eligibleMonths = recurringAllowed
+        ? commissionSaasInt(policy.get('recurring_eligible_months'), 120)
+        : 0
+      var recurringPerMonth = 0
+      if (monthly > 0 && eligibleMonths > 0) {
+        if (
+          recurringException &&
+          recurringException.getString('exception_type') === 'fixed_value'
+        ) {
+          recurringPerMonth = commissionSaasInt(recurringException.get('fixed_value_cents'))
+        } else {
+          var recurringPercentage = recurringException
+            ? commissionSaasFraction(recurringException.get('percentage'))
+            : commissionSaasFraction(policy.get('recurring_percentage'))
+          recurringPerMonth = Math.round(monthly * recurringPercentage)
+        }
+      }
+      var recurringPotential = recurringPerMonth * eligibleMonths
+      var netRevenue = Math.max(0, contract + monthly * eligibleMonths - taxes)
+      var totalCommission = developmentCommission + recurringPotential
+      var totalCosts = costs + recurringCosts * eligibleMonths
+      var margin = netRevenue > 0 ? (netRevenue - totalCosts - totalCommission) / netRevenue : -1
+      var minMargin = Number(policy.get('min_margin_percentage')) || 0
+
+      return {
+        tier: tier,
+        commissionType: commissionType,
+        developmentPercentage: developmentPercentage,
+        developmentCommissionCents: developmentCommission,
+        recurringEligibleMonths: eligibleMonths,
+        recurringCommissionPerMonthCents: recurringPerMonth,
+        recurringCommissionPotentialCents: recurringPotential,
+        totalPotentialCents: totalCommission,
+        netRevenueCents: netRevenue,
+        marginPercentage: margin,
+        requiresApproval: margin < minMargin,
+        developmentExceptionId: developmentException ? developmentException.id : '',
+        recurringExceptionId: recurringException ? recurringException.id : '',
+      }
+    }
+
+    function commissionSaasAddMonths(date, months) {
+      var result = new Date(date)
+      result.setUTCMonth(result.getUTCMonth() + months)
+      return result.toISOString()
+    }
+
+    function commissionSaasBuildPlan(body, calc) {
+      var contract = commissionSaasInt(body.contractValueCents)
+      var installments = Math.min(60, Math.max(1, commissionSaasInt(body.installmentsCount, 60)))
+      var base = Math.floor(contract / installments)
+      var remainder = contract - base * installments
+      var firstDate = body.firstDueDate ? new Date(body.firstDueDate) : new Date()
+      if (isNaN(firstDate.getTime())) firstDate = new Date()
+      var plan = []
+      for (var index = 0; index < installments; index += 1) {
+        plan.push({
+          kind: 'development',
+          installmentNumber: index + 1,
+          amountCents: base + (index < remainder ? 1 : 0),
+          expectedDate: commissionSaasAddMonths(firstDate, index),
+        })
+      }
+      var monthly = commissionSaasInt(body.recurringMonthlyCents)
+      for (var month = 0; month < calc.recurringEligibleMonths; month += 1) {
+        plan.push({
+          kind: 'recurring',
+          installmentNumber: month + 1,
+          amountCents: monthly,
+          expectedDate: commissionSaasAddMonths(firstDate, month),
+        })
+      }
+      return plan
+    }
+
+    function commissionSaasEvent(app, data) {
+      var event = new Record(app.findCollectionByNameOrId('saas_commission_events'))
+      event.set('commission', data.commissionId)
+      event.set('seller', data.sellerId)
+      event.set('actor', data.actorId)
+      event.set('event_type', data.eventType)
+      if (data.amountCents) event.set('amount_cents', data.amountCents)
+      if (data.receivableId) event.set('receivable', data.receivableId)
+      event.set('description', commissionSaasText(data.description, 2000))
+      event.set('metadata', data.metadata || {})
+      app.save(event)
+      return event
+    }
+
+    function commissionSaasError(e, status, code, message) {
+      return e.json(status, { ok: false, code: code, error: message })
+    }
+
     var auth = e.auth
     var action = commissionSaasText(e.request.pathValue('action'), 60)
     var body = e.requestInfo().body || {}
