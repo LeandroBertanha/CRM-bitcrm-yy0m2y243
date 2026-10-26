@@ -44,6 +44,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { canAccessSdr } from '@/lib/sdrAccess'
 
 export default function Layout() {
   const { user, isAdmin, signOut, isLoading } = useAuth()
@@ -132,8 +133,10 @@ export default function Layout() {
       ? [
           { label: 'Métricas da Equipe', to: '/metricas', icon: BarChart3 },
           { label: 'Usuários', to: '/usuarios', icon: Users },
-          { label: 'SDR Inteligente', to: '/sdr', icon: Bot },
         ]
+      : []),
+    ...(isAdmin && canAccessSdr(user?.email)
+      ? [{ label: 'SDR Inteligente', to: '/sdr', icon: Bot }]
       : []),
     { label: 'Formulário', to: '/formulario', icon: QrCode },
   ]

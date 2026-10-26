@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { ThemeProvider } from '@/components/theme-provider'
 import { THEME_STORAGE_KEY } from '@/lib/theme'
+import { canAccessSdr } from '@/lib/sdrAccess'
 
 import Index from './pages/Index'
 import Login from './pages/Login'
@@ -90,6 +91,17 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAdmin) {
+    return <Navigate to="/painel" replace />
+  }
+
+  return <>{children}</>
+}
+
+// Restrição temporária adicional: o SDR fica disponível apenas para o usuário proprietário.
+const SdrOwnerRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth()
+
+  if (!canAccessSdr(user?.email)) {
     return <Navigate to="/painel" replace />
   }
 
@@ -255,7 +267,9 @@ const App = () => (
                 path="/sdr"
                 element={
                   <AdminRoute>
-                    <SdrCenter />
+                    <SdrOwnerRoute>
+                      <SdrCenter />
+                    </SdrOwnerRoute>
                   </AdminRoute>
                 }
               />
