@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T19:19:53.705Z",
+  "generatedAt": "2026-10-26T17:04:08.451Z",
   "collections": [
     {
       "name": "users",
@@ -29,21 +29,29 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "role",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["admin", "seller"]
+          "selectValues": [
+            "admin",
+            "seller"
+          ]
         },
         {
           "name": "mustChangePassword",
@@ -109,7 +117,14 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Novo", "Qualificado", "Agendado", "Proposta", "Ganho", "Perdido"]
+          "selectValues": [
+            "Novo",
+            "Qualificado",
+            "Agendado",
+            "Proposta",
+            "Ganho",
+            "Perdido"
+          ]
         },
         {
           "name": "source",
@@ -168,21 +183,30 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "payment_type",
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["Débito", "PIX", "Parcelado"]
+          "selectValues": [
+            "Débito",
+            "PIX",
+            "Parcelado"
+          ]
         },
         {
           "name": "payment_installments",
@@ -259,7 +283,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["ligacao", "whatsapp", "reuniao", "nota", "outro"]
+          "selectValues": [
+            "ligacao",
+            "whatsapp",
+            "reuniao",
+            "nota",
+            "outro"
+          ]
         },
         {
           "name": "text",
@@ -278,14 +308,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -352,17 +387,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"]
+      "indexes": [
+        "CREATE INDEX idx_commission_settings_active ON commission_settings (is_active)"
+      ]
     },
     {
       "name": "commission_tiers",
@@ -422,14 +464,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -471,17 +518,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_segments_order ON playbook_segments (display_order)"
+      ]
     },
     {
       "name": "playbook_scripts",
@@ -499,7 +553,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+          "selectValues": [
+            "Telefone",
+            "Presencial",
+            "WhatsApp",
+            "Reunião",
+            "Retorno"
+          ]
         },
         {
           "name": "situation",
@@ -542,14 +602,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -585,7 +650,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["diagnóstico", "qualificação", "fluxo"]
+          "selectValues": [
+            "diagnóstico",
+            "qualificação",
+            "fluxo"
+          ]
         },
         {
           "name": "text",
@@ -622,14 +691,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -708,17 +782,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_answers_order ON playbook_answers (display_order)"
+      ]
     },
     {
       "name": "playbook_objections",
@@ -772,14 +853,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -839,14 +925,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -862,7 +953,9 @@
           "system": false
         }
       ],
-      "indexes": ["CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"]
+      "indexes": [
+        "CREATE INDEX idx_playbook_arguments_order ON playbook_arguments (display_order)"
+      ]
     },
     {
       "name": "playbook_values",
@@ -922,14 +1015,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -993,14 +1091,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "product",
@@ -1074,7 +1177,13 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["Telefone", "Presencial", "WhatsApp", "Reunião", "Retorno"]
+          "selectValues": [
+            "Telefone",
+            "Presencial",
+            "WhatsApp",
+            "Reunião",
+            "Retorno"
+          ]
         },
         {
           "name": "segment",
@@ -1115,7 +1224,11 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["frio", "morno", "quente"]
+          "selectValues": [
+            "frio",
+            "morno",
+            "quente"
+          ]
         },
         {
           "name": "temperature_reason",
@@ -1200,14 +1313,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1281,14 +1399,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": []
@@ -1363,17 +1486,24 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_products_active ON products (is_active)"]
+      "indexes": [
+        "CREATE INDEX idx_products_active ON products (is_active)"
+      ]
     },
     {
       "name": "sdr_settings",
@@ -1415,7 +1545,10 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["homologacao", "producao"]
+          "selectValues": [
+            "homologacao",
+            "producao"
+          ]
         },
         {
           "name": "created_by",
@@ -1435,14 +1568,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": []
@@ -1490,7 +1628,9 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["whatsapp"]
+          "selectValues": [
+            "whatsapp"
+          ]
         },
         {
           "name": "created_by",
@@ -1523,14 +1663,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1631,14 +1776,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1684,7 +1834,10 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["outbound", "inbound"]
+          "selectValues": [
+            "outbound",
+            "inbound"
+          ]
         },
         {
           "name": "status",
@@ -1759,14 +1912,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1835,10 +1993,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         }
       ],
-      "indexes": ["CREATE INDEX idx_sdr_scores_contact ON sdr_scores (contact)"]
+      "indexes": [
+        "CREATE INDEX idx_sdr_scores_contact ON sdr_scores (contact)"
+      ]
     },
     {
       "name": "sdr_tasks",
@@ -1896,7 +2058,12 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["pendente", "em_andamento", "concluida", "cancelada"]
+          "selectValues": [
+            "pendente",
+            "em_andamento",
+            "concluida",
+            "cancelada"
+          ]
         },
         {
           "name": "due_at",
@@ -1915,14 +2082,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -1967,7 +2139,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["user", "ai", "system"]
+          "selectValues": [
+            "user",
+            "ai",
+            "system"
+          ]
         },
         {
           "name": "agent_name",
@@ -1998,7 +2174,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["success", "rejected", "error"]
+          "selectValues": [
+            "success",
+            "rejected",
+            "error"
+          ]
         },
         {
           "name": "metadata",
@@ -2041,12 +2221,740 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         }
       ],
       "indexes": [
         "CREATE INDEX idx_sdr_audit_event ON sdr_audit_logs (event_at DESC)",
         "CREATE INDEX idx_sdr_audit_correlation ON sdr_audit_logs (correlation_id)"
+      ]
+    },
+    {
+      "name": "saas_commission_policies",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "policy_version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tiers",
+          "type": "json",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recurring_percentage",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recurring_eligible_months",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "min_margin_percentage",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_saas_policies_active ON saas_commission_policies (is_active)",
+        "CREATE INDEX idx_saas_policies_version ON saas_commission_policies (policy_version)"
+      ]
+    },
+    {
+      "name": "saas_commission_exceptions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "exception_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "percentage",
+            "fixed_value"
+          ]
+        },
+        {
+          "name": "percentage",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fixed_value_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "applies_to",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "development",
+            "recurring"
+          ]
+        },
+        {
+          "name": "valid_from",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "valid_until",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "approved_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approved_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_saas_exceptions_seller ON saas_commission_exceptions (seller)",
+        "CREATE INDEX idx_saas_exceptions_active ON saas_commission_exceptions (is_active)"
+      ]
+    },
+    {
+      "name": "saas_commissions",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "client_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "opportunity",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "opportunities"
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "system_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "system_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "hosting_model",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "bit_cloud",
+            "client_cloud",
+            "client_cloud_support",
+            "hybrid"
+          ]
+        },
+        {
+          "name": "list_value_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "discount_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contract_value_cents",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "installments_count",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recurring_monthly_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recurring_percentage",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "recurring_commissionable_months",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "development_commission_cents",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "recurring_commission_potential_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "commission_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "percentage",
+            "fixed_value"
+          ]
+        },
+        {
+          "name": "dev_policy_version",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "dev_policy_snapshot",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "exception",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "saas_commission_exceptions"
+        },
+        {
+          "name": "direct_costs_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "taxes_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "margin_percentage",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "requires_approval",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "simulada",
+            "pendente_aprovacao",
+            "aprovada",
+            "aguardando_recebimento",
+            "parcialmente_liberada",
+            "disponivel_pagamento",
+            "paga",
+            "cancelada",
+            "estornada"
+          ]
+        },
+        {
+          "name": "approved_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "approved_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "approval_note",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "commercial_notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        },
+        {
+          "name": "recurring_costs_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_saas_commissions_status ON saas_commissions (status)",
+        "CREATE INDEX idx_saas_commissions_seller ON saas_commissions (seller)",
+        "CREATE INDEX idx_saas_commissions_opportunity ON saas_commissions (opportunity)"
+      ]
+    },
+    {
+      "name": "saas_commission_receivables",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "commission",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "saas_commissions"
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "kind",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "development",
+            "recurring"
+          ]
+        },
+        {
+          "name": "installment_number",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "amount_cents",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "expected_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "received_amount_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_saas_receivables_commission ON saas_commission_receivables (commission)",
+        "CREATE INDEX idx_saas_receivables_seller ON saas_commission_receivables (seller)",
+        "CREATE INDEX idx_saas_receivables_received ON saas_commission_receivables (received)"
+      ]
+    },
+    {
+      "name": "saas_commission_events",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "commission",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "saas_commissions"
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "actor",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "event_type",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "created",
+            "approved",
+            "approval_rejected",
+            "receivable_confirmed",
+            "released",
+            "paid",
+            "cancelled",
+            "reversed",
+            "adjusted"
+          ]
+        },
+        {
+          "name": "amount_cents",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "receivable",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "saas_commission_receivables"
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "metadata",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_saas_events_commission ON saas_commission_events (commission)",
+        "CREATE INDEX idx_saas_events_type ON saas_commission_events (event_type)"
+      ]
+    },
+    {
+      "name": "saas_commission_releases",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "commission",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "saas_commissions"
+        },
+        {
+          "name": "receivable",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "saas_commission_receivables"
+        },
+        {
+          "name": "seller",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "kind",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "development",
+            "recurring"
+          ]
+        },
+        {
+          "name": "amount_cents",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "idempotency_key",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "released_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_saas_releases_idempotency ON saas_commission_releases (idempotency_key)",
+        "CREATE INDEX idx_saas_releases_commission ON saas_commission_releases (commission)",
+        "CREATE INDEX idx_saas_releases_seller ON saas_commission_releases (seller)"
       ]
     }
   ]
