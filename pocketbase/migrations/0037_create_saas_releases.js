@@ -30,9 +30,30 @@ migrate(
         // Liberações NUNCA são excluídas (auditabilidade) — estorno é novo registro
         deleteRule: '',
         fields: [
-          { name: 'commission', type: 'relation', required: true, collectionId: commissionsCol.id, maxSelect: 1, cascadeDelete: true },
-          { name: 'receivable', type: 'relation', required: false, collectionId: receivablesCol.id, maxSelect: 1, cascadeDelete: false },
-          { name: 'seller', type: 'relation', required: true, collectionId: usersCol.id, maxSelect: 1, cascadeDelete: false },
+          {
+            name: 'commission',
+            type: 'relation',
+            required: true,
+            collectionId: commissionsCol.id,
+            maxSelect: 1,
+            cascadeDelete: true,
+          },
+          {
+            name: 'receivable',
+            type: 'relation',
+            required: false,
+            collectionId: receivablesCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
+          {
+            name: 'seller',
+            type: 'relation',
+            required: true,
+            collectionId: usersCol.id,
+            maxSelect: 1,
+            cascadeDelete: false,
+          },
           {
             name: 'kind',
             type: 'select',

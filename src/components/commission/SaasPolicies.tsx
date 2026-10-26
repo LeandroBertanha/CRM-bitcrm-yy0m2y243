@@ -46,9 +46,24 @@ export interface SaasSellerLite {
 const DEFAULT_TIERS: SaasPolicyTier[] = [
   { min_value: 0, max_value: 300000, percentage: 0.1, label: 'Até R$ 3.000,00' },
   { min_value: 300001, max_value: 500000, percentage: 0.08, label: 'R$ 3.000,01 até R$ 5.000,00' },
-  { min_value: 500001, max_value: 1000000, percentage: 0.07, label: 'R$ 5.000,01 até R$ 10.000,00' },
-  { min_value: 1000001, max_value: 2000000, percentage: 0.06, label: 'R$ 10.000,01 até R$ 20.000,00' },
-  { min_value: 2000001, max_value: 5000000, percentage: 0.05, label: 'R$ 20.000,01 até R$ 50.000,00' },
+  {
+    min_value: 500001,
+    max_value: 1000000,
+    percentage: 0.07,
+    label: 'R$ 5.000,01 até R$ 10.000,00',
+  },
+  {
+    min_value: 1000001,
+    max_value: 2000000,
+    percentage: 0.06,
+    label: 'R$ 10.000,01 até R$ 20.000,00',
+  },
+  {
+    min_value: 2000001,
+    max_value: 5000000,
+    percentage: 0.05,
+    label: 'R$ 20.000,01 até R$ 50.000,00',
+  },
   { min_value: 5000001, max_value: null, percentage: 0.04, label: 'Acima de R$ 50.000,00' },
 ]
 
@@ -115,7 +130,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
     })
     setSaving(false)
     if (result.ok) {
-      setSuccess(`Nova versão v${(policy?.policy_version || 0) + 1} criada e ativada. Comissões antigas mantêm a política original.`)
+      setSuccess(
+        `Nova versão v${(policy?.policy_version || 0) + 1} criada e ativada. Comissões antigas mantêm a política original.`,
+      )
       setShowForm(false)
       onMutated()
     } else {
@@ -131,7 +148,10 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
     const result = await createSaasException({
       sellerId: excSellerId,
       exceptionType: excType,
-      percentage: excType === 'percentage' ? (parseFloat(excPercentageInput.replace(',', '.')) || 0) / 100 : undefined,
+      percentage:
+        excType === 'percentage'
+          ? (parseFloat(excPercentageInput.replace(',', '.')) || 0) / 100
+          : undefined,
       fixedValueCents: excType === 'fixed_value' ? brlToCents(excFixedInput) : undefined,
       appliesTo: excScope,
       validUntil: excValidUntil ? new Date(excValidUntil + 'T23:59:59').toISOString() : undefined,
@@ -186,9 +206,18 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <MiniStat label="Comissão de recorrência" value={formatPercentage(policy.recurring_percentage)} />
-              <MiniStat label="Mensalidades elegíveis" value={`${policy.recurring_eligible_months} primeiras`} />
-              <MiniStat label="Margem mínima" value={formatPercentage(policy.min_margin_percentage)} />
+              <MiniStat
+                label="Comissão de recorrência"
+                value={formatPercentage(policy.recurring_percentage)}
+              />
+              <MiniStat
+                label="Mensalidades elegíveis"
+                value={`${policy.recurring_eligible_months} primeiras`}
+              />
+              <MiniStat
+                label="Margem mínima"
+                value={formatPercentage(policy.min_margin_percentage)}
+              />
             </div>
 
             <div className="overflow-x-auto">
@@ -229,8 +258,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
             <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-700/40 flex items-start gap-2">
               <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-indigo-200 leading-relaxed">
-                Salvar cria a <strong>versão v{(policy?.policy_version || 0) + 1}</strong> e a torna ativa.
-                Comissões já registradas preservam a política usada no cálculo original (versionamento).
+                Salvar cria a <strong>versão v{(policy?.policy_version || 0) + 1}</strong> e a torna
+                ativa. Comissões já registradas preservam a política usada no cálculo original
+                (versionamento).
               </p>
             </div>
             <div className="space-y-2">
@@ -240,19 +270,28 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
                     <label className="text-[10px] text-gray-500 block mb-1">Mínimo (R$)</label>
                     <Input
                       inputMode="decimal"
-                      value={t.min_value === 0 ? '' : (t.min_value / 100).toFixed(2).replace('.', ',')}
+                      value={
+                        t.min_value === 0 ? '' : (t.min_value / 100).toFixed(2).replace('.', ',')
+                      }
                       onChange={(e) => updateTier(i, { min_value: brlToCents(e.target.value) })}
                       className="bg-[#0E1017] border-[#262A33] text-white h-9 text-xs"
                       placeholder="0,00"
                     />
                   </div>
                   <div className="col-span-4">
-                    <label className="text-[10px] text-gray-500 block mb-1">Máximo (R$, vazio = sem limite)</label>
+                    <label className="text-[10px] text-gray-500 block mb-1">
+                      Máximo (R$, vazio = sem limite)
+                    </label>
                     <Input
                       inputMode="decimal"
-                      value={t.max_value === null ? '' : (t.max_value / 100).toFixed(2).replace('.', ',')}
+                      value={
+                        t.max_value === null ? '' : (t.max_value / 100).toFixed(2).replace('.', ',')
+                      }
                       onChange={(e) =>
-                        updateTier(i, { max_value: e.target.value.trim() === '' ? null : brlToCents(e.target.value) })
+                        updateTier(i, {
+                          max_value:
+                            e.target.value.trim() === '' ? null : brlToCents(e.target.value),
+                        })
                       }
                       className="bg-[#0E1017] border-[#262A33] text-white h-9 text-xs"
                       placeholder="sem limite"
@@ -264,7 +303,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
                       inputMode="decimal"
                       value={String(t.percentage * 100)}
                       onChange={(e) =>
-                        updateTier(i, { percentage: (parseFloat(e.target.value.replace(',', '.')) || 0) / 100 })
+                        updateTier(i, {
+                          percentage: (parseFloat(e.target.value.replace(',', '.')) || 0) / 100,
+                        })
                       }
                       className="bg-[#0E1017] border-[#262A33] text-white h-9 text-xs"
                     />
@@ -282,7 +323,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-300 block mb-1.5">Comissão de recorrência (%)</label>
+                <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                  Comissão de recorrência (%)
+                </label>
                 <Input
                   inputMode="decimal"
                   value={recurringPctInput}
@@ -291,7 +334,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-300 block mb-1.5">Mensalidades elegíveis</label>
+                <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                  Mensalidades elegíveis
+                </label>
                 <Input
                   type="number"
                   min="0"
@@ -301,7 +346,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-300 block mb-1.5">Margem mínima (%)</label>
+                <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                  Margem mínima (%)
+                </label>
                 <Input
                   inputMode="decimal"
                   value={minMarginInput}
@@ -311,7 +358,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Notas da versão</label>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                Notas da versão
+              </label>
               <Input
                 value={versionNotes}
                 onChange={(e) => setVersionNotes(e.target.value)}
@@ -320,7 +369,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
               />
             </div>
             {error && (
-              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">{error}</div>
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">
+                {error}
+              </div>
             )}
             <div className="flex gap-2">
               <Button
@@ -328,7 +379,11 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
                 disabled={saving}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-10 text-sm"
               >
-                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                {saving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                )}
                 Salvar nova versão
               </Button>
               <Button
@@ -355,7 +410,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white tracking-tight">Exceções e campanhas por vendedor</h2>
+            <h2 className="text-base font-bold text-white tracking-tight">
+              Exceções e campanhas por vendedor
+            </h2>
             <p className="text-xs text-gray-400">
               Percentual ou valor fixo que sobrepõe a faixa, com validade e aprovador registrados
             </p>
@@ -380,7 +437,10 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-300 block mb-1.5">Tipo</label>
-            <Select value={excType} onValueChange={(v) => setExcType(v as 'percentage' | 'fixed_value')}>
+            <Select
+              value={excType}
+              onValueChange={(v) => setExcType(v as 'percentage' | 'fixed_value')}
+            >
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -392,7 +452,10 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-300 block mb-1.5">Aplica-se a</label>
-            <Select value={excScope} onValueChange={(v) => setExcScope(v as 'development' | 'recurring')}>
+            <Select
+              value={excScope}
+              onValueChange={(v) => setExcScope(v as 'development' | 'recurring')}
+            >
               <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -403,7 +466,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
             </Select>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">Válida até (opcional)</label>
+            <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+              Válida até (opcional)
+            </label>
             <Input
               type="date"
               value={excValidUntil}
@@ -413,7 +478,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
           </div>
           {excType === 'percentage' ? (
             <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Percentual (%)</label>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                Percentual (%)
+              </label>
               <Input
                 inputMode="decimal"
                 value={excPercentageInput}
@@ -424,7 +491,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
             </div>
           ) : (
             <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Valor fixo (R$)</label>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                Valor fixo (R$)
+              </label>
               <Input
                 inputMode="decimal"
                 value={excFixedInput}
@@ -446,7 +515,9 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
         </div>
 
         {excError && (
-          <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">{excError}</div>
+          <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">
+            {excError}
+          </div>
         )}
         {excSuccess && (
           <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-600/40 text-xs text-emerald-200">
@@ -459,7 +530,11 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
           disabled={excSaving || !excSellerId || !excReason.trim()}
           className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-10 text-sm"
         >
-          {excSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+          {excSaving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4 mr-2" />
+          )}
           Criar exceção
         </Button>
       </div>
