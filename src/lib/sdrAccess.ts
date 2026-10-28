@@ -1,5 +1,7 @@
-export const SDR_AUTHORIZED_EMAIL = 'leandro.bertanha@lbertanha.com'
+import { isSystemOwner, SYSTEM_OWNER_EMAIL } from '@/lib/ownerAccess'
+
+export const SDR_AUTHORIZED_EMAIL = SYSTEM_OWNER_EMAIL
 
 export function canAccessSdr(email?: string | null): boolean {
-  return email?.trim().toLowerCase() === SDR_AUTHORIZED_EMAIL
+  return isSystemOwner(email)
 }

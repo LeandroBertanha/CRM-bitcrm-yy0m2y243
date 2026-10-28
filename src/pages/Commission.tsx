@@ -29,6 +29,8 @@ import SaasSimulator from '@/components/commission/SaasSimulator'
 import SaasCommissionsList from '@/components/commission/SaasCommissionsList'
 import SaasPolicies from '@/components/commission/SaasPolicies'
 import SaasHistory from '@/components/commission/SaasHistory'
+import ProductCatalog from '@/components/commission/ProductCatalog'
+import { isSystemOwner } from '@/lib/ownerAccess'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -50,6 +52,7 @@ import {
   Calendar,
   Clock,
   CloudCog,
+  Package,
 } from 'lucide-react'
 
 interface SellerCommissionRow {
@@ -65,6 +68,7 @@ interface SellerCommissionRow {
 
 export default function CommissionPage() {
   const { user, isAdmin } = useAuth()
+  const isCommissionOwner = isSystemOwner(user?.email)
 
   // Estados dos dados lidos do banco
   const [tiers, setTiers] = useState<CommissionTier[]>([])
@@ -106,7 +110,7 @@ export default function CommissionPage() {
         getSaasReceivables(),
         getSaasReleases(),
         getSaasEvents(),
-        getSaasExceptions(),
+        isCommissionOwner ? getSaasExceptions() : Promise.resolve([]),
       ])
       setSaasPolicy(policy)
       setSaasTiers(policy ? parsePolicyTiers(policy.tiers) : [])
@@ -128,7 +132,7 @@ export default function CommissionPage() {
     } finally {
       setSaasLoading(false)
     }
-  }, [])
+  }, [isCommissionOwner])
 
   useEffect(() => {
     loadSaasData()
@@ -445,7 +449,7 @@ export default function CommissionPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-[#262A33] bg-[#101219] p-1.5">
           <TabsTrigger value="atuais" className="min-w-max rounded-lg px-3 py-2 text-xs">
-            <Award className="mr-1.5 h-3.5 w-3.5" /> Comissões atuais
+            <Award className="mr-1.5 h-3.5 w-3.5" /> Comissões WP/SiteLP
           </TabsTrigger>
           <TabsTrigger value="visao-geral" className="min-w-max rounded-lg px-3 py-2 text-xs">
             <TrendingUp className="mr-1.5 h-3.5 w-3.5" /> Visão geral SaaS
@@ -456,9 +460,12 @@ export default function CommissionPage() {
           <TabsTrigger value="simulador" className="min-w-max rounded-lg px-3 py-2 text-xs">
             <Calculator className="mr-1.5 h-3.5 w-3.5" /> Simulador SaaS
           </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="politicas" className="min-w-max rounded-lg px-3 py-2 text-xs">
-              <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Políticas
+          <TabsTrigger value="politicas" className="min-w-max rounded-lg px-3 py-2 text-xs">
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Política SaaS
+          </TabsTrigger>
+          {isCommissionOwner && (
+            <TabsTrigger value="produtos" className="min-w-max rounded-lg px-3 py-2 text-xs">
+              <Package className="mr-1.5 h-3.5 w-3.5" /> Produtos
             </TabsTrigger>
           )}
           <TabsTrigger value="historico" className="min-w-max rounded-lg px-3 py-2 text-xs">
@@ -467,14 +474,20 @@ export default function CommissionPage() {
         </TabsList>
       </Tabs>
 
-      {activeTab !== 'atuais' && saasLoadError && (
-        <div className="flex flex-col gap-3 rounded-xl border border-rose-500/40 bg-rose-950/30 p-4 text-sm text-rose-200 sm:flex-row sm:items-center sm:justify-between">
-          <span>{saasLoadError}</span>
-          <Button size="sm" variant="outline" onClick={loadSaasData} className="border-rose-500/40">
-            Tentar novamente
-          </Button>
-        </div>
-      )}
+      {['visao-geral', 'saas', 'simulador', 'politicas', 'historico'].includes(activeTab) &&
+        saasLoadError && (
+          <div className="flex flex-col gap-3 rounded-xl border border-rose-500/40 bg-rose-950/30 p-4 text-sm text-rose-200 sm:flex-row sm:items-center sm:justify-between">
+            <span>{saasLoadError}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadSaasData}
+              className="border-rose-500/40"
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        )}
 
       {activeTab === 'atuais' ? (
         <>
@@ -1370,12 +1383,15 @@ export default function CommissionPage() {
           }
           onCreated={handleSaasMutated}
         />
-      ) : activeTab === 'politicas' && isAdmin ? (
+      ) : activeTab === 'politicas' ? (
         <SaasPolicies
           policy={saasPolicy}
           sellers={sellers.filter((seller) => seller.role === 'seller')}
+          canManage={isCommissionOwner}
           onMutated={handleSaasMutated}
         />
+      ) : activeTab === 'produtos' && isCommissionOwner ? (
+        <ProductCatalog />
       ) : (
         <SaasHistory events={saasEvents} loading={saasLoading} />
       )}

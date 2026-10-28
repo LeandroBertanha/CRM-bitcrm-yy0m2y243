@@ -1428,9 +1428,9 @@
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "@request.auth.id != '' && @request.auth.role = 'admin'",
-        "update": "@request.auth.id != '' && @request.auth.role = 'admin'",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+        "create": "@request.auth.id != '' && @request.auth.email = 'leandro.bertanha@lbertanha.com'",
+        "update": "@request.auth.id != '' && @request.auth.email = 'leandro.bertanha@lbertanha.com'",
+        "delete": "@request.auth.id != '' && @request.auth.email = 'leandro.bertanha@lbertanha.com'"
       },
       "fields": [
         {
@@ -2325,8 +2325,8 @@
       "name": "saas_commission_exceptions",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
-        "view": "@request.auth.id != '' && (seller = @request.auth.id || (@request.auth.role = 'admin' || @request.auth.email = 'leandro.bertanha@lbertanha.com' || @request.auth.email = 'leandro.bertanha@gmail.com'))",
+        "list": "@request.auth.id != '' && @request.auth.email = 'leandro.bertanha@lbertanha.com'",
+        "view": "@request.auth.id != '' && @request.auth.email = 'leandro.bertanha@lbertanha.com'",
         "create": null,
         "update": null,
         "delete": null
