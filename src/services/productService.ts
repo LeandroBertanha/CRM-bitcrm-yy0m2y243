@@ -18,6 +18,15 @@ export async function getActiveProducts(): Promise<Product[]> {
 }
 
 /**
+ * Lista o catálogo completo para a gestão do proprietário, inclusive itens inativos.
+ */
+export async function getAllProducts(): Promise<Product[]> {
+  return pb.collection('products').getFullList<Product>({
+    sort: 'display_order,name',
+  })
+}
+
+/**
  * Busca produto específico por ID ou pelo nome exato.
  */
 export async function getProductById(id: string): Promise<Product | null> {
@@ -37,7 +46,7 @@ export async function getProductByName(name: string): Promise<Product | null> {
 }
 
 /**
- * Cria ou atualiza um produto no catálogo (apenas administradores têm permissão na regra da collection).
+ * Cria ou atualiza um produto no catálogo. O backend autoriza exclusivamente o proprietário.
  */
 export async function saveProduct(data: Partial<Product>, id?: string): Promise<Product> {
   if (id) {

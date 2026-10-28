@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import { formatBRL } from '@/types/crm'
 import {
   brlToCents,
   centsToBRL,
@@ -34,6 +33,7 @@ import { Settings2, Plus, ShieldCheck, Loader2, Info } from 'lucide-react'
 export interface SaasPoliciesProps {
   policy: SaasCommissionPolicy | null
   sellers: SaasSellerLite[]
+  canManage: boolean
   onMutated: () => void
 }
 
@@ -67,7 +67,7 @@ const DEFAULT_TIERS: SaasPolicyTier[] = [
   { min_value: 5000001, max_value: null, percentage: 0.04, label: 'Acima de R$ 50.000,00' },
 ]
 
-export default function SaasPolicies({ policy, sellers, onMutated }: SaasPoliciesProps) {
+export default function SaasPolicies({ policy, sellers, canManage, onMutated }: SaasPoliciesProps) {
   const { user } = useAuth()
   const tiers = policy ? parsePolicyTiers(policy.tiers) : DEFAULT_TIERS
 
@@ -117,6 +117,7 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
   }
 
   const handleSaveVersion = async () => {
+    if (!canManage) return
     setSaving(true)
     setError(null)
     setSuccess(null)
@@ -141,6 +142,7 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
   }
 
   const handleCreateException = async () => {
+    if (!canManage) return
     if (!excSellerId || !excReason.trim()) return
     setExcSaving(true)
     setExcError(null)
@@ -190,18 +192,22 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            onClick={startEdit}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 text-xs"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova versão da política
-          </Button>
+          {canManage && (
+            <Button
+              size="sm"
+              onClick={startEdit}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl h-9 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova versão da política
+            </Button>
+          )}
         </div>
 
         {!policy ? (
           <p className="text-xs text-gray-500 py-4 text-center">
-            Nenhuma política ativa. Crie a primeira versão.
+            {canManage
+              ? 'Nenhuma política ativa. Crie a primeira versão.'
+              : 'Nenhuma política SaaS ativa disponível.'}
           </p>
         ) : (
           <>
@@ -253,7 +259,7 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
         )}
 
         {/* Form nova versão */}
-        {showForm && (
+        {canManage && showForm && (
           <div className="pt-4 border-t border-[#262A33]/80 space-y-4">
             <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-700/40 flex items-start gap-2">
               <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
@@ -403,141 +409,145 @@ export default function SaasPolicies({ policy, sellers, onMutated }: SaasPolicie
         )}
       </div>
 
-      {/* Exceções por vendedor */}
-      <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-2.5 pb-3 border-b border-[#262A33]">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-            <ShieldCheck className="w-4 h-4" />
+      {/* Exceções por vendedor: informação e gestão exclusivas do proprietário. */}
+      {canManage && (
+        <div className="bg-[#12141A] border border-[#262A33] rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#262A33]">
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Exceções e campanhas por vendedor
+              </h2>
+              <p className="text-xs text-gray-400">
+                Percentual ou valor fixo que sobrepõe a faixa, com validade e aprovador registrados
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-white tracking-tight">
-              Exceções e campanhas por vendedor
-            </h2>
-            <p className="text-xs text-gray-400">
-              Percentual ou valor fixo que sobrepõe a faixa, com validade e aprovador registrados
-            </p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">Vendedor</label>
-            <Select value={excSellerId || undefined} onValueChange={setExcSellerId}>
-              <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
-                {sellers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name || s.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">Tipo</label>
-            <Select
-              value={excType}
-              onValueChange={(v) => setExcType(v as 'percentage' | 'fixed_value')}
-            >
-              <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
-                <SelectItem value="percentage">Percentual (%)</SelectItem>
-                <SelectItem value="fixed_value">Valor fixo (R$)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">Aplica-se a</label>
-            <Select
-              value={excScope}
-              onValueChange={(v) => setExcScope(v as 'development' | 'recurring')}
-            >
-              <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
-                <SelectItem value="development">Comissão de desenvolvimento</SelectItem>
-                <SelectItem value="recurring">Comissão de recorrência</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">
-              Válida até (opcional)
-            </label>
-            <Input
-              type="date"
-              value={excValidUntil}
-              onChange={(e) => setExcValidUntil(e.target.value)}
-              className="bg-[#0E1017] border-[#262A33] text-white h-10"
-            />
-          </div>
-          {excType === 'percentage' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Vendedor</label>
+              <Select value={excSellerId || undefined} onValueChange={setExcSellerId}>
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
+                  {sellers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name || s.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Tipo</label>
+              <Select
+                value={excType}
+                onValueChange={(v) => setExcType(v as 'percentage' | 'fixed_value')}
+              >
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
+                  <SelectItem value="percentage">Percentual (%)</SelectItem>
+                  <SelectItem value="fixed_value">Valor fixo (R$)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <label className="text-xs font-semibold text-gray-300 block mb-1.5">
-                Percentual (%)
+                Aplica-se a
+              </label>
+              <Select
+                value={excScope}
+                onValueChange={(v) => setExcScope(v as 'development' | 'recurring')}
+              >
+                <SelectTrigger className="bg-[#0E1017] border-[#262A33] text-white h-10 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#171A24] border-[#262A33] text-white">
+                  <SelectItem value="development">Comissão de desenvolvimento</SelectItem>
+                  <SelectItem value="recurring">Comissão de recorrência</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                Válida até (opcional)
               </label>
               <Input
-                inputMode="decimal"
-                value={excPercentageInput}
-                onChange={(e) => setExcPercentageInput(e.target.value)}
-                placeholder="Ex: 12"
+                type="date"
+                value={excValidUntil}
+                onChange={(e) => setExcValidUntil(e.target.value)}
                 className="bg-[#0E1017] border-[#262A33] text-white h-10"
               />
             </div>
-          ) : (
-            <div>
-              <label className="text-xs font-semibold text-gray-300 block mb-1.5">
-                Valor fixo (R$)
-              </label>
+            {excType === 'percentage' ? (
+              <div>
+                <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                  Percentual (%)
+                </label>
+                <Input
+                  inputMode="decimal"
+                  value={excPercentageInput}
+                  onChange={(e) => setExcPercentageInput(e.target.value)}
+                  placeholder="Ex: 12"
+                  className="bg-[#0E1017] border-[#262A33] text-white h-10"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-semibold text-gray-300 block mb-1.5">
+                  Valor fixo (R$)
+                </label>
+                <Input
+                  inputMode="decimal"
+                  value={excFixedInput}
+                  onChange={(e) => setExcFixedInput(e.target.value)}
+                  placeholder="Ex: 1.500,00"
+                  className="bg-[#0E1017] border-[#262A33] text-white h-10 pl-9"
+                />
+              </div>
+            )}
+            <div className="sm:col-span-2 lg:col-span-2">
+              <label className="text-xs font-semibold text-gray-300 block mb-1.5">Motivo *</label>
               <Input
-                inputMode="decimal"
-                value={excFixedInput}
-                onChange={(e) => setExcFixedInput(e.target.value)}
-                placeholder="Ex: 1.500,00"
-                className="bg-[#0E1017] border-[#262A33] text-white h-10 pl-9"
+                value={excReason}
+                onChange={(e) => setExcReason(e.target.value)}
+                placeholder="Ex: campanha Q4 — cliente estratégico"
+                className="bg-[#0E1017] border-[#262A33] text-white h-10"
               />
             </div>
-          )}
-          <div className="sm:col-span-2 lg:col-span-2">
-            <label className="text-xs font-semibold text-gray-300 block mb-1.5">Motivo *</label>
-            <Input
-              value={excReason}
-              onChange={(e) => setExcReason(e.target.value)}
-              placeholder="Ex: campanha Q4 — cliente estratégico"
-              className="bg-[#0E1017] border-[#262A33] text-white h-10"
-            />
           </div>
+
+          {excError && (
+            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">
+              {excError}
+            </div>
+          )}
+          {excSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-600/40 text-xs text-emerald-200">
+              {excSuccess}
+            </div>
+          )}
+
+          <Button
+            onClick={handleCreateException}
+            disabled={excSaving || !excSellerId || !excReason.trim()}
+            className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-10 text-sm"
+          >
+            {excSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 mr-2" />
+            )}
+            Criar exceção
+          </Button>
         </div>
-
-        {excError && (
-          <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-600/40 text-xs text-rose-200">
-            {excError}
-          </div>
-        )}
-        {excSuccess && (
-          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-600/40 text-xs text-emerald-200">
-            {excSuccess}
-          </div>
-        )}
-
-        <Button
-          onClick={handleCreateException}
-          disabled={excSaving || !excSellerId || !excReason.trim()}
-          className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-10 text-sm"
-        >
-          {excSaving ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4 mr-2" />
-          )}
-          Criar exceção
-        </Button>
-      </div>
+      )}
     </div>
   )
 }

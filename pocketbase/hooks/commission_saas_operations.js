@@ -21,6 +21,11 @@ routerAdd(
       )
     }
 
+    function commissionSaasIsOwner(auth) {
+      if (!auth) return false
+      return auth.getString('email').trim().toLowerCase() === 'leandro.bertanha@lbertanha.com'
+    }
+
     function commissionSaasText(value, maxLength) {
       return String(value || '')
         .trim()
@@ -255,14 +260,15 @@ routerAdd(
     var action = commissionSaasText(e.request.pathValue('action'), 60)
     var body = e.requestInfo().body || {}
     var isAdmin = commissionSaasIsAdmin(auth)
+    var isOwner = commissionSaasIsOwner(auth)
 
     if (action === 'policy-version') {
-      if (!isAdmin)
+      if (!isOwner)
         return commissionSaasError(
           e,
           403,
-          'ADMIN_REQUIRED',
-          'Somente administradores podem alterar políticas.',
+          'OWNER_REQUIRED',
+          'Somente o proprietário pode criar versões da política SaaS.',
         )
       var tiers = commissionSaasValidateTiers(body.tiers)
       if (!tiers)
@@ -309,12 +315,12 @@ routerAdd(
     }
 
     if (action === 'exception-create') {
-      if (!isAdmin)
+      if (!isOwner)
         return commissionSaasError(
           e,
           403,
-          'ADMIN_REQUIRED',
-          'Somente administradores podem criar exceções.',
+          'OWNER_REQUIRED',
+          'Somente o proprietário pode criar exceções.',
         )
       var exceptionSellerId = commissionSaasText(body.sellerId, 30)
       var exceptionType = body.exceptionType === 'fixed_value' ? 'fixed_value' : 'percentage'
