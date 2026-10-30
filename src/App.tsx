@@ -19,6 +19,7 @@ import Terms from './pages/Terms'
 
 import Dashboard from './pages/Dashboard'
 import Opportunities from './pages/Opportunities'
+import Clients from './pages/Clients'
 import FormManager from './pages/FormManager'
 import PublicForm from './pages/PublicForm'
 import Profile from './pages/Profile'
@@ -225,6 +226,7 @@ const App = () => (
             >
               <Route path="/painel" element={<Dashboard />} />
               <Route path="/oportunidades" element={<Opportunities />} />
+              <Route path="/clientes" element={<Clients />} />
               <Route path="/comissionamento" element={<Commission />} />
               <Route path="/formulario" element={<FormManager />} />
 

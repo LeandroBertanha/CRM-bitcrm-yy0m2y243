@@ -32,6 +32,7 @@ import {
   History,
   Settings,
   Bot,
+  Building2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -128,6 +129,7 @@ export default function Layout() {
   const navItems = [
     { label: 'Painel', to: '/painel', icon: LayoutDashboard },
     { label: 'Oportunidades', to: '/oportunidades', icon: KanbanSquare },
+    { label: 'Clientes', to: '/clientes', icon: Building2 },
     { label: 'Comissionamento', to: '/comissionamento', icon: Coins },
     ...(isAdmin
       ? [

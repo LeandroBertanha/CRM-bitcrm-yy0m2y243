@@ -14,6 +14,7 @@ import {
   getReturnAlertInfo,
 } from '@/types/crm'
 import { getActiveProducts } from '@/services/productService'
+import { updateOpportunityStage } from '@/services/clientService'
 import { OpportunityTimeline } from '@/components/OpportunityTimeline'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -366,12 +367,15 @@ export default function Opportunities() {
     // 1. Atualização otimista imediata no estado local
     setOpportunities((prev) => prev.map((o) => (o.id === oppId ? { ...o, stage: newStage } : o)))
 
-    // 2. Persistência no PocketBase
+    // 2. Persistência transacional no backend; Ganho também cria o cliente.
     try {
-      await pb.collection('opportunities').update(oppId, { stage: newStage })
+      const result = await updateOpportunityStage(oppId, newStage)
       toast({
-        title: 'Estágio atualizado!',
-        description: `"${targetOpp.company}" movida para ${newStage}.`,
+        title: newStage === 'Ganho' ? 'Cliente cadastrado!' : 'Estágio atualizado!',
+        description:
+          newStage === 'Ganho'
+            ? `"${targetOpp.company}" foi movida para Ganho e já está disponível em Clientes${result.clientCreated ? '.' : ' (cadastro atualizado).'}`
+            : `"${targetOpp.company}" movida para ${newStage}.`,
       })
     } catch (err) {
       // 3. Rollback em caso de erro
@@ -557,9 +561,10 @@ export default function Opportunities() {
         ? parseFloat(formData.recurring_value.replace(',', '.'))
         : 55
 
-      await pb.collection('opportunities').create({
+      const created = await pb.collection('opportunities').create<Opportunity>({
         company: formData.company.trim(),
-        stage: formData.stage,
+        // Ganho é confirmado pela rota transacional junto com a criação do cliente.
+        stage: formData.stage === 'Ganho' ? 'Novo' : formData.stage,
         source: formData.source,
         product: formData.product || null,
         product_name: finalProdName,
@@ -580,9 +585,16 @@ export default function Opportunities() {
         message: formData.message.trim(),
       })
 
+      if (formData.stage === 'Ganho') {
+        await updateOpportunityStage(created.id, 'Ganho')
+      }
+
       toast({
-        title: 'Oportunidade criada!',
-        description: `${formData.company} foi adicionada ao pipeline.`,
+        title: formData.stage === 'Ganho' ? 'Cliente cadastrado!' : 'Oportunidade criada!',
+        description:
+          formData.stage === 'Ganho'
+            ? `${formData.company} foi adicionada ao pipeline e ao painel de Clientes.`
+            : `${formData.company} foi adicionada ao pipeline.`,
       })
       setCreateModalOpen(false)
       fetchOpportunities()
@@ -622,7 +634,6 @@ export default function Opportunities() {
 
       await pb.collection('opportunities').update(selectedOpp.id, {
         company: formData.company.trim(),
-        stage: formData.stage,
         source: formData.source,
         product: formData.product || null,
         product_name: finalProdName,
@@ -644,9 +655,16 @@ export default function Opportunities() {
         return_at: returnAtIso,
       })
 
+      if (formData.stage !== selectedOpp.stage || formData.stage === 'Ganho') {
+        await updateOpportunityStage(selectedOpp.id, formData.stage)
+      }
+
       toast({
-        title: 'Oportunidade atualizada',
-        description: 'As alterações foram salvas com sucesso.',
+        title: formData.stage === 'Ganho' ? 'Cliente atualizado' : 'Oportunidade atualizada',
+        description:
+          formData.stage === 'Ganho'
+            ? 'A oportunidade e o cadastro do cliente foram salvos com sucesso.'
+            : 'As alterações foram salvas com sucesso.',
       })
       setEditModalOpen(false)
       fetchOpportunities()
