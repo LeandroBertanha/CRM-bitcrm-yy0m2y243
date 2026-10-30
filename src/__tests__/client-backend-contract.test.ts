@@ -40,4 +40,13 @@ describe('contrato backend do cadastro de clientes', () => {
       clients.fields.some((field: { name: string }) => field.name === 'source_opportunity'),
     ).toBe(true)
   })
+
+  it('retroalimenta oportunidades que já estavam ganhas sem duplicar clientes', () => {
+    const migration = readSource('pocketbase/migrations/0043_backfill_won_clients.js')
+
+    expect(migration).toContain("stage = 'Ganho'")
+    expect(migration).toContain("findFirstRecordByData('clients', 'source_opportunity'")
+    expect(migration).toContain("client.set('source_opportunity', opportunity.id)")
+    expect(migration).toContain('Rollback intencionalmente não destrutivo')
+  })
 })
