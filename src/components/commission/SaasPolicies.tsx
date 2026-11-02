@@ -7,11 +7,8 @@ import {
   parsePolicyTiers,
   type SaasPolicyTier,
 } from '@/types/commissionSaas'
-import {
-  createSaasPolicyVersion,
-  createSaasException,
-  type SaasCommissionPolicy,
-} from '@/services/commissionSaas'
+import { createSaasPolicyVersion, createSaasException } from '@/services/commissionSaas'
+import type { SaasCommissionPolicy } from '@/types/commissionSaas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {

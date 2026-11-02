@@ -27,6 +27,22 @@ describe('contrato backend do cadastro de clientes', () => {
     expect(hook).toContain('clientCreated')
   })
 
+  it('registra histórico de abordagens (approach_sessions) e timeline (opportunity_notes) ao mudar de estágio', () => {
+    const hook = readSource('pocketbase/hooks/client_conversion.js')
+
+    expect(hook).toContain('recordHistoryEntries')
+    expect(hook).toContain('opportunity_notes')
+    expect(hook).toContain('approach_sessions')
+    expect(hook).toContain('oldStage !== stage')
+  })
+
+  it('valida escopo e permissão de vendedor retornando mensagem específica de regra de negócio', () => {
+    const hook = readSource('pocketbase/hooks/client_conversion.js')
+
+    expect(hook).toContain('sellerId !== auth.id && !isAdmin(auth)')
+    expect(hook).toContain('Você não tem permissão para mover esta oportunidade')
+  })
+
   it('impede exclusão de cliente e restringe a carteira no esquema versionado', () => {
     const schema = JSON.parse(readSource('src/lib/pocketbase/schema.json'))
     const clients = schema.collections.find(

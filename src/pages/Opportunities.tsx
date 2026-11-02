@@ -377,13 +377,31 @@ export default function Opportunities() {
             ? `"${targetOpp.company}" foi movida para Ganho e já está disponível em Clientes${result.clientCreated ? '.' : ' (cadastro atualizado).'}`
             : `"${targetOpp.company}" movida para ${newStage}.`,
       })
-    } catch (err) {
+    } catch (err: unknown) {
       // 3. Rollback em caso de erro
       setOpportunities(previousOpps)
       console.error('Erro ao atualizar estágio:', err)
+
+      // Extrai mensagem específica de regra de negócio do erro HTTP/API
+      let specificMessage = ''
+      if (typeof err === 'object' && err !== null) {
+        const anyErr = err as {
+          data?: { error?: string }
+          response?: { error?: string; message?: string }
+          message?: string
+        }
+        specificMessage =
+          anyErr.data?.error ||
+          anyErr.response?.error ||
+          anyErr.response?.message ||
+          (anyErr.message && !anyErr.message.includes('ClientResponseError') ? anyErr.message : '')
+      }
+
       toast({
         title: 'Erro ao mover oportunidade',
-        description: 'Não foi possível salvar a alteração. O card retornou ao estágio anterior.',
+        description:
+          specificMessage ||
+          'Não foi possível salvar a alteração. O card retornou ao estágio anterior.',
         variant: 'destructive',
       })
     }

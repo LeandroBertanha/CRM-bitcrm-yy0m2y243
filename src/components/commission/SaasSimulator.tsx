@@ -136,11 +136,21 @@ export default function SaasSimulator({
   const taxesCents = brlToCents(taxesInput)
   const monthlyCents = brlToCents(monthlyInput)
   const developmentException = useMemo(
-    () => findActiveException(exceptions, sellerId, 'development'),
+    () =>
+      findActiveException(
+        exceptions as unknown as Parameters<typeof findActiveException>[0],
+        sellerId,
+        'development',
+      ),
     [exceptions, sellerId],
   )
   const recurringException = useMemo(
-    () => findActiveException(exceptions, sellerId, 'recurring'),
+    () =>
+      findActiveException(
+        exceptions as unknown as Parameters<typeof findActiveException>[0],
+        sellerId,
+        'recurring',
+      ),
     [exceptions, sellerId],
   )
 

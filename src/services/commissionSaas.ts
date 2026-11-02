@@ -43,6 +43,8 @@ async function sendSaasOperation<T>(action: string, body: Record<string, unknown
 
 export interface SaasCommissionRecord {
   id: string
+  collectionId: string
+  collectionName: string
   client_name: string
   opportunity?: string
   seller: string
@@ -82,6 +84,8 @@ export interface SaasCommissionRecord {
 
 export interface SaasReceivableRecord {
   id: string
+  collectionId: string
+  collectionName: string
   commission: string
   seller: string
   kind: 'development' | 'recurring'
@@ -97,6 +101,8 @@ export interface SaasReceivableRecord {
 
 export interface SaasReleaseRecord {
   id: string
+  collectionId: string
+  collectionName: string
   commission: string
   receivable?: string
   seller: string
