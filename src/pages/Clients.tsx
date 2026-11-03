@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   Building2,
@@ -9,6 +9,7 @@ import {
   MapPin,
   Pencil,
   RefreshCw,
+  ScanText,
   Search,
   Upload,
 } from 'lucide-react'
@@ -34,6 +35,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import useRealtime from '@/hooks/use-realtime'
 import { formatCnpj, getClientCompletion, isValidCnpj, normalizeCnpj } from '@/lib/clientConversion'
+import { recognizeClientDocument, type RecognizedClientData } from '@/lib/clientDocumentRecognition'
 import {
   getClientFileToken,
   getClientFileUrl,
@@ -59,6 +61,13 @@ type ClientForm = {
   state: string
   status: ClientStatus
   notes: string
+}
+
+type RecognizableField = keyof RecognizedClientData
+
+type RecognitionStatus = {
+  state: 'processing' | 'success' | 'warning' | 'error'
+  message: string
 }
 
 const EMPTY_FORM: ClientForm = {
@@ -125,7 +134,13 @@ export default function Clients() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<ClientRecord | null>(null)
   const [form, setForm] = useState<ClientForm>(EMPTY_FORM)
+  const formRef = useRef<ClientForm>(EMPTY_FORM)
   const [files, setFiles] = useState<Partial<Record<ClientDocumentField, File[]>>>({})
+  const [recognitionStatuses, setRecognitionStatuses] = useState<
+    Partial<Record<ClientDocumentField, RecognitionStatus>>
+  >({})
+  const [recognizedFields, setRecognizedFields] = useState<RecognizableField[]>([])
+  const [recognitionSummary, setRecognitionSummary] = useState('')
   const [fileToken, setFileToken] = useState('')
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -183,9 +198,14 @@ export default function Clients() {
   )
 
   const openClient = async (client: ClientRecord) => {
+    const nextForm = formFromClient(client)
     setSelected(client)
-    setForm(formFromClient(client))
+    formRef.current = nextForm
+    setForm(nextForm)
     setFiles({})
+    setRecognitionStatuses({})
+    setRecognizedFields([])
+    setRecognitionSummary('')
     setFormError('')
     setOpen(true)
     try {
@@ -196,10 +216,40 @@ export default function Clients() {
   }
 
   const setField = <K extends keyof ClientForm>(field: K, value: ClientForm[K]) => {
-    setForm((current) => ({ ...current, [field]: value }))
+    const next = { ...formRef.current, [field]: value }
+    formRef.current = next
+    setForm(next)
+    setRecognizedFields((current) => current.filter((item) => item !== field))
   }
 
-  const handleFiles = (field: ClientDocumentField, list: FileList | null) => {
+  const applyRecognizedData = (data: RecognizedClientData): RecognizableField[] => {
+    const current = formRef.current
+    const next = { ...current }
+    const applied: RecognizableField[] = []
+
+    Object.entries(data).forEach(([rawField, rawValue]) => {
+      const field = rawField as RecognizableField
+      if (!rawValue || String(current[field] || '').trim()) return
+
+      let value = String(rawValue).trim()
+      if (field === 'cnpj') value = formatCnpj(value)
+      if (field === 'zip_code') value = value.replace(/\D/g, '').slice(0, 8)
+      if (field === 'state') value = value.toUpperCase().slice(0, 2)
+
+      next[field] = value
+      applied.push(field)
+    })
+
+    if (applied.length > 0) {
+      formRef.current = next
+      setForm(next)
+      setRecognizedFields((currentFields) => [...new Set([...currentFields, ...applied])])
+    }
+
+    return applied
+  }
+
+  const handleFiles = async (field: ClientDocumentField, list: FileList | null) => {
     if (!list) return
     const selectedFiles = Array.from(list)
     const invalid = selectedFiles.find((file) => file.size > 20 * 1024 * 1024)
@@ -209,7 +259,79 @@ export default function Clients() {
     }
     setFiles((current) => ({ ...current, [field]: selectedFiles }))
     setFormError('')
+
+    setRecognitionStatuses((current) => ({
+      ...current,
+      [field]: { state: 'processing', message: 'Preparando leitura local...' },
+    }))
+
+    const appliedFields: RecognizableField[] = []
+    const warnings: string[] = []
+    const errors: string[] = []
+
+    for (const file of selectedFiles) {
+      try {
+        const result = await recognizeClientDocument(file, field, (progress) => {
+          const percentage =
+            progress.progress === undefined ? '' : ` ${Math.round(progress.progress * 100)}%`
+          setRecognitionStatuses((current) => ({
+            ...current,
+            [field]: {
+              state: 'processing',
+              message: `${progress.message}${percentage}`,
+            },
+          }))
+        })
+        appliedFields.push(...applyRecognizedData(result.data))
+        warnings.push(...result.warnings)
+      } catch (recognitionError) {
+        console.error(`Erro ao reconhecer o documento ${file.name}:`, recognitionError)
+        errors.push(file.name)
+      }
+    }
+
+    const uniqueApplied = [...new Set(appliedFields)]
+    if (errors.length > 0) {
+      setRecognitionStatuses((current) => ({
+        ...current,
+        [field]: {
+          state: 'error',
+          message: `Não foi possível ler ${errors.join(', ')}. O anexo ainda poderá ser salvo.`,
+        },
+      }))
+    } else if (warnings.length > 0) {
+      setRecognitionStatuses((current) => ({
+        ...current,
+        [field]: { state: 'warning', message: warnings.join(' ') },
+      }))
+    } else {
+      setRecognitionStatuses((current) => ({
+        ...current,
+        [field]: {
+          state: 'success',
+          message:
+            uniqueApplied.length > 0
+              ? `${uniqueApplied.length} campo(s) preenchido(s) automaticamente.`
+              : 'Documento analisado. Os dados reconhecidos já estavam preenchidos.',
+        },
+      }))
+    }
+
+    if (uniqueApplied.length > 0) {
+      setRecognitionSummary(
+        `${uniqueApplied.length} campo(s) foram preenchidos a partir dos anexos. Revise os campos destacados antes de salvar.`,
+      )
+    }
   }
+
+  const recognizing = Object.values(recognitionStatuses).some(
+    (status) => status?.state === 'processing',
+  )
+
+  const recognizedInputClass = (field: RecognizableField) =>
+    `${inputClass} ${
+      recognizedFields.includes(field) ? 'border-primary ring-1 ring-primary/40' : ''
+    }`
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -413,25 +535,35 @@ export default function Clients() {
               </div>
             )}
 
+            {recognitionSummary && (
+              <div className="mt-5 flex items-start gap-3 border border-primary/40 bg-primary/10 p-3 text-sm text-foreground">
+                <ScanText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div>
+                  <p className="font-semibold">Dados reconhecidos nos documentos</p>
+                  <p className="mt-1 text-muted-foreground">{recognitionSummary}</p>
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 space-y-8">
               <FormSection title="Dados empresariais" icon={<Building2 className="h-4 w-4" />}>
                 <Field label="Nome fantasia *">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('name')}
                     value={form.name}
                     onChange={(e) => setField('name', e.target.value)}
                   />
                 </Field>
                 <Field label="Razão social">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('legal_name')}
                     value={form.legal_name}
                     onChange={(e) => setField('legal_name', e.target.value)}
                   />
                 </Field>
                 <Field label="CNPJ">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('cnpj')}
                     value={form.cnpj}
                     onChange={(e) => setField('cnpj', formatCnpj(e.target.value))}
                     placeholder="00.000.000/0000-00"
@@ -439,7 +571,7 @@ export default function Clients() {
                 </Field>
                 <Field label="Inscrição estadual">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('state_registration')}
                     value={form.state_registration}
                     onChange={(e) => setField('state_registration', e.target.value)}
                   />
@@ -464,7 +596,7 @@ export default function Clients() {
               <FormSection title="Contato principal" icon={<CheckCircle2 className="h-4 w-4" />}>
                 <Field label="Nome do contato">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('contact_name')}
                     value={form.contact_name}
                     onChange={(e) => setField('contact_name', e.target.value)}
                   />
@@ -472,14 +604,14 @@ export default function Clients() {
                 <Field label="E-mail">
                   <Input
                     type="email"
-                    className={inputClass}
+                    className={recognizedInputClass('contact_email')}
                     value={form.contact_email}
                     onChange={(e) => setField('contact_email', e.target.value)}
                   />
                 </Field>
                 <Field label="Telefone">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('contact_phone')}
                     value={form.contact_phone}
                     onChange={(e) => setField('contact_phone', e.target.value)}
                   />
@@ -489,7 +621,7 @@ export default function Clients() {
               <FormSection title="Endereço" icon={<MapPin className="h-4 w-4" />}>
                 <Field label="CEP">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('zip_code')}
                     value={form.zip_code}
                     onChange={(e) =>
                       setField('zip_code', e.target.value.replace(/\D/g, '').slice(0, 8))
@@ -498,42 +630,42 @@ export default function Clients() {
                 </Field>
                 <Field label="Logradouro" className="md:col-span-2">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('street')}
                     value={form.street}
                     onChange={(e) => setField('street', e.target.value)}
                   />
                 </Field>
                 <Field label="Número">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('address_number')}
                     value={form.address_number}
                     onChange={(e) => setField('address_number', e.target.value)}
                   />
                 </Field>
                 <Field label="Complemento">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('complement')}
                     value={form.complement}
                     onChange={(e) => setField('complement', e.target.value)}
                   />
                 </Field>
                 <Field label="Bairro">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('district')}
                     value={form.district}
                     onChange={(e) => setField('district', e.target.value)}
                   />
                 </Field>
                 <Field label="Cidade">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('city')}
                     value={form.city}
                     onChange={(e) => setField('city', e.target.value)}
                   />
                 </Field>
                 <Field label="UF">
                   <Input
-                    className={inputClass}
+                    className={recognizedInputClass('state')}
                     maxLength={2}
                     value={form.state}
                     onChange={(e) =>
@@ -563,7 +695,8 @@ export default function Clients() {
                   <FileText className="h-4 w-4" /> Documentos
                 </h3>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  PDF, Word ou imagem, com até 20 MB por arquivo.
+                  PDF, DOCX ou imagem, com até 20 MB. O reconhecimento ocorre localmente e não envia
+                  o conteúdo para serviços externos.
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   {DOCUMENTS.map((document) => (
@@ -580,8 +713,29 @@ export default function Clients() {
                         multiple
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                         className={inputClass}
-                        onChange={(event) => handleFiles(document.field, event.target.files)}
+                        disabled={recognitionStatuses[document.field]?.state === 'processing'}
+                        onChange={(event) => void handleFiles(document.field, event.target.files)}
                       />
+                      {recognitionStatuses[document.field] && (
+                        <div
+                          className={`mt-3 flex items-start gap-2 text-xs ${
+                            recognitionStatuses[document.field]?.state === 'error'
+                              ? 'text-destructive'
+                              : recognitionStatuses[document.field]?.state === 'warning'
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-muted-foreground'
+                          }`}
+                        >
+                          {recognitionStatuses[document.field]?.state === 'processing' ? (
+                            <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+                          ) : recognitionStatuses[document.field]?.state === 'success' ? (
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          ) : (
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          )}
+                          <span>{recognitionStatuses[document.field]?.message}</span>
+                        </div>
+                      )}
                       {(selected?.[document.field] || []).length > 0 && (
                         <div className="mt-3 space-y-2">
                           {(selected?.[document.field] || []).map((filename) => (
@@ -618,13 +772,13 @@ export default function Clients() {
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
-                disabled={submitting}
+                disabled={submitting || recognizing}
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar cliente
+              <Button type="submit" disabled={submitting || recognizing}>
+                {(submitting || recognizing) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {recognizing ? 'Analisando documentos...' : 'Salvar cliente'}
               </Button>
             </DialogFooter>
           </form>
