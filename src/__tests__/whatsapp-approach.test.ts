@@ -232,8 +232,8 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
         selectedProductPricing: {
           productId: 'product_whatsapp',
           productName: 'WhatsApp Autônomo e Humanizado',
-          setupValue: 350,
-          recurringValue: 69.9,
+          setupValue: 497,
+          recurringValue: 397,
         },
       })
 
@@ -241,8 +241,8 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
       expect(updateSpy).toHaveBeenCalledWith('opp_whatsapp', {
         product: 'product_whatsapp',
         product_name: 'WhatsApp Autônomo e Humanizado',
-        value: 350,
-        recurring_value: 69.9,
+        value: 497,
+        recurring_value: 397,
         stage: 'Qualificado',
       })
       noteCreateSpy.mockRestore()
@@ -282,6 +282,36 @@ describe('WhatsApp Approach Helper & Batch Messaging', () => {
         value: 500,
         recurring_value: 55,
       })
+      noteCreateSpy.mockRestore()
+      sessionCreateSpy.mockRestore()
+      updateSpy.mockRestore()
+    })
+
+    it('não substitui produto nem preços em oportunidade além de Qualificado', async () => {
+      const noteCreateSpy = vi
+        .spyOn(pb.collection('opportunity_notes'), 'create')
+        .mockResolvedValue({ id: 'note_proposta' } as any)
+      const sessionCreateSpy = vi
+        .spyOn(pb.collection('approach_sessions'), 'create')
+        .mockResolvedValue({ id: 'session_proposta' } as any)
+      const updateSpy = vi.spyOn(pb.collection('opportunities'), 'update')
+
+      const success = await logWhatsAppInteractionToOpportunity({
+        opportunityId: 'opp_proposta',
+        authorId: 'user_456',
+        message: 'Mensagem de follow-up',
+        actionType: 'followup',
+        opportunityDetails: { stage: 'Proposta' },
+        selectedProductPricing: {
+          productId: 'product_whatsapp',
+          productName: 'WhatsApp Autônomo e Humanizado',
+          setupValue: 497,
+          recurringValue: 397,
+        },
+      })
+
+      expect(success).toBe(true)
+      expect(updateSpy).not.toHaveBeenCalled()
       noteCreateSpy.mockRestore()
       sessionCreateSpy.mockRestore()
       updateSpy.mockRestore()

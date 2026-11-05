@@ -396,6 +396,7 @@ export function BatchWhatsAppModal({
       product.name,
       product.setup_value,
       product.recurring_value,
+      stage,
     )
 
     return {
@@ -404,7 +405,7 @@ export function BatchWhatsAppModal({
       setupValue: Number(defaults.setupValue),
       recurringValue: Number(defaults.recurringValue),
     }
-  }, [availableProducts, selectedProductFilter])
+  }, [availableProducts, selectedProductFilter, stage])
 
   // Helper para buscar script por ID ou nome do produto com fallback seguro para genérico
   const findScriptForProduct = useCallback(

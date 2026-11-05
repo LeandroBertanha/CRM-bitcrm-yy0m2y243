@@ -299,6 +299,7 @@ export default function Opportunities() {
       defaultProduct?.name,
       catalogSetupVal,
       catalogRecVal,
+      'Novo',
     )
 
     setFormData({
@@ -1404,6 +1405,7 @@ export default function Opportunities() {
                         sel.name,
                         catalogSetupVal,
                         catalogRecVal,
+                        formData.stage,
                       )
                       const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({
@@ -1802,6 +1804,7 @@ export default function Opportunities() {
                         sel.name,
                         catalogSetupVal,
                         catalogRecVal,
+                        formData.stage,
                       )
                       const selectedMaxInstallments = getMaxPaymentInstallments(sel.name)
                       setFormData({

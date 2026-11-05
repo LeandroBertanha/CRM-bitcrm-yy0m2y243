@@ -28,6 +28,7 @@ describe('WhatsApp Cloud API hook contract', () => {
   })
 
   it('persists the selected product default pricing only after Meta confirms the send', () => {
+    expect(hookSource).toContain("currentStage === 'Novo' || currentStage === 'Qualificado'")
     expect(hookSource).toContain("oppRecord.set('product', selectedProductPricing.productId)")
     expect(hookSource).toContain(
       "oppRecord.set('product_name', selectedProductPricing.productName)",
