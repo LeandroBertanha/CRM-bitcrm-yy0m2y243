@@ -154,12 +154,12 @@ routerAdd(
           productId: productRecord.id,
           productName,
           setupValue: isWhatsAppAutonomous
-            ? 350
+            ? 497
             : isCustomSite
               ? 500
               : productRecord.getFloat('setup_value'),
           recurringValue: isWhatsAppAutonomous
-            ? 69.9
+            ? 397
             : isCustomSite
               ? 55
               : productRecord.getFloat('recurring_value'),

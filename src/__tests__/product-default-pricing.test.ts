@@ -11,10 +11,10 @@ import {
 } from '@/lib/productDefaultPricing'
 
 describe('precos padrao por produto', () => {
-  it('preenche o WhatsApp com setup 350 e mensalidade 69,90', () => {
+  it('preenche o WhatsApp com setup 497 e plano Essencial de 397', () => {
     expect(getProductDefaultPricing('WhatsApp Autônomo e Humanizado', 997, 397)).toEqual({
-      setupValue: '350',
-      recurringValue: '69.9',
+      setupValue: '497',
+      recurringValue: '397',
     })
   })
 

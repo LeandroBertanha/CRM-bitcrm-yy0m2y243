@@ -34,7 +34,7 @@ export const WHATSAPP_SETUP_OPTIONS: WhatsAppSetupOption[] = [
   },
 ]
 
-export const DEFAULT_WHATSAPP_SETUP_VALUE = '350'
+export const DEFAULT_WHATSAPP_SETUP_VALUE = '497'
 
 // Planos anuais gravam a parcela mensal equivalente para manter MRR e recorrência consistentes.
 export const WHATSAPP_RECURRING_OPTIONS: WhatsAppRecurringOption[] = [
@@ -78,7 +78,10 @@ export const WHATSAPP_RECURRING_OPTIONS: WhatsAppRecurringOption[] = [
   },
 ]
 
-export const DEFAULT_WHATSAPP_RECURRING_VALUE = String(WHATSAPP_RECURRING_OPTIONS[0].monthlyValue)
+export const DEFAULT_WHATSAPP_RECURRING_VALUE = String(
+  WHATSAPP_RECURRING_OPTIONS.find((option) => option.id === 'essencial-mensal')?.monthlyValue ??
+    397,
+)
 
 export function isWhatsAppAutonomousProductName(name?: string | null): boolean {
   if (!name) return false

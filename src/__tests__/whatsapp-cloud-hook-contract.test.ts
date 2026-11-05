@@ -7,6 +7,11 @@ const hookSource = readFileSync(
 )
 
 describe('WhatsApp Cloud API hook contract', () => {
+  it('uses the current WhatsApp Autonomous standard pricing', () => {
+    expect(hookSource).toContain('isWhatsAppAutonomous\n            ? 497')
+    expect(hookSource).toContain('isWhatsAppAutonomous\n            ? 397')
+  })
+
   it('uses a configurable current Graph API version', () => {
     expect(hookSource).toContain("$os.getenv('WHATSAPP_GRAPH_API_VERSION')")
     expect(hookSource).toContain("'v26.0'")
