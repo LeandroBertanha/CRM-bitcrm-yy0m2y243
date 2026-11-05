@@ -355,22 +355,25 @@ export async function logWhatsAppInteractionToOpportunity(params: {
     if (selectedProductPricing || (actionType === 'initial' && autoQualify)) {
       try {
         const opportunityUpdate: Record<string, string | number> = {}
-        if (selectedProductPricing) {
-          opportunityUpdate.product = selectedProductPricing.productId
-          opportunityUpdate.product_name = selectedProductPricing.productName
-          opportunityUpdate.value = selectedProductPricing.setupValue
-          opportunityUpdate.recurring_value = selectedProductPricing.recurringValue
-        }
-
         let shouldQualify = actionType === 'initial' && autoQualify
         let oldStage = opportunityDetails?.stage
-        if (shouldQualify && !oldStage) {
+        if ((selectedProductPricing || shouldQualify) && !oldStage) {
           try {
             const oppRecord = await pb.collection('opportunities').getOne(opportunityId)
             oldStage = oppRecord.stage
           } catch {
             // assume Novo se falhar
           }
+        }
+
+        const canPersistSelectedPricing =
+          selectedProductPricing && (oldStage === 'Novo' || oldStage === 'Qualificado')
+
+        if (canPersistSelectedPricing) {
+          opportunityUpdate.product = selectedProductPricing.productId
+          opportunityUpdate.product_name = selectedProductPricing.productName
+          opportunityUpdate.value = selectedProductPricing.setupValue
+          opportunityUpdate.recurring_value = selectedProductPricing.recurringValue
         }
 
         // Se já está Qualificado ou em estágios mais avançados (Agendado, Proposta, Ganho),

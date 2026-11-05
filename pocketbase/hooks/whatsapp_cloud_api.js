@@ -154,12 +154,12 @@ routerAdd(
           productId: productRecord.id,
           productName,
           setupValue: isWhatsAppAutonomous
-            ? 350
+            ? 497
             : isCustomSite
               ? 500
               : productRecord.getFloat('setup_value'),
           recurringValue: isWhatsAppAutonomous
-            ? 69.9
+            ? 397
             : isCustomSite
               ? 55
               : productRecord.getFloat('recurring_value'),
@@ -445,9 +445,14 @@ routerAdd(
           console.warn('Erro ao criar approach_session no disparo automático:', sessErr)
         }
 
-        // Persiste o produto/script escolhido somente após envio confirmado pela Meta.
+        // Persiste o produto/script escolhido somente após envio confirmado pela Meta e
+        // apenas nas etapas comerciais iniciais, preservando negociações mais avançadas.
         let shouldSaveOpportunity = false
-        if (selectedProductPricing) {
+        const currentStage = oppRecord.getString('stage')
+        if (
+          selectedProductPricing &&
+          (currentStage === 'Novo' || currentStage === 'Qualificado')
+        ) {
           oppRecord.set('product', selectedProductPricing.productId)
           oppRecord.set('product_name', selectedProductPricing.productName)
           oppRecord.set('value', selectedProductPricing.setupValue)
@@ -458,7 +463,6 @@ routerAdd(
         // Se Abordagem Inicial: avança Novo -> Qualificado (sem retroceder)
         let stageChanged = false
         if (actionType === 'initial') {
-          const currentStage = oppRecord.getString('stage')
           if (currentStage === 'Novo') {
             oppRecord.set('stage', 'Qualificado')
             shouldSaveOpportunity = true

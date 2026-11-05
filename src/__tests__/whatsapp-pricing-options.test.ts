@@ -16,13 +16,13 @@ describe('tabela comercial do WhatsApp', () => {
     expect(WHATSAPP_RECURRING_OPTIONS.map((option) => option.monthlyValue)).toEqual([
       69.9, 397, 277.9, 797, 557.9, 1497, 1047.9,
     ])
-    expect(DEFAULT_WHATSAPP_RECURRING_VALUE).toBe('69.9')
+    expect(DEFAULT_WHATSAPP_RECURRING_VALUE).toBe('397')
   })
 
-  it('oferece os quatro valores de setup e usa a adesao como padrao', () => {
+  it('oferece os quatro valores de setup e usa o valor vigente como padrao', () => {
     expect(WHATSAPP_SETUP_OPTIONS).toHaveLength(4)
     expect(WHATSAPP_SETUP_OPTIONS.map((option) => option.value)).toEqual([497, 997, 1997, 350])
-    expect(DEFAULT_WHATSAPP_SETUP_VALUE).toBe('350')
+    expect(DEFAULT_WHATSAPP_SETUP_VALUE).toBe('497')
     expect(WHATSAPP_SETUP_OPTIONS.at(-1)?.label).toContain('Adesão até 31/10/2026')
   })
 
