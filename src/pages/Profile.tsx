@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { buildCalendarFeedUrls } from '@/lib/calendarHelper'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { getUserInitials } from '@/lib/userInitials'
 
 export default function Profile() {
   const { user, updateProfile, requestEmailChange, changePassword } = useAuth()
@@ -351,15 +352,7 @@ export default function Profile() {
     }
   }
 
-  // Gera iniciais
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
-    : user?.email.slice(0, 2).toUpperCase()
+  const initials = getUserInitials(user?.name, user?.email)
 
   return (
     <div className="space-y-8 animate-fadeInUp max-w-4xl mx-auto">
@@ -374,7 +367,10 @@ export default function Profile() {
       </div>
       {/* Cartão de Identificação do Usuário */}
       <div className="p-6 rounded-2xl bg-[#12141A] border border-[#262A33] shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-5">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-600/30 shrink-0">
+        <div
+          className="notranslate w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-600/30 shrink-0"
+          translate="no"
+        >
           {initials}
         </div>
 

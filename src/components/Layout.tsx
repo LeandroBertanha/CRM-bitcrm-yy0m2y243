@@ -46,6 +46,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { canAccessSdr } from '@/lib/sdrAccess'
+import { getUserInitials } from '@/lib/userInitials'
 
 export default function Layout() {
   const { user, isAdmin, signOut, isLoading } = useAuth()
@@ -109,21 +110,6 @@ export default function Layout() {
   const handleLogout = () => {
     signOut()
     navigate('/login')
-  }
-
-  // Gera iniciais para o avatar
-  const getInitials = (name?: string, email?: string) => {
-    if (name) {
-      const parts = name.trim().split(' ')
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase()
-      }
-      return name.slice(0, 2).toUpperCase()
-    }
-    if (email) {
-      return email.slice(0, 2).toUpperCase()
-    }
-    return 'BC'
   }
 
   const navItems = [
@@ -201,8 +187,11 @@ export default function Layout() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2.5 p-1.5 pl-2.5 pr-2 rounded-xl bg-[#12141A] border border-[#262A33] hover:border-indigo-500/50 hover:bg-[#171A24] transition-all text-left group">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-semibold text-xs flex items-center justify-center shadow-inner">
-                        {getInitials(user.name, user.email)}
+                      <div
+                        className="notranslate w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-semibold text-xs flex items-center justify-center shadow-inner"
+                        translate="no"
+                      >
+                        {getUserInitials(user.name, user.email)}
                       </div>
                       <div className="hidden sm:flex flex-col text-left mr-1">
                         <span className="text-xs font-medium text-gray-200 line-clamp-1 max-w-[110px]">
