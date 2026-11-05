@@ -66,8 +66,7 @@ export function getProductDefaultPricing(
   catalogRecurringValue: string | number | null | undefined,
   opportunityStage?: string | null,
 ): { setupValue: string; recurringValue: string } {
-  const usesEarlyStagePricing =
-    opportunityStage === 'Novo' || opportunityStage === 'Qualificado'
+  const usesEarlyStagePricing = opportunityStage === 'Novo' || opportunityStage === 'Qualificado'
 
   if (isWhatsAppAutonomousProductName(productName) && usesEarlyStagePricing) {
     return {

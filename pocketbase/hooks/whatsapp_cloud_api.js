@@ -449,10 +449,7 @@ routerAdd(
         // apenas nas etapas comerciais iniciais, preservando negociações mais avançadas.
         let shouldSaveOpportunity = false
         const currentStage = oppRecord.getString('stage')
-        if (
-          selectedProductPricing &&
-          (currentStage === 'Novo' || currentStage === 'Qualificado')
-        ) {
+        if (selectedProductPricing && (currentStage === 'Novo' || currentStage === 'Qualificado')) {
           oppRecord.set('product', selectedProductPricing.productId)
           oppRecord.set('product_name', selectedProductPricing.productName)
           oppRecord.set('value', selectedProductPricing.setupValue)
