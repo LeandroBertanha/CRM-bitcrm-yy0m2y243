@@ -38,6 +38,7 @@ import {
   Pencil,
   KeyRound,
 } from 'lucide-react'
+import { getUserInitials } from '@/lib/userInitials'
 
 interface UserRecord {
   id: string
@@ -443,16 +444,11 @@ export default function UserManagement() {
                   return (
                     <tr key={u.id} className="hover:bg-[#161922] transition-colors group">
                       <td className="py-3.5 px-4 font-medium text-white flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-inner">
-                          {userName
-                            ? userName
-                                .split(' ')
-                                .filter(Boolean)
-                                .map((n) => n[0])
-                                .slice(0, 2)
-                                .join('')
-                                .toUpperCase()
-                            : (userEmail.slice(0, 2) || 'US').toUpperCase()}
+                        <div
+                          className="notranslate w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-blue-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-inner"
+                          translate="no"
+                        >
+                          {getUserInitials(userName, userEmail)}
                         </div>
                         <div>
                           <div className="font-semibold text-white flex items-center gap-1.5">
